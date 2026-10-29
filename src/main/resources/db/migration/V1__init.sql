@@ -1,6 +1,6 @@
 -- =====================================================================
--- 밴드 동아리 공연·합주 준비 서비스 — ERD v6 (MySQL 8.0.16+)
--- 2026-10-14 결정 사항 반영
+-- 밴드 동아리 공연·합주 준비 서비스 — ERD v7 (MySQL 8.4 LTS 기준, 8.0.16+ 호환 문법)
+-- 2026-10-28 결정 사항 반영
 --   v2 → v3: 정합성 보강(공연·동아리 경계 복합 FK, 곡 팀 컬럼 분리, 파생 값 제거, 팀장 FK)
 --   v3 → v4: 초대 링크 제거(club_invitation 삭제), 가입 경로 3종 지원
 --            (A 가입 코드 / B 동아리 검색 / C 임원 직접 추가 + 본인 수락)
@@ -11,6 +11,8 @@
 --            동아리 이름 고유(club.name_key), 프리셋 6종, 팀 신청 정책, 가불·투표 결과 공개 설정,
 --            후보곡 참고 링크·메모·철회 구분, Refresh Token(DB 원본 + 로테이션), Access Token 블랙리스트,
 --            탈퇴 후 90일 보관(user_withdrawal_archive, auth_identity 90일 유지)
+--   v6 → v7: 1회용 토큰 DB 저장(one_time_token: 로그인 교환·복구 선택), 동아리 프로필 사진·대표 색상,
+--            가입 코드 형식을 API 개정안 2.1에 맞춤(10자 [A-Z2-9]), 참고 링크 https만(주석)
 --   서비스 검증 규칙은 별도 문서(서비스 검증 규칙 v1) 참고. 시간대는 KST 고정(저장은 UTC)
 --
 -- 공통 규칙
@@ -42,7 +44,7 @@ CREATE TABLE users (
     name              VARCHAR(50)  NOT NULL COMMENT '서비스 표시 이름(카카오 닉네임 초기값, 중복 가능). 이메일은 수집하지 않음(메일 알림 미사용). [v6] 탈퇴 시 즉시 "탈퇴한 사용자"(원래 값은 user_withdrawal_archive)',
     handle            VARCHAR(30)  NULL
         COMMENT '[v4] 사용자 고유 식별자(임원 직접 추가 시 검색용, 완전 일치 검색만 허용). 최초 로그인 온보딩에서 설정. NULL이면 직접 추가 검색 대상 아님. [v5] 소문자·숫자·밑줄 5~30자(CHECK). 탈퇴 시 NULL로 즉시 해제(다른 사람이 사용 가능). [v6] 탈퇴 복구 시에도 되돌리지 않음(새로 설정)',
-    profile_image_url VARCHAR(500) NULL     COMMENT '[v6] 탈퇴 시 NULL(원래 값은 user_withdrawal_archive)',
+    profile_image_url VARCHAR(500) NULL     COMMENT '프로필 이미지 링크(UI-3: 최초 카카오 프로필, 직접 업로드 2MB jpg·jpeg·png·webp, NULL이면 이름 첫 글자 아바타). [v6] 탈퇴 시 NULL(원래 값은 user_withdrawal_archive)',
     status            VARCHAR(20)  NOT NULL DEFAULT 'ACTIVE' COMMENT 'ACTIVE / WITHDRAWN(서비스 탈퇴). [v6] 90일 안에 복구하면 같은 행을 ACTIVE로 되돌림(U-10)',
     is_super_admin    BOOLEAN      NOT NULL DEFAULT FALSE COMMENT '서비스 운영자가 직접 부여',
     token_version     INT          NOT NULL DEFAULT 0 COMMENT '강제 로그아웃·모든 기기 로그아웃·탈퇴·복구 시 +1. 모든 요청에서 Access Token의 버전과 비교(G-02)',
@@ -121,6 +123,27 @@ CREATE TABLE access_token_blacklist (
     CONSTRAINT fk_access_token_blacklist_user FOREIGN KEY (user_id) REFERENCES users (id)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '[v6] Access Token 블랙리스트(현재 기기 로그아웃 등)';
 
+-- [v7] 1회용 토큰(로그인 교환 60초, 복구 선택 10분). 원문은 HttpOnly 쿠키에만 두고 DB에는 SHA-256 해시만 저장.
+--      소비: UPDATE one_time_token SET used_at = NOW(6)
+--            WHERE token_hash = ? AND purpose = ? AND used_at IS NULL AND expires_at > NOW(6)
+--            → 영향 행 1개일 때만 성공(인스턴스 수와 무관하게 원자적 1회 사용)
+--      정리: expires_at + 1일이 지난 행을 하루 1회 배치로 물리 삭제. 탈퇴·파기 시 해당 사용자의 미사용 토큰 삭제
+CREATE TABLE one_time_token (
+    id          BIGINT       NOT NULL AUTO_INCREMENT,
+    token_hash  BINARY(32)   NOT NULL COMMENT '토큰 원문의 SHA-256(32바이트). 평문 저장 금지',
+    purpose     VARCHAR(30)  NOT NULL COMMENT 'LOGIN_EXCHANGE(AUTH-02→03, 60초) / ACCOUNT_RESTORATION(AUTH-03→13, 10분). OAUTH_STATE 포함 여부는 미결',
+    user_id     BIGINT       NULL     COMMENT '토큰 대상 사용자. OAUTH_STATE처럼 사용자 없는 용도는 NULL',
+    return_to   VARCHAR(200) NULL     COMMENT '로그인 후 돌아갈 FE 상대 경로(OAUTH_STATE일 때만)',
+    expires_at  DATETIME(6)  NOT NULL,
+    used_at     DATETIME(6)  NULL     COMMENT 'NULL이면 미사용. 1회 소비 시각',
+    created_at  DATETIME(6)  NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_one_time_token_hash (token_hash),
+    KEY idx_one_time_token_expires (expires_at) COMMENT '정리 배치용',
+    KEY idx_one_time_token_user (user_id),
+    CONSTRAINT fk_one_time_token_user FOREIGN KEY (user_id) REFERENCES users (id)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '[v7] 1회용 토큰(로그인 교환·복구 선택) 해시';
+
 -- ---------------------------------------------------------------------
 -- 2. 동아리(테넌트)와 소속
 -- ---------------------------------------------------------------------
@@ -132,8 +155,12 @@ CREATE TABLE club (
     description VARCHAR(500) NULL,
     club_type   VARCHAR(20)  NOT NULL DEFAULT 'CLUB' COMMENT 'CLUB(동아리형) / BAND(단일 팀 밴드). 온보딩·화면 구성용이며 권한·구조는 동일',
     status      VARCHAR(20)  NOT NULL DEFAULT 'ACTIVE' COMMENT 'ACTIVE / INACTIVE(Super Admin 비활성: 변경 기능 제한). 사유는 audit_log',
-    join_code   VARCHAR(16)  NULL
-        COMMENT '[v4] 가입 코드(경로 A). NULL = 코드 가입 미사용. 재발급 = 값 교체(이전 코드 즉시 무효, audit_log 기록). 화면 재표시를 위해 평문 저장(가입은 임원 승인 필요)',
+    join_code   CHAR(10)     NULL
+        COMMENT '[v4] 가입 코드(경로 A). NULL = 코드 가입 미사용. 재발급 = 값 교체(이전 코드 즉시 무효, audit_log 기록). 화면 재표시를 위해 평문 저장(가입은 임원 승인 필요). [v7] 서버 발급 10자 A-Z2-9. 생성 시 NULL',
+    profile_image_url VARCHAR(500) NULL
+        COMMENT '[v7] 동아리 프로필 사진 링크. NULL이면 기본 이미지',
+    theme_color CHAR(7)      NULL
+        COMMENT '[v7] 동아리 대표 색상 #RRGGBB(대문자 16진수, CHECK). NULL이면 기본 색상',
     is_searchable BOOLEAN    NOT NULL DEFAULT FALSE
         COMMENT '[v4] 동아리 검색 노출 여부(경로 B). 기본 비공개',
     created_by  BIGINT       NOT NULL COMMENT '생성자 = 최초 Club Admin',
@@ -143,7 +170,9 @@ CREATE TABLE club (
     UNIQUE KEY uk_club_join_code (join_code) COMMENT '[v4] NULL은 중복 허용',
     UNIQUE KEY uk_club_name_key (name_key) COMMENT '[v6] 동아리 이름 고유(대소문자·공백 무시)',
     KEY idx_club_searchable_name (is_searchable, name) COMMENT '[v4] 공개 동아리 이름 검색',
-    CONSTRAINT fk_club_created_by FOREIGN KEY (created_by) REFERENCES users (id)
+    CONSTRAINT fk_club_created_by FOREIGN KEY (created_by) REFERENCES users (id),
+    CONSTRAINT ck_club_join_code_format CHECK (join_code IS NULL OR REGEXP_LIKE(join_code, '^[A-Z2-9]{10}$', 'c')),
+    CONSTRAINT ck_club_theme_color_format CHECK (theme_color IS NULL OR REGEXP_LIKE(theme_color, '^#[0-9A-F]{6}$', 'c'))
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT = '동아리·밴드(멀티테넌시의 테넌트)';
 
 CREATE TABLE membership (
@@ -340,7 +369,7 @@ CREATE TABLE song (
         COMMENT '[v3] 담당 팀. CONFIRMED일 때만 값 보유(CHECK). 팀 범위 후보 확정 시 기본값 = candidate_team_id. LOCKED 전까지 배정 필요(서비스 검증)',
     title                     VARCHAR(200) NOT NULL,
     artist                    VARCHAR(200) NULL,
-    reference_url             VARCHAR(500) NULL     COMMENT '[v6] 참고 링크(http/https, UI-11)',
+    reference_url             VARCHAR(500) NULL     COMMENT '[v6] 참고 링크(UI-11). [v7] https://만 허용(API 개정안 2.1, 검증 규칙 10-27). 서버가 자동으로 가져오지 않음(SSRF 방지)',
     memo                      VARCHAR(500) NULL     COMMENT '[v6] 제안 메모(UI-11). 제안 후 제안자는 수정 불가, 임원만 수정(S-11)',
     status                    VARCHAR(20)  NOT NULL DEFAULT 'PROPOSED'
         COMMENT 'PROPOSED / CONFIRMED(공연곡 선정) / REJECTED / WITHDRAWN. [v5] 세트리스트 배치 여부는 setlist_order IS NOT NULL로 판별(별도 상태 없음). 직접 확정은 CONFIRMED로 생성. 전이: PROPOSED→CONFIRMED·REJECTED·WITHDRAWN(철회는 PROPOSED에서만), CONFIRMED→PROPOSED(확정 취소)·REJECTED(경고), REJECTED→PROPOSED. CONFIRMED에서 벗어나면 assigned_team_id·setlist_order 해제. [v6] 임원 삭제(PROPOSED에서만, S-11)도 WITHDRAWN',
