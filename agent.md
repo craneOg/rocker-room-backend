@@ -1,6 +1,6 @@
 agent.md — AI 코딩 도구 작업 지침 (백엔드 저장소)
 
-이 파일은 이 저장소에서 작업하는 AI 코딩 도구(Claude Code, Copilot, Cursor 등)와 사람이 함께 지키는 규칙이다. 규칙과 실제 코드가 다르면 코드를 바꾸기 전에 사람에게 묻는다. 최종 수정: 2026-10-14 (초안)
+이 파일은 이 저장소에서 작업하는 AI 코딩 도구(Claude Code, Copilot, Cursor 등)와 사람이 함께 지키는 규칙이다. 규칙과 실제 코드가 다르면 코드를 바꾸기 전에 사람에게 묻는다. 최종 수정: 2026-10-30
 
 1. 프로젝트 한 줄 요약
 
@@ -10,7 +10,7 @@ agent.md — AI 코딩 도구 작업 지침 (백엔드 저장소)
 시간대: 서비스 기준 KST 고정, 저장은 UTC.
 2. 기준 문서 (충돌 시 위에 있는 것이 우선)
    서비스 검증 규칙 (docs/service_validation_rules_v1.md, 노션 「서비스 검증 규칙」과 동일) — 업무 규칙과 오류 코드의 기준. 규칙은 G-01, U-04, C-15처럼 ID로 부른다.
-   ERD v6 (docs/erd_v6.sql = Flyway V1__init.sql)
+   ERD v7 (docs/erd_v7.sql = Flyway V1__init.sql)
    API 명세 (노션 "API 명세", API-001~125) — URL·요청·응답·공통 응답 형식의 기준.
    화면 명세 (docs/화면명세_v1.0.0.md, Figma) — 문구와 흐름의 기준.
 
@@ -99,11 +99,11 @@ Boot가 관리하는 라이브러리는 build.gradle에 버전을 쓰지 않는�
     업무 규칙 테스트의 이름이나 @DisplayName에 규칙 ID를 넣는다(예: "C-15 공백·대소문자만 다른 동아리 이름은 409").
     새 기능 PR에는 최소한 성공 1건 + 해당 규칙 위반 1건 테스트.
 11. Git 작업 방식
-    브랜치: main(배포) / dev(통합, 기본 브랜치) / feat/#이슈번호(작업).
-    feat → dev는 PR + 승인 1명 + Squash merge. dev → main은 PR로만.
+    브랜치: main(배포) / develop(통합, 기본 브랜치) / feat/#이슈번호(작업).
+    feat → develop은 PR + 승인 1명 + Squash merge. develop → main은 PR로만.
     커밋 메시지 규칙: 미정(확정 전까지 타입: 내용 (#이슈) 형식 권장, 예: feat: 카카오 로그인 콜백 구현 (#12)).
     PR 설명에 관련 API ID, 검증 규칙 ID, 화면 ID를 적는다.
-    main·dev에 직접 push 하지 않는다. force push 금지.
+    main·develop에 직접 push 하지 않는다. force push 금지.
 12. AI 도구가 반드시 묻고 진행할 것
     기준 문서에 없는 동작, 문서끼리 충돌하는 동작
     새 라이브러리 추가, 버전 변경
