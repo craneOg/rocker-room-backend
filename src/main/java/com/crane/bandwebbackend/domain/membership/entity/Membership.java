@@ -81,4 +81,7 @@ public class Membership extends BaseTimeEntity {
     private LocalDateTime invitedAt;
 
     private LocalDateTime leftAt;
+
+    // 이 동아리 홈을 마지막으로 연 시각(HOME-002 최근 본 순). 갱신은 updated_at이 바뀌지 않도록 전용 쿼리로 처리
+    private LocalDateTime lastViewedAt;
 }
