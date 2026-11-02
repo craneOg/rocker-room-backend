@@ -10,7 +10,7 @@ agent.md — AI 코딩 도구 작업 지침 (백엔드 저장소)
 시간대: 서비스 기준 KST 고정, 저장은 UTC.
 2. 기준 문서 (충돌 시 위에 있는 것이 우선)
    서비스 검증 규칙 (docs/service_validation_rules_v1.md, 노션 「서비스 검증 규칙」과 동일) — 업무 규칙과 오류 코드의 기준. 규칙은 G-01, U-04, C-15처럼 ID로 부른다.
-   ERD v7.1 (docs/erd_v7_1.sql = Flyway V1__init.sql + V2__erd_v7_1.sql)
+   ERD v7.2 (docs/erd_v7_2.sql = Flyway V1__init.sql + V2__erd_v7_1.sql + V3__erd_v7_2.sql)
    API 명세 (노션 "API 명세", API-001~125) — URL·요청·응답·공통 응답 형식의 기준.
    화면 명세 (docs/화면명세_v1.0.0.md, Figma) — 문구와 흐름의 기준.
 
