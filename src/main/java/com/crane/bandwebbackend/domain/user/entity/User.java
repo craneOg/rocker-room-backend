@@ -36,6 +36,10 @@ public class User extends BaseTimeEntity {
     @Column(length = 500)
     private String profileImageUrl;
 
+    // U-13: false면 본인만 사진을 볼 수 있고 다른 사용자(임원·Super Admin 포함)에게는 null로 응답
+    @Column(nullable = false)
+    private boolean profileImagePublic = true;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private UserStatus status;
