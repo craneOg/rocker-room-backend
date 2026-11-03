@@ -171,6 +171,7 @@ class KakaoLoginFlowTest {
         assertThat(ttlSeconds(state)).isBetween(599L, 600L);
         assertThat(result.getResponse().getHeader("Referrer-Policy")).isEqualTo("no-referrer");
         assertThat(result.getResponse().getHeader("Cache-Control")).isEqualTo("no-store");
+        assertThat(result.getResponse().getContentAsByteArray()).isEmpty();
     }
 
     @Test

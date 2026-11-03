@@ -15,4 +15,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
             + " where u.id = :id and (u.lastActiveAt is null or u.lastActiveAt < :dayStart)")
     int touchLastActive(
             @Param("id") long id, @Param("now") LocalDateTime now, @Param("dayStart") LocalDateTime dayStart);
+
+    // 모든 기기 로그아웃·복구: 모든 요청이 Access Token의 버전과 비교한다(G-02)
+    @Modifying(flushAutomatically = true)
+    @Query("update User u set u.tokenVersion = u.tokenVersion + 1 where u.id = :id")
+    int incrementTokenVersion(@Param("id") long id);
 }

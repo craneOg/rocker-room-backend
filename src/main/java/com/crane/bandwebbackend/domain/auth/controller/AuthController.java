@@ -1,9 +1,13 @@
 package com.crane.bandwebbackend.domain.auth.controller;
 
 import com.crane.bandwebbackend.domain.auth.dto.ExchangeResponse;
+import com.crane.bandwebbackend.domain.auth.dto.RefreshResponse;
 import com.crane.bandwebbackend.domain.auth.service.AuthExchangeService;
+import com.crane.bandwebbackend.domain.auth.service.AuthLogoutService;
+import com.crane.bandwebbackend.domain.auth.service.AuthRefreshService;
 import com.crane.bandwebbackend.domain.auth.service.KakaoLoginService;
 import com.crane.bandwebbackend.global.response.ApiResponse;
+import com.crane.bandwebbackend.global.security.AuthPrincipal;
 import com.crane.bandwebbackend.global.security.CookieFactory;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
@@ -13,6 +17,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -27,6 +32,8 @@ public class AuthController {
 
     private final KakaoLoginService kakaoLoginService;
     private final AuthExchangeService authExchangeService;
+    private final AuthRefreshService authRefreshService;
+    private final AuthLogoutService authLogoutService;
     private final CookieFactory cookies;
 
     // API 1
@@ -87,6 +94,48 @@ public class AuthController {
                     cookies.restore(result.restorationToken()).toString());
         }
         return response.body(ApiResponse.ok(result.body()));
+    }
+
+    // API 4: 토큰은 본문이 아니라 Set-Cookie로만 준다. Refresh 쿠키는 이 경로에만 실린다
+    @PostMapping(value = "/refresh", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ApiResponse<RefreshResponse>> refresh(HttpServletRequest request) {
+        Cookie refreshCookie = WebUtils.getCookie(request, cookies.refreshName());
+        AuthRefreshService.Result result = authRefreshService.refresh(
+                refreshCookie == null ? null : refreshCookie.getValue(),
+                request.getRemoteAddr(),
+                request.getHeader(HttpHeaders.USER_AGENT));
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CACHE_CONTROL, "no-store")
+                .header(
+                        HttpHeaders.SET_COOKIE,
+                        cookies.access(result.tokens().accessToken()).toString())
+                .header(
+                        HttpHeaders.SET_COOKIE,
+                        cookies.refresh(result.tokens().refreshToken()).toString())
+                .body(ApiResponse.ok(result.body()));
+    }
+
+    // API 5: Refresh 쿠키는 Path 제한 때문에 이 요청에 실리지 않는다. 있든 없든 204
+    @PostMapping(value = "/logout", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<Void> logout(@AuthenticationPrincipal AuthPrincipal principal, HttpServletRequest request) {
+        Cookie accessCookie = WebUtils.getCookie(request, cookies.accessName());
+        authLogoutService.logout(principal, accessCookie.getValue());
+        return clearedSession();
+    }
+
+    // API 6
+    @PostMapping(value = "/logout-all", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<Void> logoutAll(@AuthenticationPrincipal AuthPrincipal principal) {
+        authLogoutService.logoutAll(principal);
+        return clearedSession();
+    }
+
+    private ResponseEntity<Void> clearedSession() {
+        return ResponseEntity.noContent()
+                .header(HttpHeaders.CACHE_CONTROL, "no-store")
+                .header(HttpHeaders.SET_COOKIE, cookies.deleteAccess().toString())
+                .header(HttpHeaders.SET_COOKIE, cookies.deleteRefresh().toString())
+                .build();
     }
 
     // 인증 URL·콜백 URL이 Referer로 새지 않게 하고 캐시하지 않는다
