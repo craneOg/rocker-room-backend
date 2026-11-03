@@ -123,14 +123,21 @@ public class EvaluationService {
     public EvaluationMatrixResponse matrix(PerformanceRef ref, EvaluationType type, Long teamId) {
         PerformanceAccess access = accessService.get(ref);
         EvaluationType tab = type == null ? EvaluationType.PLAYABILITY : type;
-        if (teamId != null) {
-            teamService.getTeam(access.performanceId(), teamId);
-        }
         EvaluationSnapshot snap = snapshot(access.performanceId());
+        // 볼 수 없는 팀은 존재를 숨김(UI-9, G-04)
+        if (teamId != null
+                && !TeamService.canSee(
+                        access, teamService.getTeam(access.performanceId(), teamId), snap.teamMemberIds(teamId))) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "팀을 찾을 수 없습니다.");
+        }
+        Long me = access.myMemberId();
         PerformancePolicy policy = accessService.getPolicy(access.performanceId());
 
         List<Song> songs = songSupport.getSongs(access.performanceId(), List.of(SongStatus.PROPOSED)).stream()
                 .filter(s -> SongSupport.canSee(access, s, snap.teamMembers(), Set.of()))
+                // GUEST는 본인이 응답할 수 있는 곡만(API-089와 같은 기준)
+                .filter(s -> !access.isGuest()
+                        || (me != null && snap.targets(s, false).contains(me)))
                 .filter(s -> teamId == null
                         || s.getCandidateTeam() == null
                         || s.getCandidateTeam().getId().equals(teamId))
@@ -142,7 +149,6 @@ public class EvaluationService {
                 .toList();
         Set<Long> columnSet = columns.stream().map(PerformanceMember::getId).collect(Collectors.toSet());
 
-        Long me = access.myMemberId();
         boolean participant = me != null && snap.members().containsKey(me);
         boolean playNames = access.isAdmin() || (participant && policy.isPlayabilityResultPublic());
         boolean voteNames = access.isAdmin() || (participant && policy.isVoteResultPublic());

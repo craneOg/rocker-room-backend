@@ -939,7 +939,8 @@ public class SongService {
 
     // 하위 행(편성·연주자) 변경도 곡 version을 올림
     private void forceIncrement(Song song) {
-        em.lock(song, LockModeType.OPTIMISTIC_FORCE_INCREMENT);
+        // PESSIMISTIC: lock 시점에 version UPDATE → 같은 응답에 증가한 version이 담김
+        em.lock(song, LockModeType.PESSIMISTIC_FORCE_INCREMENT);
     }
 
     private SongResponse respond(Song song) {
@@ -962,6 +963,26 @@ public class SongService {
 
     // X-07: 사유와 변경 전·후 순서(순서가 바뀐 곡 전체)
     private void auditLocked(PerformanceAccess access, Song song, String reason, Map<Long, Integer> before) {
+        auditLockedOrders(access, "SONG", song.getId(), "\"status\":\"" + song.getStatus() + "\",", reason, before);
+    }
+
+    // 세트리스트 순서 일괄 저장(API-088)의 LOCKED 감사 기록. 형식은 곡 예외 수정과 같음
+    @Transactional
+    public void auditLockedSetlist(PerformanceAccess access, String reason, Map<Long, Integer> before) {
+        auditLockedOrders(access, "PERFORMANCE", access.performanceId(), "", reason, before);
+    }
+
+    public Map<Long, Integer> currentOrders(Long performanceId) {
+        return confirmedOrders(performanceId);
+    }
+
+    private void auditLockedOrders(
+            PerformanceAccess access,
+            String targetType,
+            Long targetId,
+            String prefix,
+            String reason,
+            Map<Long, Integer> before) {
         Map<Long, Integer> after = confirmedOrders(access.performanceId());
         Set<Long> ids = new HashSet<>(before.keySet());
         ids.addAll(after.keySet());
@@ -970,11 +991,13 @@ public class SongService {
                 .sorted()
                 .map(id -> "{\"songId\":" + id + ",\"from\":" + before.get(id) + ",\"to\":" + after.get(id) + "}")
                 .collect(Collectors.joining(",", "[", "]"));
-        audit(
-                access,
+        auditLogRepository.save(AuditLog.of(
+                access.clubId(),
+                access.userId(),
                 "LOCKED_EXCEPTION_EDIT",
-                song,
-                reason,
-                "{\"status\":\"" + song.getStatus() + "\",\"orders\":" + changes + "}");
+                targetType,
+                targetId,
+                blankToNull(reason),
+                "{" + prefix + "\"orders\":" + changes + "}"));
     }
 }

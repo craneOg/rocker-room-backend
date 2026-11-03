@@ -121,6 +121,8 @@ public class PlayabilityService {
             PerformanceAccess access, Long songId, PerformanceMember pm, Long partId, PlayabilityRequest req) {
         Song song = requireInputOpen(access, songId, pm);
         Part part = accessService.getActivePart(access.clubId(), partId);
+        // 조회 후 삽입(upsert)이라 같은 (곡, 참여자, 파트) 동시 저장이 uk_song_playability에 걸리지 않도록 잠금
+        accessService.lock(pm);
         var user = access.getMembership().getUser();
         SongPlayability row = playabilityRepository
                 .findBySongIdAndPerformanceMemberIdAndPartId(songId, pm.getId(), part.getId())

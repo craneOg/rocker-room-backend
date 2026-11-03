@@ -81,6 +81,7 @@ public class SetlistService {
         PerformanceAccess access = accessService.getForUpdate(ref);
         access.requireAdmin();
         access.requireEditable();
+        access.requireReasonIfLocked(req.getReason());
         if (!Objects.equals(access.getPerformance().getVersion(), req.getVersion())) {
             throw new BusinessException(ErrorCode.VERSION_CONFLICT, "다른 사람이 먼저 수정했습니다. 새로고침 후 다시 시도해 주세요.");
         }
@@ -114,7 +115,12 @@ public class SetlistService {
             throw new BusinessException(
                     ErrorCode.RULE_VIOLATION, "LOCK_REQUIREMENTS_FAILED", "확정된 공연에서는 모든 곡의 순서를 정해야 합니다.");
         }
+        Map<Long, Integer> before = songService.currentOrders(access.performanceId());
         songService.applySetlistOrders(orders);
+        // X-07: 사유와 순서가 바뀐 곡 전체의 변경 전·후
+        if (access.isLocked()) {
+            songService.auditLockedSetlist(access, req.getReason(), before);
+        }
         return get(ref);
     }
 

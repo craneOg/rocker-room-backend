@@ -122,11 +122,14 @@ public class AvailabilityService {
         songs.forEach(id -> songSupport.getSong(pid, id));
         Map<Long, Set<Long>> teamMembers = teamService.memberIdsByTeam(pid);
         if (!access.isAdmin()) {
-            boolean allowed = songs.isEmpty()
+            // 참여자가 아니면 먼저 거부(Set.of().contains(null)은 NPE)
+            Long me = access.myMemberId();
+            boolean allowed = me != null
+                    && songs.isEmpty()
                     && !forAllParticipants
                     && teams.stream()
                             .allMatch(
-                                    id -> teamMembers.getOrDefault(id, Set.of()).contains(access.myMemberId()));
+                                    id -> teamMembers.getOrDefault(id, Set.of()).contains(me));
             if (!allowed) {
                 throw new BusinessException(ErrorCode.FORBIDDEN, "TARGET_NOT_ALLOWED", "본인 팀만 조회할 수 있습니다.");
             }

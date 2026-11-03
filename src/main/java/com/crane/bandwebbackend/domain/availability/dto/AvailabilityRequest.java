@@ -2,6 +2,7 @@ package com.crane.bandwebbackend.domain.availability.dto;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import java.time.OffsetDateTime;
 import java.util.List;
 import lombok.AccessLevel;
@@ -19,10 +20,12 @@ public class AvailabilityRequest {
     @NotNull
     private OffsetDateTime to;
 
-    // 빈 배열 = 기간 안의 슬롯 모두 삭제
+    // 빈 배열 = 기간 안의 슬롯 모두 삭제. 구간 수 상한(한 구간은 이어진 시간이라 하루 몇 개면 충분)
     @NotNull
-    @Valid
-    private List<Slot> slots;
+    @Size(max = MAX_SLOTS)
+    private List<@NotNull @Valid Slot> slots;
+
+    public static final int MAX_SLOTS = 2000;
 
     @Getter
     @NoArgsConstructor(access = AccessLevel.PROTECTED)

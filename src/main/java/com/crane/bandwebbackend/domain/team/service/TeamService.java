@@ -779,7 +779,8 @@ public class TeamService {
 
     // 팀원 행 변경도 팀 version을 올림(API-066)
     private void forceIncrement(Team team) {
-        em.lock(team, LockModeType.OPTIMISTIC_FORCE_INCREMENT);
+        // PESSIMISTIC: lock 시점에 version UPDATE → 같은 응답에 증가한 version이 담김
+        em.lock(team, LockModeType.PESSIMISTIC_FORCE_INCREMENT);
     }
 
     // T-11: 대표 파트가 본인 등록 파트에 없으면 경고(거절하지 않음)

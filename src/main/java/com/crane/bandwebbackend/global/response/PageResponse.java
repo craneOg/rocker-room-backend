@@ -10,11 +10,11 @@ public class PageResponse<T> {
     private final List<T> content;
     private final int page;
     private final int size;
-    private final long totalElements;
+    private final int totalElements;
     private final int totalPages;
 
     public PageResponse(List<T> all, int page, int size) {
-        int from = Math.min(page * size, all.size());
+        int from = (int) Math.min((long) page * size, all.size());
         this.content = all.subList(from, Math.min(from + size, all.size()));
         this.page = page;
         this.size = size;

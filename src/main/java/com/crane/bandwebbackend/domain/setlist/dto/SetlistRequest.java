@@ -3,6 +3,7 @@ package com.crane.bandwebbackend.domain.setlist.dto;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
 import java.util.List;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -20,6 +21,10 @@ public class SetlistRequest {
     @NotNull
     @Valid
     private List<Item> items;
+
+    // LOCKED 공연이면 필수(X-02). 감사 기록 사유
+    @Size(max = 500)
+    private String reason;
 
     @Getter
     @NoArgsConstructor(access = AccessLevel.PROTECTED)

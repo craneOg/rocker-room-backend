@@ -1,5 +1,6 @@
 package com.crane.bandwebbackend.domain.flow;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -128,6 +129,24 @@ class PerformanceFlowTest {
                 .getResponse()
                 .getContentAsString();
 
+        // API-085·079 하위 행 교체 응답의 version으로 바로 다음 수정이 가능해야 함(새로고침 없이 연속 저장)
+        String sessionsBody = """
+                {"version":"%s","sessions":[{"performanceMemberId":"2","partId":"1"}]}""";
+        Object v1 = JsonPath.read(confirmed, "$.data.song.version");
+        String saved = send(put(BASE + "/songs/" + songId + "/sessions"), ADMIN, sessionsBody.formatted(v1))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        Object v2 = JsonPath.read(saved, "$.data.song.version");
+        confirmed = send(put(BASE + "/songs/" + songId + "/requirements"), ADMIN, """
+                        {"version":"%s","requirements":[{"partId":"1","requiredCount":1}]}""".formatted(v2))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        assertThat(Long.parseLong(v2.toString())).isGreaterThan(Long.parseLong(v1.toString()));
+
         // API-075·077
         send(get(BASE + "/songs?sort=setlistOrder,asc&status=CONFIRMED,PROPOSED"), MEMBER, null)
                 .andExpect(jsonPath("$.data.totalElements").value(2))
@@ -152,7 +171,9 @@ class PerformanceFlowTest {
                 .andExpect(jsonPath("$.error.code").value("CONFIRMATION_REQUIRED"))
                 .andExpect(jsonPath("$.error.warnings[0].type").value("ASSIGNMENT_RELEASED"));
 
-        // API-101·103 가능 시간
+        // API-101·103 가능 시간. null 구간은 500이 아니라 400
+        send(put(BASE + "/availability/me"), MEMBER, """
+                        {"from":"2026-12-01T00:00:00+09:00","to":"2026-12-02T00:00:00+09:00","slots":[null]}""").andExpect(status().isBadRequest());
         send(put(BASE + "/availability/me"), MEMBER, """
                         {"from":"2026-12-01T00:00:00+09:00","to":"2026-12-02T00:00:00+09:00",
                          "slots":[{"startAt":"2026-12-01T19:00:00+09:00","endAt":"2026-12-01T20:00:00+09:00"}]}""")
