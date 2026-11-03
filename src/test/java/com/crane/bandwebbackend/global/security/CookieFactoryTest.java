@@ -1,6 +1,7 @@
 package com.crane.bandwebbackend.global.security;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.Duration;
 import org.junit.jupiter.api.DisplayName;
@@ -75,5 +76,11 @@ class CookieFactoryTest {
                 new AppProperties.Cookie(false, false)));
 
         assertThat(f.access("v").getMaxAge()).isEqualTo(Duration.ofMinutes(5));
+    }
+
+    @Test
+    @DisplayName("접두사 쿠키(host-prefix=true)에 secure=false를 주면 기동 시 실패한다")
+    void rejectsHostPrefixWithoutSecure() {
+        assertThatThrownBy(() -> factory(true, false)).isInstanceOf(IllegalStateException.class);
     }
 }
