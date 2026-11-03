@@ -27,7 +27,7 @@ public record ExchangeResponse(UserSummary user, boolean onboardingRequired, Log
             OffsetDateTime createdAt,
             OffsetDateTime updatedAt) {
 
-        static UserSummary from(User user) {
+        public static UserSummary from(User user) {
             return new UserSummary(
                     user.getId(),
                     user.getName(),

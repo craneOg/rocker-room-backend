@@ -3,21 +3,13 @@ package com.crane.bandwebbackend.domain.auth.service;
 import com.crane.bandwebbackend.domain.auth.dto.ExchangeResponse;
 import com.crane.bandwebbackend.domain.auth.dto.LoginResult;
 import com.crane.bandwebbackend.domain.auth.entity.OneTimeTokenPurpose;
-import com.crane.bandwebbackend.domain.auth.entity.RefreshToken;
-import com.crane.bandwebbackend.domain.auth.repository.RefreshTokenRepository;
 import com.crane.bandwebbackend.domain.user.entity.User;
 import com.crane.bandwebbackend.domain.user.entity.UserStatus;
 import com.crane.bandwebbackend.domain.user.repository.UserRepository;
 import com.crane.bandwebbackend.global.error.BusinessException;
 import com.crane.bandwebbackend.global.error.ErrorCode;
 import com.crane.bandwebbackend.global.error.ErrorDetail;
-import com.crane.bandwebbackend.global.security.JwtProvider;
-import com.crane.bandwebbackend.global.time.KstTime;
-import java.time.Clock;
 import java.time.Duration;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,16 +19,12 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class AuthExchangeService {
 
-    static final Duration REFRESH_TTL = Duration.ofDays(30);
-    static final Duration FAMILY_TTL = Duration.ofDays(90);
     static final Duration RESTORATION_TTL = Duration.ofMinutes(10);
     static final String INVALID_REASON = "LOGIN_EXCHANGE_INVALID";
 
     private final OneTimeTokenService oneTimeTokens;
     private final UserRepository userRepository;
-    private final RefreshTokenRepository refreshTokenRepository;
-    private final JwtProvider jwtProvider;
-    private final Clock clock;
+    private final AuthSessionService sessions;
 
     // 쿠키 값은 항상 원문. accessToken·refreshToken·restorationToken 중 loginResult에 맞는 것만 채워진다
     public record Result(ExchangeResponse body, String accessToken, String refreshToken, String restorationToken) {}
@@ -59,35 +47,10 @@ public class AuthExchangeService {
             return new Result(ExchangeResponse.restorationRequired(consumed.returnTo()), null, null, restoration);
         }
 
-        LocalDateTime now = LocalDateTime.now(clock);
-        String familyId = UUID.randomUUID().toString();
-        String refresh = TokenCodec.newRaw();
-        refreshTokenRepository.save(RefreshToken.issue(
-                user,
-                familyId,
-                TokenCodec.hash(refresh),
-                now.plus(REFRESH_TTL),
-                now.plus(FAMILY_TTL),
-                ip,
-                truncate(userAgent, 255)));
-        String access = jwtProvider
-                .createAccessToken(user.getId(), familyId, user.getTokenVersion())
-                .token();
+        AuthSessionService.Tokens tokens = sessions.start(user, ip, userAgent);
         LoginResult loginResult = user.getHandle() == null ? LoginResult.NEW_USER : LoginResult.EXISTING_USER;
         ExchangeResponse body = ExchangeResponse.of(user, loginResult, consumed.returnTo());
-        touchLastActive(user.getId(), now);
-        return new Result(body, access, refresh, null);
-    }
-
-    // G-11: 오늘 0시(KST) 이후 기록이 없을 때만 갱신
-    private void touchLastActive(long userId, LocalDateTime now) {
-        LocalDate kstToday = KstTime.toKstDate(now);
-        LocalDateTime dayStartUtc = KstTime.toUtc(kstToday.atStartOfDay().atOffset(KstTime.KST));
-        userRepository.touchLastActive(userId, now, dayStartUtc);
-    }
-
-    private static String truncate(String value, int max) {
-        return value == null || value.length() <= max ? value : value.substring(0, max);
+        return new Result(body, tokens.accessToken(), tokens.refreshToken(), null);
     }
 
     private static BusinessException invalid() {
