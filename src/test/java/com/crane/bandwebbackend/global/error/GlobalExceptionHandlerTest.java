@@ -5,6 +5,7 @@ import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -128,6 +129,14 @@ class GlobalExceptionHandlerTest {
         mockMvc.perform(get("/stub/lock"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.error.code").value("VERSION_CONFLICT"));
+    }
+
+    @Test
+    @DisplayName("프레임워크가 정한 4xx는 상태·헤더를 유지한다(405는 Allow 헤더)")
+    void frameworkHeadersPreserved() throws Exception {
+        mockMvc.perform(post("/stub/business"))
+                .andExpect(status().isMethodNotAllowed())
+                .andExpect(header().string("Allow", "GET"));
     }
 
     @ParameterizedTest(name = "MySQL {0} → {1} {2}")

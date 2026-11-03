@@ -117,7 +117,9 @@ public class GlobalExceptionHandler {
         // 405 등 프레임워크가 상태를 정한 요청 오류는 500으로 바꾸지 않는다(code 없음)
         if (e instanceof org.springframework.web.ErrorResponse framework
                 && framework.getStatusCode().is4xxClientError()) {
-            return ResponseEntity.status(framework.getStatusCode()).body(ErrorResponse.withoutCode("요청을 처리할 수 없습니다."));
+            return ResponseEntity.status(framework.getStatusCode())
+                    .headers(framework.getHeaders())
+                    .body(ErrorResponse.withoutCode("요청을 처리할 수 없습니다."));
         }
         log.error("처리되지 않은 예외", e);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)

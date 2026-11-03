@@ -64,6 +64,10 @@ public class AuditRecorder {
             });
         } else if (node instanceof Collection<?> list) {
             list.forEach(AuditRecorder::checkKeys);
+        } else if (node instanceof Object[] array) {
+            for (Object element : array) {
+                checkKeys(element);
+            }
         }
     }
 
