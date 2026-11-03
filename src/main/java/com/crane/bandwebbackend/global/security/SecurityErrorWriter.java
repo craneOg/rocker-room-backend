@@ -1,6 +1,7 @@
 package com.crane.bandwebbackend.global.security;
 
 import com.crane.bandwebbackend.global.error.ErrorCode;
+import com.crane.bandwebbackend.global.error.ErrorDetail;
 import com.crane.bandwebbackend.global.error.ErrorResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletResponse;
@@ -18,9 +19,19 @@ final class SecurityErrorWriter {
 
     static void write(ObjectMapper objectMapper, HttpServletResponse response, ErrorCode code, String message)
             throws IOException {
+        write(objectMapper, response, code, message, List.of());
+    }
+
+    static void write(
+            ObjectMapper objectMapper,
+            HttpServletResponse response,
+            ErrorCode code,
+            String message,
+            List<ErrorDetail> details)
+            throws IOException {
         response.setStatus(code.getStatus().value());
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setCharacterEncoding("UTF-8");
-        objectMapper.writeValue(response.getOutputStream(), ErrorResponse.of(code, message, List.of(), List.of()));
+        objectMapper.writeValue(response.getOutputStream(), ErrorResponse.of(code, message, details, List.of()));
     }
 }
