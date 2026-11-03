@@ -1,8 +1,8 @@
 package com.crane.bandwebbackend.global.audit;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import java.util.Collection;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
@@ -40,8 +40,8 @@ public class AuditRecorder {
         }
         String detailJson = null;
         if (detail != null && !detail.isEmpty()) {
-            checkKeys(detail);
             detailJson = toJson(detail);
+            checkKeys(readTree(detailJson));
         }
         auditLogRepository.save(AuditLog.create(clubId, actorUserId, action, targetType, targetId, reason, detailJson));
     }
@@ -52,22 +52,24 @@ public class AuditRecorder {
         }
     }
 
-    private static void checkKeys(Object node) {
-        if (node instanceof Map<?, ?> map) {
-            map.forEach((key, value) -> {
-                String k = String.valueOf(key);
-                String lower = k.toLowerCase(Locale.ROOT);
-                if (FORBIDDEN_KEYS.contains(lower) || lower.startsWith(FORBIDDEN_PREFIX)) {
-                    throw new IllegalArgumentException("감사 detail에 사용할 수 없는 키: " + k);
-                }
-                checkKeys(value);
-            });
-        } else if (node instanceof Collection<?> list) {
-            list.forEach(AuditRecorder::checkKeys);
-        } else if (node instanceof Object[] array) {
-            for (Object element : array) {
-                checkKeys(element);
+    // 저장될 JSON 트리를 검사한다. Map·List·배열·JsonNode·POJO 어느 형태로 넘겨도 같은 결과가 나온다
+    private static void checkKeys(JsonNode node) {
+        node.fields().forEachRemaining(entry -> {
+            String k = entry.getKey();
+            String lower = k.toLowerCase(Locale.ROOT);
+            if (FORBIDDEN_KEYS.contains(lower) || lower.startsWith(FORBIDDEN_PREFIX)) {
+                throw new IllegalArgumentException("감사 detail에 사용할 수 없는 키: " + k);
             }
+            checkKeys(entry.getValue());
+        });
+        node.elements().forEachRemaining(AuditRecorder::checkKeys);
+    }
+
+    private JsonNode readTree(String json) {
+        try {
+            return objectMapper.readTree(json);
+        } catch (JsonProcessingException e) {
+            throw new IllegalArgumentException("detail을 JSON으로 변환할 수 없습니다", e);
         }
     }
 

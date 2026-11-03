@@ -22,6 +22,10 @@ public class CookieFactory {
     public CookieFactory(AppProperties properties) {
         this.hostPrefix = properties.cookie().hostPrefix();
         this.secure = properties.cookie().secure();
+        // __Host-/__Secure- 접두사 쿠키는 Secure 없이는 브라우저가 거부한다
+        if (hostPrefix && !secure) {
+            throw new IllegalStateException("app.cookie.host-prefix=true에는 app.cookie.secure=true가 필요합니다");
+        }
         this.accessMaxAge = properties.jwt().accessTtl();
     }
 
