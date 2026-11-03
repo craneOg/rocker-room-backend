@@ -248,8 +248,9 @@ class AuthExchangeFlowTest {
                 .andExpect(jsonPath("$.data.onboardingRequired").value(false))
                 .andExpect(jsonPath("$.data.returnTo").value("/join/ABC"));
         MvcResult result = actions.andReturn();
-        assertThat(hasCookie(result, cookies.accessName())).isFalse();
-        assertThat(hasCookie(result, cookies.refreshName())).isFalse();
+        // 새 토큰은 없고, 있던 토큰을 지우는 헤더만 있다
+        assertThat(cookieValue(result, cookies.accessName())).isEmpty();
+        assertThat(cookieValue(result, cookies.refreshName())).isEmpty();
         assertThat(setCookie(result, cookies.restoreName()))
                 .contains("HttpOnly", "SameSite=Lax", "Max-Age=600", "Path=/");
         assertThat(count("refresh_token")).isZero();
@@ -260,6 +261,28 @@ class AuthExchangeFlowTest {
                         Integer.class,
                         sha256Hex(restore)))
                 .isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("API 3: 복구 선택 분기는 브라우저에 남아 있던 이전 Access·Refresh 쿠키를 삭제한다")
+    void withdrawnUserClearsPreviousSession() throws Exception {
+        login(null);
+        jdbc.update("UPDATE users SET status = 'WITHDRAWN', withdrawn_at = UTC_TIMESTAMP(6)");
+
+        MvcResult result = mockMvc.perform(exchangeRequest(login(null))
+                        .cookie(new Cookie(cookies.accessName(), "previous-account-access"))
+                        .cookie(new Cookie(cookies.refreshName(), "previous-account-refresh")))
+                .andReturn();
+
+        assertThat(result.getResponse().getStatus()).isEqualTo(200);
+        assertThat(setCookie(result, cookies.accessName()))
+                .contains("Max-Age=0")
+                .contains("Path=/");
+        assertThat(setCookie(result, cookies.refreshName()))
+                .contains("Max-Age=0")
+                .contains("Path=/api/v1/auth/refresh");
+        assertThat(cookieValue(result, cookies.accessName())).isEmpty();
+        assertThat(setCookie(result, cookies.restoreName())).contains("Max-Age=600");
     }
 
     // ---- 실패 ----

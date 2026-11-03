@@ -79,6 +79,9 @@ public class AuthController {
                     cookies.refresh(result.refreshToken()).toString());
         }
         if (result.restorationToken() != null) {
+            // 다른 계정으로 로그인된 브라우저에서 복구 대상 계정으로 로그인해도 이전 계정의 인증이 남지 않게 한다
+            response.header(HttpHeaders.SET_COOKIE, cookies.deleteAccess().toString());
+            response.header(HttpHeaders.SET_COOKIE, cookies.deleteRefresh().toString());
             response.header(
                     HttpHeaders.SET_COOKIE,
                     cookies.restore(result.restorationToken()).toString());
