@@ -54,6 +54,10 @@ public class AuditRecorder {
 
     // 저장될 JSON 트리를 검사한다. Map·List·배열·JsonNode·POJO 어느 형태로 넘겨도 같은 결과가 나온다
     private static void checkKeys(JsonNode node) {
+        if (node.isArray()) {
+            node.elements().forEachRemaining(AuditRecorder::checkKeys);
+            return;
+        }
         node.fields().forEachRemaining(entry -> {
             String k = entry.getKey();
             String lower = k.toLowerCase(Locale.ROOT);
@@ -62,7 +66,6 @@ public class AuditRecorder {
             }
             checkKeys(entry.getValue());
         });
-        node.elements().forEachRemaining(AuditRecorder::checkKeys);
     }
 
     private JsonNode readTree(String json) {
