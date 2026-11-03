@@ -26,9 +26,10 @@ import lombok.NoArgsConstructor;
 @Entity
 @Table(
         name = "song_playability",
-        uniqueConstraints = @UniqueConstraint(
-                name = "uk_song_playability",
-                columnNames = {"song_id", "performance_member_id", "part_id"}))
+        uniqueConstraints =
+                @UniqueConstraint(
+                        name = "uk_song_playability",
+                        columnNames = {"song_id", "performance_member_id", "part_id"}))
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class SongPlayability extends BaseTimeEntity {
 
@@ -65,4 +66,34 @@ public class SongPlayability extends BaseTimeEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "submitted_by_user_id", nullable = false)
     private User submittedBy;
+
+    public static SongPlayability of(
+            Song song,
+            PerformanceMember performanceMember,
+            Part part,
+            PlayabilityAnswer answer,
+            String reason,
+            User submittedBy) {
+        SongPlayability p = new SongPlayability();
+        p.song = song;
+        p.performanceId = song.getPerformance().getId();
+        p.performanceMember = performanceMember;
+        p.part = part;
+        p.update(answer, reason, submittedBy);
+        return p;
+    }
+
+    // 최신 결과 1건만 유지(upsert)
+    public void update(PlayabilityAnswer answer, String reason, User submittedBy) {
+        this.answer = answer;
+        this.reason = answer == PlayabilityAnswer.POSSIBLE ? null : reason;
+        this.submittedBy = submittedBy;
+    }
+
+    // V-08: 입력자가 응답자 본인이 아니면 임원 대리 입력
+    public boolean isEnteredByAdmin() {
+        return !submittedBy
+                .getId()
+                .equals(performanceMember.getMembership().getUser().getId());
+    }
 }

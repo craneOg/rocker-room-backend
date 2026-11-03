@@ -40,6 +40,12 @@ public class User extends BaseTimeEntity {
     @Column(nullable = false)
     private boolean profileImagePublic = true;
 
+    // U-13: 요청자(viewer)에게 보일 프로필 사진 URL. 비공개면 본인만
+    public String profileImageUrlFor(User viewer) {
+        boolean self = viewer != null && viewer.getId().equals(id);
+        return profileImagePublic || self ? profileImageUrl : null;
+    }
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private UserStatus status;
