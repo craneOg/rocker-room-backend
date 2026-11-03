@@ -12,12 +12,14 @@ public interface SongPlayabilityRepository extends JpaRepository<SongPlayability
     Optional<SongPlayability> findBySongIdAndPerformanceMemberIdAndPartId(
             Long songId, Long performanceMemberId, Long partId);
 
-    @Query("select p from SongPlayability p join fetch p.part join fetch p.submittedBy join fetch p.performanceMember pm"
-            + " join fetch pm.membership m join fetch m.user where p.performanceId = :performanceId")
+    @Query(
+            "select p from SongPlayability p join fetch p.part join fetch p.submittedBy join fetch p.performanceMember pm"
+                    + " join fetch pm.membership m join fetch m.user where p.performanceId = :performanceId")
     List<SongPlayability> findByPerformanceId(Long performanceId);
 
-    @Query("select p from SongPlayability p join fetch p.part join fetch p.submittedBy join fetch p.performanceMember pm"
-            + " join fetch pm.membership m join fetch m.user where p.song.id = :songId")
+    @Query(
+            "select p from SongPlayability p join fetch p.part join fetch p.submittedBy join fetch p.performanceMember pm"
+                    + " join fetch pm.membership m join fetch m.user where p.song.id = :songId")
     List<SongPlayability> findBySongId(Long songId);
 
     @Modifying(flushAutomatically = true)

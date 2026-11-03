@@ -64,7 +64,12 @@ public class AvailabilityService {
             PerformanceRef ref, Long performanceMemberId, OffsetDateTime from, OffsetDateTime to) {
         PerformanceAccess access = accessService.get(ref);
         access.requireAdmin();
-        return read(accessService.getMember(access.performanceId(), performanceMemberId).getId(), from, to);
+        return read(
+                accessService
+                        .getMember(access.performanceId(), performanceMemberId)
+                        .getId(),
+                from,
+                to);
     }
 
     /**
@@ -120,7 +125,8 @@ public class AvailabilityService {
             boolean allowed = songs.isEmpty()
                     && !forAllParticipants
                     && teams.stream()
-                            .allMatch(id -> teamMembers.getOrDefault(id, Set.of()).contains(access.myMemberId()));
+                            .allMatch(
+                                    id -> teamMembers.getOrDefault(id, Set.of()).contains(access.myMemberId()));
             if (!allowed) {
                 throw new BusinessException(ErrorCode.FORBIDDEN, "TARGET_NOT_ALLOWED", "본인 팀만 조회할 수 있습니다.");
             }
@@ -168,10 +174,19 @@ public class AvailabilityService {
                                 .startAt(Kst.fromUtc(e.getKey()))
                                 .availableCount(e.getValue().size())
                                 .availableMembers(
-                                        admin ? e.getValue().stream().map(names::get).toList() : null)
+                                        admin
+                                                ? e.getValue().stream()
+                                                        .map(names::get)
+                                                        .toList()
+                                                : null)
                                 .build())
                         .toList())
-                .participants(admin ? targets.stream().map(pm -> names.get(pm.getId())).toList() : null)
+                .participants(
+                        admin
+                                ? targets.stream()
+                                        .map(pm -> names.get(pm.getId()))
+                                        .toList()
+                                : null)
                 .missingAvailabilityMemberIds(
                         admin
                                 ? targets.stream()
@@ -218,7 +233,8 @@ public class AvailabilityService {
             }
             for (OffsetDateTime t = start; t.isBefore(end); t = t.plus(SLOT)) {
                 LocalDate date = t.atZoneSameInstant(Kst.OFFSET).toLocalDate();
-                if ((seasonStart != null && date.isBefore(seasonStart)) || (seasonEnd != null && date.isAfter(seasonEnd))) {
+                if ((seasonStart != null && date.isBefore(seasonStart))
+                        || (seasonEnd != null && date.isAfter(seasonEnd))) {
                     throw new BusinessException(
                             ErrorCode.VALIDATION_ERROR, "OUTSIDE_PRACTICE_SEASON", "합주 시즌 밖의 시간은 입력할 수 없습니다.");
                 }

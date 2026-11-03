@@ -116,7 +116,8 @@ public class SongService {
         List<Song> filtered = visible.stream()
                 .filter(s -> statuses.isEmpty() || statuses.contains(s.getStatus()))
                 .filter(s -> candidateTeamId == null
-                        || (s.getCandidateTeam() != null && s.getCandidateTeam().getId().equals(candidateTeamId)))
+                        || (s.getCandidateTeam() != null
+                                && s.getCandidateTeam().getId().equals(candidateTeamId)))
                 .filter(s -> !proposedByMe || s.getProposedBy().getId().equals(myMembership))
                 .filter(s -> !unresponded || isUnresponded(s, snap, policy, me))
                 .sorted(comparator(order, snap))
@@ -170,20 +171,21 @@ public class SongService {
     }
 
     private static Comparator<Song> comparator(SongSort sort, EvaluationSnapshot snap) {
-        Comparator<Song> recent =
-                Comparator.comparing(Song::getCreatedAt, Comparator.reverseOrder()).thenComparing(Song::getId, Comparator.reverseOrder());
+        Comparator<Song> recent = Comparator.comparing(Song::getCreatedAt, Comparator.reverseOrder())
+                .thenComparing(Song::getId, Comparator.reverseOrder());
         return switch (sort) {
             case CREATED_AT_DESC -> recent;
-            case SETLIST_ORDER_ASC -> Comparator.comparing(
-                            Song::getSetlistOrder, Comparator.nullsLast(Comparator.naturalOrder()))
-                    .thenComparing(Song::getId);
+            case SETLIST_ORDER_ASC ->
+                Comparator.comparing(Song::getSetlistOrder, Comparator.nullsLast(Comparator.naturalOrder()))
+                        .thenComparing(Song::getId);
             case TITLE_ASC -> Comparator.comparing(Song::getTitle).thenComparing(Song::getId);
-            case POSSIBLE_COUNT_DESC -> Comparator.comparing((Song s) -> snap.possibleCount(s), Comparator.reverseOrder())
-                    .thenComparing(recent);
+            case POSSIBLE_COUNT_DESC ->
+                Comparator.comparing((Song s) -> snap.possibleCount(s), Comparator.reverseOrder())
+                        .thenComparing(recent);
             // 점수 방식이면 평균 점수 순, 동률은 투표 수 → 최근 제안 순
             case VOTE_COUNT_DESC -> {
-                Comparator<Song> byCount = Comparator.comparing(
-                        (Song s) -> snap.summary(s).getVoteCount(), Comparator.reverseOrder());
+                Comparator<Song> byCount =
+                        Comparator.comparing((Song s) -> snap.summary(s).getVoteCount(), Comparator.reverseOrder());
                 Comparator<Song> byAverage = Comparator.comparing(
                         (Song s) -> Objects.requireNonNullElse(snap.summary(s).getScoreAverage(), 0.0),
                         Comparator.reverseOrder());
@@ -206,7 +208,10 @@ public class SongService {
                 .evaluation(snap.summary(s))
                 .sessionCount(confirmed ? songSessions.size() : null)
                 .requirementsSatisfied(
-                        confirmed ? SongSupport.requirementsSatisfied(requirements.getOrDefault(s.getId(), List.of()), songSessions) : null)
+                        confirmed
+                                ? SongSupport.requirementsSatisfied(
+                                        requirements.getOrDefault(s.getId(), List.of()), songSessions)
+                                : null)
                 .myPlayability(
                         me == null
                                 ? List.of()
@@ -280,7 +285,8 @@ public class SongService {
     private List<SongViews.Session> sessionViews(Song song, List<SongSessionMember> sessions) {
         Set<Long> teamMembers = song.getAssignedTeam() == null
                 ? Set.of()
-                : teamService.memberIdsByTeam(song.getPerformance().getId())
+                : teamService
+                        .memberIdsByTeam(song.getPerformance().getId())
                         .getOrDefault(song.getAssignedTeam().getId(), Set.of());
         return sessions.stream()
                 .map(s -> SongViews.Session.builder()
@@ -291,7 +297,8 @@ public class SongService {
                         .partId(s.getPart().getId())
                         .partName(s.getPart().getName())
                         .isSupport(song.getAssignedTeam() != null
-                                && !teamMembers.contains(s.getPerformanceMember().getId()))
+                                && !teamMembers.contains(
+                                        s.getPerformanceMember().getId()))
                         .isGuest(s.getPerformanceMember().getMembership().getMemberType() == MemberType.GUEST)
                         .build())
                 .toList();
@@ -306,7 +313,8 @@ public class SongService {
         access.requireEditable();
         boolean direct = req.getStatus() == SongStatus.CONFIRMED;
         if (req.getStatus() != null && req.getStatus() != SongStatus.PROPOSED && !direct) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "INVALID_STATUS", "PROPOSED 또는 CONFIRMED만 등록할 수 있습니다.");
+            throw new BusinessException(
+                    ErrorCode.VALIDATION_ERROR, "INVALID_STATUS", "PROPOSED 또는 CONFIRMED만 등록할 수 있습니다.");
         }
         if (direct) {
             access.requireAdmin();
@@ -316,7 +324,8 @@ public class SongService {
         PerformancePolicy policy = accessService.getPolicy(access.performanceId());
         if (!access.isAdmin()) {
             access.requireParticipant();
-            PerformanceAccess.requireOpen(policy.getCandidateState(), policy.getCandidateDeadline(), "CANDIDATE_CLOSED");
+            PerformanceAccess.requireOpen(
+                    policy.getCandidateState(), policy.getCandidateDeadline(), "CANDIDATE_CLOSED");
         }
         String url = requireHttps(req.getReferenceUrl());
 
@@ -340,7 +349,8 @@ public class SongService {
                 && songRepository.countByPerformanceIdAndProposedByIdAndStatusNot(
                                 access.performanceId(), access.getMembership().getId(), SongStatus.WITHDRAWN)
                         >= limit) {
-            throw new BusinessException(ErrorCode.RULE_VIOLATION, "LIMIT_EXCEEDED", "1인 후보곡 등록 수(" + limit + "곡)를 넘었습니다.");
+            throw new BusinessException(
+                    ErrorCode.RULE_VIOLATION, "LIMIT_EXCEEDED", "1인 후보곡 등록 수(" + limit + "곡)를 넘었습니다.");
         }
 
         String title = req.getTitle().strip();
@@ -371,7 +381,9 @@ public class SongService {
         }
         String title = song.getTitle();
         if (req.hasTitle()) {
-            if (req.getTitle() == null || req.getTitle().isBlank() || req.getTitle().strip().length() > 200) {
+            if (req.getTitle() == null
+                    || req.getTitle().isBlank()
+                    || req.getTitle().strip().length() > 200) {
                 throw new BusinessException(ErrorCode.VALIDATION_ERROR, "INVALID_TITLE", "제목은 1~200자입니다.");
             }
             title = req.getTitle().strip();
@@ -453,7 +465,9 @@ public class SongService {
             warnings = replaceSessionRows(access, song, f.getSessions(), null);
         }
         if (access.isLocked()) {
-            applyOrders(access.performanceId(), insertAt(orderedIds(access.performanceId(), song.getId()), song.getId(), order));
+            applyOrders(
+                    access.performanceId(),
+                    insertAt(orderedIds(access.performanceId(), song.getId()), song.getId(), order));
             verifyLockRequirements(access.performanceId());
             auditLocked(access, song, f.getReason(), before);
         }
@@ -493,7 +507,8 @@ public class SongService {
         }
         afterLeavingConfirmed(access, song, req.getReason(), before);
         audit(access, "SONG_DECIDED", song, req.getReason(), "{\"from\":\"CONFIRMED\",\"to\":\"PROPOSED\"}");
-        return result(song, List.of(), Effects.builder().affectedScheduleIds(released).build());
+        return result(
+                song, List.of(), Effects.builder().affectedScheduleIds(released).build());
     }
 
     // ---------- API-082 제외 ----------
@@ -513,7 +528,10 @@ public class SongService {
             List<Warning> warnings = new ArrayList<>();
             warnings.add(Warning.builder()
                     .type("ASSIGNMENT_RELEASED")
-                    .teamId(song.getAssignedTeam() == null ? null : song.getAssignedTeam().getId())
+                    .teamId(
+                            song.getAssignedTeam() == null
+                                    ? null
+                                    : song.getAssignedTeam().getId())
                     .setlistOrder(song.getSetlistOrder())
                     .build());
             List<Long> upcoming = scheduleLinkService.upcomingLinks(songId);
@@ -524,10 +542,7 @@ public class SongService {
                         .build());
             }
             throw new BusinessException(
-                    ErrorCode.CONFIRMATION_REQUIRED,
-                    "CONFIRMED_SONG_REJECTION",
-                    "선정곡을 제외하면 담당 팀·순서가 해제됩니다.",
-                    warnings);
+                    ErrorCode.CONFIRMATION_REQUIRED, "CONFIRMED_SONG_REJECTION", "선정곡을 제외하면 담당 팀·순서가 해제됩니다.", warnings);
         }
         Map<Long, Integer> before = confirmedOrders(access.performanceId());
         song.reject(blankToNull(req.getDecisionNote()));
@@ -537,12 +552,12 @@ public class SongService {
             afterLeavingConfirmed(access, song, req.getReason(), before);
         }
         audit(access, "SONG_DECIDED", song, req.getReason(), "{\"from\":\"" + from + "\",\"to\":\"REJECTED\"}");
-        return result(song, List.of(), Effects.builder().affectedScheduleIds(released).build());
+        return result(
+                song, List.of(), Effects.builder().affectedScheduleIds(released).build());
     }
 
     // LOCKED: 남은 선정곡 순서를 1부터 다시 매기고(X-06) 감사 기록(X-07)
-    private void afterLeavingConfirmed(
-            PerformanceAccess access, Song song, String reason, Map<Long, Integer> before) {
+    private void afterLeavingConfirmed(PerformanceAccess access, Song song, String reason, Map<Long, Integer> before) {
         songRepository.flush();
         if (access.isLocked()) {
             applyOrders(access.performanceId(), renumber(orderedIds(access.performanceId(), null)));
@@ -576,7 +591,12 @@ public class SongService {
         Song song = songSupport.getSong(access.performanceId(), songId);
         song.verifyVersion(req.getVersion());
         song.withdraw(WithdrawalType.ADMIN);
-        audit(access, "SONG_DECIDED", song, req.getReason(), "{\"from\":\"PROPOSED\",\"to\":\"WITHDRAWN\",\"type\":\"ADMIN\"}");
+        audit(
+                access,
+                "SONG_DECIDED",
+                song,
+                req.getReason(),
+                "{\"from\":\"PROPOSED\",\"to\":\"WITHDRAWN\",\"type\":\"ADMIN\"}");
         return result(song, List.of(), null);
     }
 
@@ -594,7 +614,8 @@ public class SongService {
                 "SONG_DECIDED",
                 song,
                 req.getReason(),
-                "{\"from\":\"REJECTED\",\"to\":\"PROPOSED\",\"previousDecisionNoteKept\":" + (previousNote != null) + "}");
+                "{\"from\":\"REJECTED\",\"to\":\"PROPOSED\",\"previousDecisionNoteKept\":" + (previousNote != null)
+                        + "}");
         return result(song, List.of(), null);
     }
 
@@ -610,9 +631,11 @@ public class SongService {
         }
         access.requireReasonIfLocked(req.getReason());
         if (req.getAssignedTeamId() == null && access.isLocked()) {
-            throw new BusinessException(ErrorCode.RULE_VIOLATION, "LOCK_REQUIREMENTS_FAILED", "확정된 공연에서는 담당 팀을 해제할 수 없습니다.");
+            throw new BusinessException(
+                    ErrorCode.RULE_VIOLATION, "LOCK_REQUIREMENTS_FAILED", "확정된 공연에서는 담당 팀을 해제할 수 없습니다.");
         }
-        Long before = song.getAssignedTeam() == null ? null : song.getAssignedTeam().getId();
+        Long before =
+                song.getAssignedTeam() == null ? null : song.getAssignedTeam().getId();
         song.assignTeam(
                 req.getAssignedTeamId() == null
                         ? null
@@ -692,7 +715,8 @@ public class SongService {
         if (teamOnly != null) {
             Set<String> keptSupport = songSupport.sessionsOf(song.getId()).stream()
                     .filter(s -> !teamOnly.contains(s.getPerformanceMember().getId()))
-                    .map(s -> s.getPerformanceMember().getId() + ":" + s.getPart().getId())
+                    .map(s ->
+                            s.getPerformanceMember().getId() + ":" + s.getPart().getId())
                     .collect(Collectors.toSet());
             Set<String> requestedSupport = items.stream()
                     .filter(m -> !teamOnly.contains(m.getPerformanceMemberId()))
@@ -705,9 +729,11 @@ public class SongService {
         }
         Long pid = access.performanceId();
         Map<Long, PerformanceMember> pms = accessService.getMembers(
-                pid, items.stream().map(SongRequests.Session::getPerformanceMemberId).collect(Collectors.toSet()));
+                pid,
+                items.stream().map(SongRequests.Session::getPerformanceMemberId).collect(Collectors.toSet()));
         Map<Long, Part> parts = accessService.getActiveParts(
-                access.clubId(), items.stream().map(SongRequests.Session::getPartId).collect(Collectors.toSet()));
+                access.clubId(),
+                items.stream().map(SongRequests.Session::getPartId).collect(Collectors.toSet()));
         boolean strict = access.isLocked() && song.isConfirmed();
         for (PerformanceMember pm : pms.values()) {
             boolean ok = strict
@@ -715,7 +741,8 @@ public class SongService {
                             && VALID_MEMBERSHIP.contains(pm.getMembership().getStatus())
                     : pm.isActiveParticipant();
             if (!ok) {
-                throw new BusinessException(ErrorCode.RULE_VIOLATION, "SESSION_MEMBER_INVALID", "연주자로 지정할 수 없는 참여자가 있습니다.");
+                throw new BusinessException(
+                        ErrorCode.RULE_VIOLATION, "SESSION_MEMBER_INVALID", "연주자로 지정할 수 없는 참여자가 있습니다.");
             }
         }
         sessionMemberRepository.deleteBySongId(song.getId());
@@ -729,8 +756,8 @@ public class SongService {
     private List<Warning> sessionWarnings(PerformanceAccess access, Song song) {
         List<Warning> warnings = new ArrayList<>();
         List<SongSessionMember> sessions = songSupport.sessionsOf(song.getId());
-        Map<Long, Long> assigned = sessions.stream()
-                .collect(Collectors.groupingBy(s -> s.getPart().getId(), Collectors.counting()));
+        Map<Long, Long> assigned =
+                sessions.stream().collect(Collectors.groupingBy(s -> s.getPart().getId(), Collectors.counting()));
         for (SongPartRequirement r : requirementRepository.findBySongId(song.getId())) {
             int count = assigned.getOrDefault(r.getPart().getId(), 0L).intValue();
             if (count != r.getRequiredCount()) {
@@ -747,7 +774,8 @@ public class SongService {
         if (max != null) {
             Map<Long, Set<Long>> songsByMember = new HashMap<>();
             songSupport.sessionsOfPerformance(access.performanceId()).stream()
-                    .filter(s -> s.getSong().isConfirmed() || s.getSong().getId().equals(song.getId()))
+                    .filter(s ->
+                            s.getSong().isConfirmed() || s.getSong().getId().equals(song.getId()))
                     .forEach(s -> songsByMember
                             .computeIfAbsent(s.getPerformanceMember().getId(), k -> new HashSet<>())
                             .add(s.getSong().getId()));
@@ -773,7 +801,8 @@ public class SongService {
     @Transactional
     public TeamResults.Result createTeamFromSong(PerformanceRef ref, TeamRequests.Create req) {
         if (req.getMembers() != null && !req.getMembers().isEmpty()) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "SOURCE_SONG_WITH_MEMBERS", "sourceSongId와 members를 함께 보낼 수 없습니다.");
+            throw new BusinessException(
+                    ErrorCode.VALIDATION_ERROR, "SOURCE_SONG_WITH_MEMBERS", "sourceSongId와 members를 함께 보낼 수 없습니다.");
         }
         PerformanceAccess access = admin(accessService.getForUpdate(ref));
         access.requireStatus(PerformanceStatus.ACTIVE);
@@ -817,7 +846,8 @@ public class SongService {
             boolean ok = s.getSetlistOrder() != null
                     && s.getAssignedTeam() != null
                     && !rows.isEmpty()
-                    && rows.stream().allMatch(r -> r.getPerformanceMember().getStatus() == PerformanceMemberStatus.APPROVED);
+                    && rows.stream()
+                            .allMatch(r -> r.getPerformanceMember().getStatus() == PerformanceMemberStatus.APPROVED);
             if (!ok) {
                 throw new BusinessException(
                         ErrorCode.RULE_VIOLATION, "LOCK_REQUIREMENTS_FAILED", "확정 조건(순서·담당 팀·연주자)을 만족하지 않는 선정곡이 있습니다.");
@@ -940,6 +970,11 @@ public class SongService {
                 .sorted()
                 .map(id -> "{\"songId\":" + id + ",\"from\":" + before.get(id) + ",\"to\":" + after.get(id) + "}")
                 .collect(Collectors.joining(",", "[", "]"));
-        audit(access, "LOCKED_EXCEPTION_EDIT", song, reason, "{\"status\":\"" + song.getStatus() + "\",\"orders\":" + changes + "}");
+        audit(
+                access,
+                "LOCKED_EXCEPTION_EDIT",
+                song,
+                reason,
+                "{\"status\":\"" + song.getStatus() + "\",\"orders\":" + changes + "}");
     }
 }

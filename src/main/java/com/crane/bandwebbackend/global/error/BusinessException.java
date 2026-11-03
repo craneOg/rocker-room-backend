@@ -4,7 +4,7 @@ import com.crane.bandwebbackend.global.response.Warning;
 import java.util.List;
 import lombok.Getter;
 
-// reason = 명세의 세부 사유(예: INVALID_STATE). warnings = 409 CONFIRMATION_REQUIRED의 경고 목록
+// reason = 명세의 세부 사유(예: INVALID_STATE). warnings = 409 CONFIRMATION_REQUIRED의 경고 목록(없으면 빈 목록)
 @Getter
 public class BusinessException extends RuntimeException {
 
@@ -24,7 +24,16 @@ public class BusinessException extends RuntimeException {
         super(message);
         this.errorCode = errorCode;
         this.reason = reason;
-        this.warnings = warnings;
+        this.warnings = List.copyOf(warnings);
+    }
+
+    // 검증 규칙 0.1: confirmed=true 없이 요청하면 409와 경고 목록. 문장만 있는 경고는 message로 담음
+    public static BusinessException confirmationRequired(String message, List<String> warnings) {
+        return new BusinessException(
+                ErrorCode.CONFIRMATION_REQUIRED,
+                null,
+                message,
+                warnings.stream().map(w -> Warning.builder().message(w).build()).toList());
     }
 
     public static BusinessException invalidState(String message) {

@@ -77,7 +77,8 @@ public class TeamQueryService {
         if (access.isAdmin()) {
             statusCounts = new EnumMap<>(TeamStatus.class);
             for (TeamStatus s : TeamStatus.values()) {
-                statusCounts.put(s, (int) teams.stream().filter(t -> t.getStatus() == s).count());
+                statusCounts.put(
+                        s, (int) teams.stream().filter(t -> t.getStatus() == s).count());
             }
         }
         return TeamResults.ListResult.builder()
@@ -124,7 +125,8 @@ public class TeamQueryService {
                                 .title(s.getTitle())
                                 .artist(s.getArtist())
                                 .setlistOrder(s.getSetlistOrder())
-                                .sessionCount(sessions.getOrDefault(s.getId(), List.of()).size())
+                                .sessionCount(sessions.getOrDefault(s.getId(), List.of())
+                                        .size())
                                 .requirementsSatisfied(SongSupport.requirementsSatisfied(
                                         requirements.getOrDefault(s.getId(), List.of()),
                                         sessions.getOrDefault(s.getId(), List.of())))

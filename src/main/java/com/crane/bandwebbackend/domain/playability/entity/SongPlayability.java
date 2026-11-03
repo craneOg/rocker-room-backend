@@ -26,9 +26,10 @@ import lombok.NoArgsConstructor;
 @Entity
 @Table(
         name = "song_playability",
-        uniqueConstraints = @UniqueConstraint(
-                name = "uk_song_playability",
-                columnNames = {"song_id", "performance_member_id", "part_id"}))
+        uniqueConstraints =
+                @UniqueConstraint(
+                        name = "uk_song_playability",
+                        columnNames = {"song_id", "performance_member_id", "part_id"}))
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class SongPlayability extends BaseTimeEntity {
 
@@ -91,6 +92,8 @@ public class SongPlayability extends BaseTimeEntity {
 
     // V-08: 입력자가 응답자 본인이 아니면 임원 대리 입력
     public boolean isEnteredByAdmin() {
-        return !submittedBy.getId().equals(performanceMember.getMembership().getUser().getId());
+        return !submittedBy
+                .getId()
+                .equals(performanceMember.getMembership().getUser().getId());
     }
 }

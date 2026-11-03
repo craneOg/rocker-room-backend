@@ -50,7 +50,11 @@ class AvailabilitySlotRulesTest {
     @DisplayName("AV-02 30분 단위가 아니면 400")
     void rejectsUnaligned() {
         assertThatThrownBy(() -> AvailabilityService.toUtcSlots(
-                        FROM, TO, List.<OffsetDateTime[]>of(slot("2026-10-12T19:15:00+09:00", "2026-10-12T20:00:00+09:00")), null, null))
+                        FROM,
+                        TO,
+                        List.<OffsetDateTime[]>of(slot("2026-10-12T19:15:00+09:00", "2026-10-12T20:00:00+09:00")),
+                        null,
+                        null))
                 .isInstanceOf(BusinessException.class)
                 .extracting("reason")
                 .isEqualTo("SLOT_NOT_ALIGNED");
@@ -60,7 +64,11 @@ class AvailabilitySlotRulesTest {
     @DisplayName("AV-03 요청 기간 밖 슬롯이면 400")
     void rejectsOutsideRange() {
         assertThatThrownBy(() -> AvailabilityService.toUtcSlots(
-                        FROM, TO, List.<OffsetDateTime[]>of(slot("2026-10-18T23:30:00+09:00", "2026-10-19T00:30:00+09:00")), null, null))
+                        FROM,
+                        TO,
+                        List.<OffsetDateTime[]>of(slot("2026-10-18T23:30:00+09:00", "2026-10-19T00:30:00+09:00")),
+                        null,
+                        null))
                 .isInstanceOf(BusinessException.class)
                 .extracting("reason")
                 .isEqualTo("OUTSIDE_RANGE");

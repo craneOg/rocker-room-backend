@@ -48,9 +48,8 @@ public class VoteService {
         EvaluationSnapshot snap = evaluationService.snapshot(access.performanceId());
         Long me = access.myMemberId();
         boolean inScope = me != null && snap.targets(song, false).contains(me);
-        Set<Long> sessionIds = access.isGuest()
-                ? EvaluationService.sessionMemberIds(songSupport.sessionsOf(songId))
-                : Set.of();
+        Set<Long> sessionIds =
+                access.isGuest() ? EvaluationService.sessionMemberIds(songSupport.sessionsOf(songId)) : Set.of();
         // GUEST는 무관한 곡을 404
         if (!SongSupport.canSee(access, song, snap.teamMembers(), sessionIds) || (access.isGuest() && !inScope)) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "곡을 찾을 수 없습니다.");
@@ -65,9 +64,13 @@ public class VoteService {
             rows = snap.voteOf(songId, me).stream().toList();
         }
         return rows.stream()
-                .filter(v -> performanceMemberId == null || v.getPerformanceMember().getId().equals(performanceMemberId))
+                .filter(v -> performanceMemberId == null
+                        || v.getPerformanceMember().getId().equals(performanceMemberId))
                 .map(v -> EvaluationRows.Vote.of(
-                        v, access.isAdmin() ? targets.contains(v.getPerformanceMember().getId()) : null))
+                        v,
+                        access.isAdmin()
+                                ? targets.contains(v.getPerformanceMember().getId())
+                                : null))
                 .toList();
     }
 
@@ -146,7 +149,8 @@ public class VoteService {
     }
 
     // 공연 ACTIVE, 곡 PROPOSED, 투표 OPEN·마감 전, 후보 범위 팀 검사
-    private Song requireInputOpen(PerformanceAccess access, Long songId, PerformanceMember pm, PerformancePolicy policy) {
+    private Song requireInputOpen(
+            PerformanceAccess access, Long songId, PerformanceMember pm, PerformancePolicy policy) {
         access.requireEditable();
         access.requireStatus(PerformanceStatus.ACTIVE);
         Song song = songSupport.getSong(access.performanceId(), songId);
@@ -154,7 +158,8 @@ public class VoteService {
             throw BusinessException.invalidState("후보곡에만 투표할 수 있습니다.");
         }
         PerformanceAccess.requireOpen(policy.getVoteState(), policy.getVoteDeadline(), "VOTE_CLOSED");
-        if (song.getCandidateTeam() != null && !teamService.isMember(song.getCandidateTeam().getId(), pm.getId())) {
+        if (song.getCandidateTeam() != null
+                && !teamService.isMember(song.getCandidateTeam().getId(), pm.getId())) {
             throw new BusinessException(ErrorCode.FORBIDDEN, "OUT_OF_CANDIDATE_SCOPE", "팀 후보곡은 팀원만 투표할 수 있습니다.");
         }
         return song;

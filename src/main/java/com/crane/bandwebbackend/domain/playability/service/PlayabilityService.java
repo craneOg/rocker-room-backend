@@ -54,9 +54,8 @@ public class PlayabilityService {
         Long me = access.myMemberId();
         Set<Long> targets = snap.targets(song, false);
         boolean inScope = me != null && targets.contains(me);
-        Set<Long> sessionIds = access.isGuest()
-                ? EvaluationService.sessionMemberIds(songSupport.sessionsOf(songId))
-                : Set.of();
+        Set<Long> sessionIds =
+                access.isGuest() ? EvaluationService.sessionMemberIds(songSupport.sessionsOf(songId)) : Set.of();
         if (!SongSupport.canSee(access, song, snap.teamMembers(), sessionIds) || (access.isGuest() && !inScope)) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "곡을 찾을 수 없습니다.");
         }
@@ -69,9 +68,14 @@ public class PlayabilityService {
             rows = snap.playsOf(songId, me);
         }
         return rows.stream()
-                .filter(p -> performanceMemberId == null || p.getPerformanceMember().getId().equals(performanceMemberId))
+                .filter(p -> performanceMemberId == null
+                        || p.getPerformanceMember().getId().equals(performanceMemberId))
                 .map(p -> EvaluationRows.Playability.of(
-                        p, access.isAdmin(), access.isAdmin() ? targets.contains(p.getPerformanceMember().getId()) : null))
+                        p,
+                        access.isAdmin(),
+                        access.isAdmin()
+                                ? targets.contains(p.getPerformanceMember().getId())
+                                : null))
                 .toList();
     }
 
@@ -148,7 +152,8 @@ public class PlayabilityService {
         PerformancePolicy policy = accessService.getPolicy(access.performanceId());
         PerformanceAccess.requireOpen(
                 policy.getPlayabilityState(), policy.getPlayabilityDeadline(), "PLAYABILITY_CLOSED");
-        if (song.getCandidateTeam() != null && !teamService.isMember(song.getCandidateTeam().getId(), pm.getId())) {
+        if (song.getCandidateTeam() != null
+                && !teamService.isMember(song.getCandidateTeam().getId(), pm.getId())) {
             throw new BusinessException(ErrorCode.FORBIDDEN, "OUT_OF_CANDIDATE_SCOPE", "팀 후보곡은 팀원만 응답할 수 있습니다.");
         }
         return song;

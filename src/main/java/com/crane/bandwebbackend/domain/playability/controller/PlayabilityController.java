@@ -71,8 +71,7 @@ public class PlayabilityController {
             @PathVariable Long partId,
             @AuthenticationPrincipal Long userId,
             @Valid @RequestBody PlayabilityRequest req) {
-        return playabilityService.saveFor(
-                ref(clubId, performanceId, userId), songId, performanceMemberId, partId, req);
+        return playabilityService.saveFor(ref(clubId, performanceId, userId), songId, performanceMemberId, partId, req);
     }
 
     // API-094

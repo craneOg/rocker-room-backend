@@ -1,9 +1,9 @@
 package com.crane.bandwebbackend.domain.setlist.service;
 
+import com.crane.bandwebbackend.domain.membership.entity.MemberType;
 import com.crane.bandwebbackend.domain.participant.service.PerformanceAccess;
 import com.crane.bandwebbackend.domain.participant.service.PerformanceAccessService;
 import com.crane.bandwebbackend.domain.participant.service.PerformanceRef;
-import com.crane.bandwebbackend.domain.membership.entity.MemberType;
 import com.crane.bandwebbackend.domain.performance.entity.PerformanceStatus;
 import com.crane.bandwebbackend.domain.setlist.dto.SetlistItemResponse;
 import com.crane.bandwebbackend.domain.setlist.dto.SetlistRequest;
@@ -52,7 +52,8 @@ public class SetlistService {
         Map<Long, List<SongSessionMember>> sessions = songSupport.sessionsOfPerformance(pid).stream()
                 .collect(Collectors.groupingBy(s -> s.getSong().getId()));
         Map<Long, Set<Long>> teamMembers = teamService.memberIdsByTeam(pid);
-        boolean guestSeesAll = access.status() == PerformanceStatus.LOCKED || access.status() == PerformanceStatus.FINISHED;
+        boolean guestSeesAll =
+                access.status() == PerformanceStatus.LOCKED || access.status() == PerformanceStatus.FINISHED;
         return songService.getConfirmedSongs(pid).stream()
                 .sorted(ORDER)
                 .map(song -> {
@@ -62,7 +63,9 @@ public class SetlistService {
                                     access,
                                     song,
                                     teamMembers,
-                                    rows.stream().map(r -> r.getPerformanceMember().getId()).collect(Collectors.toSet()));
+                                    rows.stream()
+                                            .map(r -> r.getPerformanceMember().getId())
+                                            .collect(Collectors.toSet()));
                     if (!related && !guestSeesAll) {
                         return null;
                     }
@@ -98,10 +101,12 @@ public class SetlistService {
             throw new BusinessException(
                     ErrorCode.VERSION_CONFLICT, "SETLIST_CHANGED", "선정곡 목록이 바뀌었습니다. 새로고침 후 다시 저장해 주세요.");
         }
-        List<Integer> assigned = orders.values().stream().filter(Objects::nonNull).sorted().toList();
+        List<Integer> assigned =
+                orders.values().stream().filter(Objects::nonNull).sorted().toList();
         for (int i = 0; i < assigned.size(); i++) {
             if (assigned.get(i) != i + 1) {
-                throw new BusinessException(ErrorCode.VALIDATION_ERROR, "INVALID_ORDER", "순서는 1부터 빠짐없이 중복 없이 지정해야 합니다.");
+                throw new BusinessException(
+                        ErrorCode.VALIDATION_ERROR, "INVALID_ORDER", "순서는 1부터 빠짐없이 중복 없이 지정해야 합니다.");
             }
         }
         // LOCKED는 전곡 배정 상태를 유지(L-01)
@@ -124,22 +129,30 @@ public class SetlistService {
                         .title(song.getTitle())
                         .artist(song.getArtist())
                         .setlistOrder(song.getSetlistOrder())
-                        .assignedTeamId(full && song.getAssignedTeam() != null ? song.getAssignedTeam().getId() : null)
+                        .assignedTeamId(
+                                full && song.getAssignedTeam() != null
+                                        ? song.getAssignedTeam().getId()
+                                        : null)
                         .assignedTeamName(
-                                full && song.getAssignedTeam() != null ? song.getAssignedTeam().getName() : null)
+                                full && song.getAssignedTeam() != null
+                                        ? song.getAssignedTeam().getName()
+                                        : null)
                         .version(full ? song.getVersion() : null)
                         .build())
                 .sessions(rows.stream()
                         .map(s -> SongViews.Session.builder()
                                 .id(s.getId())
                                 .performanceMemberId(s.getPerformanceMember().getId())
-                                .membershipId(s.getPerformanceMember().getMembership().getId())
+                                .membershipId(
+                                        s.getPerformanceMember().getMembership().getId())
                                 .displayName(PerformanceAccessService.displayName(s.getPerformanceMember()))
                                 .partId(s.getPart().getId())
                                 .partName(s.getPart().getName())
                                 .isSupport(song.getAssignedTeam() != null
-                                        && !team.contains(s.getPerformanceMember().getId()))
-                                .isGuest(s.getPerformanceMember().getMembership().getMemberType() == MemberType.GUEST)
+                                        && !team.contains(
+                                                s.getPerformanceMember().getId()))
+                                .isGuest(
+                                        s.getPerformanceMember().getMembership().getMemberType() == MemberType.GUEST)
                                 .build())
                         .toList())
                 .build();

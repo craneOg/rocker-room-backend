@@ -43,8 +43,10 @@ public class EvaluationSnapshot {
         this.members = members.stream()
                 .collect(Collectors.toMap(PerformanceMember::getId, m -> m, (a, b) -> a, LinkedHashMap::new));
         this.teamMembers = teamMembers;
-        this.playsBySong = plays.stream().collect(Collectors.groupingBy(p -> p.getSong().getId()));
-        this.votesBySong = votes.stream().collect(Collectors.groupingBy(v -> v.getSong().getId()));
+        this.playsBySong =
+                plays.stream().collect(Collectors.groupingBy(p -> p.getSong().getId()));
+        this.votesBySong =
+                votes.stream().collect(Collectors.groupingBy(v -> v.getSong().getId()));
     }
 
     public VoteMethod voteMethod() {
@@ -120,13 +122,11 @@ public class EvaluationSnapshot {
         List<SongPlayability> plays = validPlays(song);
         Map<PlayabilityAnswer, Integer> byAnswer = new EnumMap<>(PlayabilityAnswer.class);
         for (PlayabilityAnswer a : PlayabilityAnswer.values()) {
-            byAnswer.put(
-                    a,
-                    (int) plays.stream()
-                            .filter(p -> p.getAnswer() == a)
-                            .map(p -> p.getPerformanceMember().getId())
-                            .distinct()
-                            .count());
+            byAnswer.put(a, (int) plays.stream()
+                    .filter(p -> p.getAnswer() == a)
+                    .map(p -> p.getPerformanceMember().getId())
+                    .distinct()
+                    .count());
         }
         Map<Long, List<SongPlayability>> byPart = plays.stream()
                 .collect(Collectors.groupingBy(p -> p.getPart().getId(), TreeMap::new, Collectors.toList()));

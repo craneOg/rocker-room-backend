@@ -165,7 +165,10 @@ public final class SongViews {
         public static Audition of(AuditionEntry a) {
             return Audition.builder()
                     .id(a.getId())
-                    .performanceMemberId(a.getPerformanceMember() == null ? null : a.getPerformanceMember().getId())
+                    .performanceMemberId(
+                            a.getPerformanceMember() == null
+                                    ? null
+                                    : a.getPerformanceMember().getId())
                     .partId(a.getPart() == null ? null : a.getPart().getId())
                     .partName(a.getPart() == null ? null : a.getPart().getName())
                     .result(a.getResult())

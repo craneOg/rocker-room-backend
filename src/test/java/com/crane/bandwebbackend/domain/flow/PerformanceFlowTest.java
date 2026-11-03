@@ -60,17 +60,18 @@ class PerformanceFlowTest {
         String teamId = JsonPath.read(team, "$.data.team.id");
 
         // API-154 T-07
-        send(get(BASE + "/teams/default-name"), MEMBER, null).andExpect(jsonPath("$.data.name").value("2팀"));
+        send(get(BASE + "/teams/default-name"), MEMBER, null)
+                .andExpect(jsonPath("$.data.name").value("2팀"));
         // API-061·063
-        send(get(BASE + "/teams"), ADMIN, null).andExpect(jsonPath("$.data.statusCounts.APPROVED").value(1));
+        send(get(BASE + "/teams"), ADMIN, null)
+                .andExpect(jsonPath("$.data.statusCounts.APPROVED").value(1));
         send(get(BASE + "/teams/" + teamId), MEMBER, null)
                 .andExpect(jsonPath("$.data.members.length()").value(2))
                 .andExpect(jsonPath("$.data.members[0].isRegisteredPart").value(true));
 
         // API-076 부원 팀 범위 후보곡
         String song = send(post(BASE + "/songs"), MEMBER, """
-                        {"title":"곡A","artist":"X","referenceUrl":"https://example.com/a","candidateTeamId":"%s"}"""
-                        .formatted(teamId))
+                        {"title":"곡A","artist":"X","referenceUrl":"https://example.com/a","candidateTeamId":"%s"}""".formatted(teamId))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.song.status").value("PROPOSED"))
                 .andExpect(jsonPath("$.data.song.candidateTeamName").value("1팀"))
@@ -90,8 +91,7 @@ class PerformanceFlowTest {
                 .andExpect(jsonPath("$.data.answer").value("POSSIBLE"))
                 .andExpect(jsonPath("$.data.enteredByAdmin").value(false));
         send(put(BASE + "/songs/" + songId + "/votes/me"), MEMBER, """
-                        {"score":1}""")
-                .andExpect(status().isOk());
+                        {"score":1}""").andExpect(status().isOk());
 
         // V-05 찬성 최대 1곡 → 두 번째 곡 찬성은 422
         String other = send(post(BASE + "/songs"), ADMIN, """
@@ -121,8 +121,7 @@ class PerformanceFlowTest {
         // API-080 확정: 담당 팀 기본값 = APPROVED 후보 팀, 연주자 함께
         Object version = JsonPath.read(song, "$.data.song.version");
         String confirmed = send(post(BASE + "/songs/" + songId + "/confirm"), ADMIN, """
-                        {"version":"%s","setlistOrder":1,"sessions":[{"performanceMemberId":"2","partId":"1"}]}"""
-                        .formatted(version))
+                        {"version":"%s","setlistOrder":1,"sessions":[{"performanceMemberId":"2","partId":"1"}]}""".formatted(version))
                 .andExpect(jsonPath("$.data.song.status").value("CONFIRMED"))
                 .andExpect(jsonPath("$.data.song.assignedTeamId").value(teamId))
                 .andReturn()
@@ -142,13 +141,13 @@ class PerformanceFlowTest {
         // API-087·088
         Object songVersion = JsonPath.read(confirmed, "$.data.song.version");
         send(put(BASE + "/setlist/order"), ADMIN, """
-                        {"version":"0","items":[{"songId":"%s","order":null,"version":"%s"}]}"""
-                        .formatted(songId, songVersion))
+                        {"version":"0","items":[{"songId":"%s","order":null,"version":"%s"}]}""".formatted(songId, songVersion))
                 .andExpect(jsonPath("$.data[0].song.setlistOrder").doesNotExist());
 
         // API-082 선정곡 제외는 확인 필요(0.1)
         send(post(BASE + "/songs/" + songId + "/reject"), ADMIN, """
-                        {"version":"%s"}""".formatted(Integer.parseInt(songVersion.toString()) + 1))
+                        {"version":"%s"}""".formatted(
+                                Integer.parseInt(songVersion.toString()) + 1))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.error.code").value("CONFIRMATION_REQUIRED"))
                 .andExpect(jsonPath("$.error.warnings[0].type").value("ASSIGNMENT_RELEASED"));
@@ -162,7 +161,8 @@ class PerformanceFlowTest {
                 .andExpect(jsonPath("$.data.participantCount").value(2))
                 .andExpect(jsonPath("$.data.respondedCount").value(1))
                 .andExpect(jsonPath("$.data.slots.length()").value(2))
-                .andExpect(jsonPath("$.data.missingAvailabilityMemberIds.length()").value(1));
+                .andExpect(
+                        jsonPath("$.data.missingAvailabilityMemberIds.length()").value(1));
         send(common().param("forAllParticipants", "true"), MEMBER, null)
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.error.details[0].reason").value("TARGET_NOT_ALLOWED"));

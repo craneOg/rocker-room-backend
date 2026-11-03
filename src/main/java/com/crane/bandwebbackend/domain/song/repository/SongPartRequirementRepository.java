@@ -9,7 +9,8 @@ import org.springframework.data.jpa.repository.Query;
 
 public interface SongPartRequirementRepository extends JpaRepository<SongPartRequirement, SongPartRequirementId> {
 
-    @Query("select r from SongPartRequirement r join fetch r.part where r.song.id = :songId order by r.part.displayOrder")
+    @Query(
+            "select r from SongPartRequirement r join fetch r.part where r.song.id = :songId order by r.part.displayOrder")
     List<SongPartRequirement> findBySongId(Long songId);
 
     @Query("select r from SongPartRequirement r join fetch r.part where r.song.performance.id = :performanceId")

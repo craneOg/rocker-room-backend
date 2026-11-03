@@ -14,7 +14,7 @@ public class TeamMemberResponse {
     private final Long membershipId;
     private final Long performanceMemberId;
     private final String displayName;
-    // 본인이 비공개로 정했으면 NULL(본인·Super Admin 제외)
+    // U-13: 본인이 비공개로 정했으면 본인 외에는 NULL
     private final String profileImageUrl;
 
     @Getter(onMethod_ = @JsonProperty("isLeader"))

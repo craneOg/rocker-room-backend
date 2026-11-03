@@ -41,7 +41,14 @@ public class SongController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         return songService.list(
-                ref(clubId, performanceId, userId), status, candidateTeamId, proposedByMe, unresponded, sort, page, size);
+                ref(clubId, performanceId, userId),
+                status,
+                candidateTeamId,
+                proposedByMe,
+                unresponded,
+                sort,
+                page,
+                size);
     }
 
     // API-076

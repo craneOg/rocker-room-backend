@@ -62,8 +62,7 @@ public class PerformanceAccessService {
             throw notFound();
         }
         // 소속·참여자를 한 번에(모든 요청이 지나가는 경로)
-        Object[] row = em
-                .createQuery(
+        Object[] row = em.createQuery(
                         "select m, pm from Membership m join fetch m.club join fetch m.user"
                                 + " left join PerformanceMember pm on pm.membership = m and pm.performance.id = :pid"
                                 + " where m.club.id = :clubId and m.user.id = :userId and m.status in :statuses",
@@ -110,8 +109,7 @@ public class PerformanceAccessService {
         if (ids.isEmpty()) {
             return Map.of();
         }
-        Map<Long, PerformanceMember> found = em
-                .createQuery(
+        Map<Long, PerformanceMember> found = em.createQuery(
                         "select pm from PerformanceMember pm join fetch pm.membership m join fetch m.user"
                                 + " where pm.performance.id = :pid and pm.id in :ids",
                         PerformanceMember.class)
@@ -172,9 +170,7 @@ public class PerformanceAccessService {
         if (membershipIds.isEmpty()) {
             return Map.of();
         }
-        return em
-                .createQuery(
-                        "select mp from MembershipPart mp where mp.membership.id in :ids", MembershipPart.class)
+        return em.createQuery("select mp from MembershipPart mp where mp.membership.id in :ids", MembershipPart.class)
                 .setParameter("ids", membershipIds)
                 .getResultStream()
                 .collect(Collectors.groupingBy(
@@ -199,8 +195,8 @@ public class PerformanceAccessService {
         if (ids.isEmpty()) {
             return Map.of();
         }
-        Map<Long, Part> found = em
-                .createQuery("select p from Part p where p.club.id = :clubId and p.id in :ids", Part.class)
+        Map<Long, Part> found = em.createQuery(
+                        "select p from Part p where p.club.id = :clubId and p.id in :ids", Part.class)
                 .setParameter("clubId", clubId)
                 .setParameter("ids", ids)
                 .getResultStream()

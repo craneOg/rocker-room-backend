@@ -43,10 +43,10 @@ public class RefreshToken extends BaseCreatedTimeEntity {
     @Column(nullable = false, length = 36)
     private String familyId;
 
-    // SHA-256 16진수. 평문 저장 금지
-    @JdbcTypeCode(SqlTypes.CHAR)
-    @Column(nullable = false, length = 64)
-    private String tokenHash;
+    // SHA-256(32바이트 원시값, one_time_token과 동일 형식). 평문 저장 금지
+    @JdbcTypeCode(SqlTypes.BINARY)
+    @Column(nullable = false, length = 32)
+    private byte[] tokenHash;
 
     // min(발급 + 30일, familyExpiresAt)
     @Column(nullable = false)

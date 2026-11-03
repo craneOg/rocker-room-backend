@@ -17,6 +17,8 @@ import jakarta.persistence.UniqueConstraint;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Getter
 @Entity
@@ -51,9 +53,19 @@ public class Club extends BaseTimeEntity {
     @Column(nullable = false, length = 20)
     private ClubStatus status;
 
-    // NULL = 코드 가입 미사용. 재발급 = 값 교체
-    @Column(length = 16)
+    // NULL = 코드 가입 미사용. 재발급 = 값 교체. 서버 발급 10자 A-Z2-9(ck_club_join_code_format)
+    @JdbcTypeCode(SqlTypes.CHAR)
+    @Column(length = 10)
     private String joinCode;
+
+    // NULL이면 기본 이미지
+    @Column(length = 500)
+    private String profileImageUrl;
+
+    // #RRGGBB 대문자 16진수(ck_club_theme_color_format). NULL이면 기본 색상
+    @JdbcTypeCode(SqlTypes.CHAR)
+    @Column(length = 7)
+    private String themeColor;
 
     @Column(nullable = false)
     private boolean isSearchable;

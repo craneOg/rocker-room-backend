@@ -62,7 +62,8 @@ public class TeamService {
     private static final Set<MembershipStatus> ELIGIBLE =
             Set.of(MembershipStatus.ACTIVE, MembershipStatus.ON_LEAVE, MembershipStatus.GRADUATED);
     // UI-15: 부원 신청은 ACTIVE·ON_LEAVE 정회원만. 졸업·객원은 임원이 지정
-    private static final Set<MembershipStatus> SELF_ELIGIBLE = Set.of(MembershipStatus.ACTIVE, MembershipStatus.ON_LEAVE);
+    private static final Set<MembershipStatus> SELF_ELIGIBLE =
+            Set.of(MembershipStatus.ACTIVE, MembershipStatus.ON_LEAVE);
 
     private final TeamRepository teamRepository;
     private final TeamMemberRepository teamMemberRepository;
@@ -128,7 +129,8 @@ public class TeamService {
     public TeamResponse toResponse(
             PerformanceAccess access, Team team, List<TeamMember> members, long assigned, long candidates) {
         boolean mine = access.myMemberId() != null
-                && members.stream().anyMatch(m -> m.getPerformanceMember().getId().equals(access.myMemberId()));
+                && members.stream()
+                        .anyMatch(m -> m.getPerformanceMember().getId().equals(access.myMemberId()));
         boolean privileged = access.isAdmin() || mine;
         PerformanceMember leader = team.getLeader();
         return TeamResponse.builder()
@@ -137,7 +139,8 @@ public class TeamService {
                 .status(team.getStatus())
                 .source(team.getSource())
                 .isDefault(team.isDefault())
-                .leaderMembershipId(leader == null ? null : leader.getMembership().getId())
+                .leaderMembershipId(
+                        leader == null ? null : leader.getMembership().getId())
                 .leaderDisplayName(leader == null ? null : PerformanceAccessService.displayName(leader))
                 .rejectReason(privileged && team.getStatus() == TeamStatus.REJECTED ? team.getRejectReason() : null)
                 .memberCount(members.size())
@@ -177,13 +180,16 @@ public class TeamService {
                             .membershipId(ms.getId())
                             .performanceMemberId(pm.getId())
                             .displayName(PerformanceAccessService.displayName(ms))
-                            .profileImageUrl(ms.getUser().profileImageUrlFor(access.getMembership().getUser()))
+                            .profileImageUrl(ms.getUser()
+                                    .profileImageUrlFor(access.getMembership().getUser()))
                             .isLeader(team.isLeader(pm.getId()))
                             .partId(part == null ? null : part.getId())
                             .partName(part == null ? null : part.getName())
                             .participationStatus(pm.getStatus())
                             .isRegisteredPart(part == null
-                                    || registered.getOrDefault(ms.getId(), Set.of()).contains(part.getId()))
+                                    || registered
+                                            .getOrDefault(ms.getId(), Set.of())
+                                            .contains(part.getId()))
                             .build();
                 })
                 .toList();
@@ -250,22 +256,31 @@ public class TeamService {
             requested.put(access.getMembership().getId(), null);
         }
         for (TeamRequests.Member m : req.getMembers() == null ? List.<TeamRequests.Member>of() : req.getMembers()) {
-            if (requested.containsKey(m.getMembershipId()) && !m.getMembershipId().equals(access.getMembership().getId())) {
+            if (requested.containsKey(m.getMembershipId())
+                    && !m.getMembershipId().equals(access.getMembership().getId())) {
                 throw new BusinessException(ErrorCode.VALIDATION_ERROR, "DUPLICATE_MEMBER", "같은 부원이 중복되었습니다.");
             }
             requested.put(m.getMembershipId(), m.getPartId());
         }
         Map<Long, Part> parts = accessService.getActiveParts(
-                access.clubId(), requested.values().stream().filter(Objects::nonNull).collect(Collectors.toSet()));
+                access.clubId(),
+                requested.values().stream().filter(Objects::nonNull).collect(Collectors.toSet()));
 
-        Long leaderMembershipId = access.isAdmin() ? req.getLeaderMembershipId() : access.getMembership().getId();
+        Long leaderMembershipId = access.isAdmin()
+                ? req.getLeaderMembershipId()
+                : access.getMembership().getId();
         if (leaderMembershipId != null && !requested.containsKey(leaderMembershipId)) {
             throw new BusinessException(ErrorCode.RULE_VIOLATION, "LEADER_NOT_TEAM_MEMBER", "팀장은 팀원 중에서 지정해야 합니다.");
         }
 
         Team team = access.isAdmin()
-                ? Team.createApproved(access.getPerformance(), name, TeamSource.ADMIN, access.getMembership().getUser())
-                : Team.createDraft(access.getPerformance(), name, access.getMembership().getUser());
+                ? Team.createApproved(
+                        access.getPerformance(),
+                        name,
+                        TeamSource.ADMIN,
+                        access.getMembership().getUser())
+                : Team.createDraft(
+                        access.getPerformance(), name, access.getMembership().getUser());
         // 팀장 FK(fk_team_leader_is_member) 때문에 팀 → 팀원 → 팀장 순서로 저장
         teamRepository.saveAndFlush(team);
         List<TeamMember> members = new ArrayList<>();
@@ -354,7 +369,8 @@ public class TeamService {
         team.verifyVersion(req.getVersion());
         requireMemberEditable(access, team, req.getReason());
         TeamMember member = getTeamMember(team, teamMemberId);
-        member.changePart(req.getPartId() == null ? null : accessService.getActivePart(access.clubId(), req.getPartId()));
+        member.changePart(
+                req.getPartId() == null ? null : accessService.getActivePart(access.clubId(), req.getPartId()));
         forceIncrement(team);
         return result(access, team, partWarnings(List.of(member)));
     }
@@ -376,18 +392,21 @@ public class TeamService {
         }
         if (req.isRemoveSessions()) {
             // 담당 팀 선정곡에서 그 사람의 연주자 행 제거. 마지막 연주자가 없어지는 곡이 있으면 거절
-            Map<Song, List<SongSessionMember>> bySong = songSupport.sessionsOfPerformance(access.performanceId()).stream()
-                    .filter(s -> s.getSong().getStatus() == SongStatus.CONFIRMED
-                            && s.getSong().getAssignedTeam() != null
-                            && s.getSong().getAssignedTeam().getId().equals(teamId))
-                    .collect(Collectors.groupingBy(SongSessionMember::getSong));
+            Map<Song, List<SongSessionMember>> bySong =
+                    songSupport.sessionsOfPerformance(access.performanceId()).stream()
+                            .filter(s -> s.getSong().getStatus() == SongStatus.CONFIRMED
+                                    && s.getSong().getAssignedTeam() != null
+                                    && s.getSong().getAssignedTeam().getId().equals(teamId))
+                            .collect(Collectors.groupingBy(SongSessionMember::getSong));
             List<Long> songIds = new ArrayList<>();
             bySong.forEach((song, sessions) -> {
-                boolean has = sessions.stream().anyMatch(s -> s.getPerformanceMember().getId().equals(pmId));
+                boolean has = sessions.stream()
+                        .anyMatch(s -> s.getPerformanceMember().getId().equals(pmId));
                 if (!has) {
                     return;
                 }
-                if (sessions.stream().allMatch(s -> s.getPerformanceMember().getId().equals(pmId))) {
+                if (sessions.stream()
+                        .allMatch(s -> s.getPerformanceMember().getId().equals(pmId))) {
                     throw new BusinessException(
                             ErrorCode.STATE_CONFLICT, "RELATION_CONFLICT", "연주자가 한 명도 남지 않는 선정곡이 있습니다.");
                 }
@@ -445,7 +464,8 @@ public class TeamService {
             if (team.getLeader() == null) {
                 throw new BusinessException(ErrorCode.RULE_VIOLATION, "LEADER_REQUIRED", "팀장을 지정해야 제출할 수 있습니다.");
             }
-            if (membersOf(teamId).stream().noneMatch(m -> m.getPerformanceMember().isActiveParticipant())) {
+            if (membersOf(teamId).stream()
+                    .noneMatch(m -> m.getPerformanceMember().isActiveParticipant())) {
                 throw new BusinessException(ErrorCode.RULE_VIOLATION, "MEMBERS_REQUIRED", "팀원이 있어야 제출할 수 있습니다.");
             }
             team.submit();
@@ -506,8 +526,7 @@ public class TeamService {
 
     // 다른 팀의 승인 팀원이거나 다른 승인 근거(임원 지정·본인 신청)가 있으면 그대로 둠
     private List<Long> rejectTeamOnlyApplicants(Long performanceId, Long teamId) {
-        Map<Long, Team> teams =
-                getTeams(performanceId).stream().collect(Collectors.toMap(Team::getId, t -> t));
+        Map<Long, Team> teams = getTeams(performanceId).stream().collect(Collectors.toMap(Team::getId, t -> t));
         List<TeamMember> all = membersOfPerformance(performanceId);
         Set<Long> inOtherApproved = all.stream()
                 .filter(m -> !m.getTeam().getId().equals(teamId)
@@ -602,7 +621,8 @@ public class TeamService {
                 "TEAM",
                 team.getId(),
                 req.getReason(),
-                "{\"from\":" + previous.stream().map(t -> String.valueOf(t.getId())).toList() + ",\"to\":" + team.getId()
+                "{\"from\":"
+                        + previous.stream().map(t -> String.valueOf(t.getId())).toList() + ",\"to\":" + team.getId()
                         + "}"));
         return result(access, team, List.of());
     }
@@ -615,13 +635,16 @@ public class TeamService {
      */
     @Transactional
     public Team createFromSessions(
-            PerformanceAccess access, Song song, List<SongSessionMember> sessions, String name, Long leaderMembershipId) {
+            PerformanceAccess access,
+            Song song,
+            List<SongSessionMember> sessions,
+            String name,
+            Long leaderMembershipId) {
         if (sessions.isEmpty()) {
             throw new BusinessException(ErrorCode.RULE_VIOLATION, "SESSIONS_REQUIRED", "곡에 연주자가 없습니다.");
         }
         if (sessions.stream().anyMatch(s -> s.getPerformanceMember().getStatus() != PerformanceMemberStatus.APPROVED)) {
-            throw new BusinessException(
-                    ErrorCode.RULE_VIOLATION, "SESSIONS_NOT_APPROVED", "승인된 참여자만 팀원이 될 수 있습니다.");
+            throw new BusinessException(ErrorCode.RULE_VIOLATION, "SESSIONS_NOT_APPROVED", "승인된 참여자만 팀원이 될 수 있습니다.");
         }
         if (sessions.stream().anyMatch(s -> !s.getPart().isActive())) {
             throw new BusinessException(ErrorCode.STATE_CONFLICT, "PART_INACTIVE", "사용 중지된 파트가 있습니다.");
@@ -646,7 +669,10 @@ public class TeamService {
         }
 
         Team team = teamRepository.saveAndFlush(Team.createApproved(
-                access.getPerformance(), teamName, TeamSource.FROM_SESSIONS, access.getMembership().getUser()));
+                access.getPerformance(),
+                teamName,
+                TeamSource.FROM_SESSIONS,
+                access.getMembership().getUser()));
         teamMemberRepository.saveAllAndFlush(firstPart.entrySet().stream()
                 .map(e -> TeamMember.of(team, e.getKey(), e.getValue()))
                 .toList());

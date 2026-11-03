@@ -92,14 +92,19 @@ public class SongSupport {
             return true;
         }
         Long me = access.myMemberId();
-        boolean proposer = song.getProposedBy().getId().equals(access.getMembership().getId());
+        boolean proposer =
+                song.getProposedBy().getId().equals(access.getMembership().getId());
         boolean candidateMember = song.getCandidateTeam() != null
                 && me != null
-                && teamMembers.getOrDefault(song.getCandidateTeam().getId(), Set.of()).contains(me);
+                && teamMembers
+                        .getOrDefault(song.getCandidateTeam().getId(), Set.of())
+                        .contains(me);
         if (access.isGuest()) {
             boolean assignedMember = song.getAssignedTeam() != null
                     && me != null
-                    && teamMembers.getOrDefault(song.getAssignedTeam().getId(), Set.of()).contains(me);
+                    && teamMembers
+                            .getOrDefault(song.getAssignedTeam().getId(), Set.of())
+                            .contains(me);
             return proposer || candidateMember || assignedMember || (me != null && sessionMemberIds.contains(me));
         }
         if (song.getCandidateTeam() != null && song.getStatus() != SongStatus.CONFIRMED) {
@@ -114,8 +119,8 @@ public class SongSupport {
         if (requirements.isEmpty()) {
             return null;
         }
-        Map<Long, Long> assigned = sessions.stream()
-                .collect(Collectors.groupingBy(m -> m.getPart().getId(), Collectors.counting()));
+        Map<Long, Long> assigned =
+                sessions.stream().collect(Collectors.groupingBy(m -> m.getPart().getId(), Collectors.counting()));
         return requirements.stream()
                 .allMatch(r -> assigned.getOrDefault(r.getPart().getId(), 0L) >= r.getRequiredCount());
     }

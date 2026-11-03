@@ -22,9 +22,10 @@ import lombok.NoArgsConstructor;
 @Entity
 @Table(
         name = "team_member",
-        uniqueConstraints = @UniqueConstraint(
-                name = "uk_team_member",
-                columnNames = {"team_id", "performance_member_id"}))
+        uniqueConstraints =
+                @UniqueConstraint(
+                        name = "uk_team_member",
+                        columnNames = {"team_id", "performance_member_id"}))
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class TeamMember extends BaseCreatedTimeEntity {
 

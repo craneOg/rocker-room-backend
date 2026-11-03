@@ -179,8 +179,10 @@ public class EvaluationService {
             }
             Set<Long> tabTargets = tab == EvaluationType.PLAYABILITY ? playTargets : voteTargets;
             Set<Long> tabAnswered = (tab == EvaluationType.PLAYABILITY
-                            ? songPlays.stream().map(p -> p.getPerformanceMember().getId())
-                            : songVotes.stream().map(v -> v.getPerformanceMember().getId()))
+                            ? songPlays.stream()
+                                    .map(p -> p.getPerformanceMember().getId())
+                            : songVotes.stream()
+                                    .map(v -> v.getPerformanceMember().getId()))
                     .collect(Collectors.toSet());
             columns.stream()
                     .map(PerformanceMember::getId)
@@ -205,10 +207,18 @@ public class EvaluationService {
                                 .id(s.getId())
                                 .title(s.getTitle())
                                 .artist(s.getArtist())
-                                .candidateTeamId(s.getCandidateTeam() == null ? null : s.getCandidateTeam().getId())
+                                .candidateTeamId(
+                                        s.getCandidateTeam() == null
+                                                ? null
+                                                : s.getCandidateTeam().getId())
                                 .build())
                         .toList())
-                .members(tabNames ? columns.stream().map(EvaluationRows.Member::of).toList() : null)
+                .members(
+                        tabNames
+                                ? columns.stream()
+                                        .map(EvaluationRows.Member::of)
+                                        .toList()
+                                : null)
                 .playability(plays)
                 .votes(votes)
                 .responseRate(

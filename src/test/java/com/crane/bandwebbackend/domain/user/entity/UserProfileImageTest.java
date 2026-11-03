@@ -19,12 +19,12 @@ class UserProfileImageTest {
     }
 
     @Test
-    @DisplayName("프로필 사진 비공개면 임원 포함 다른 사용자에게 NULL, 본인·Super Admin은 보임")
-    void hiddenUnlessSelfOrSuperAdmin() {
+    @DisplayName("U-13 프로필 사진 비공개면 본인만, 임원·Super Admin 포함 다른 사용자에게는 NULL")
+    void hiddenUnlessSelf() {
         User owner = of(1, false, false);
         assertThat(owner.profileImageUrlFor(of(2, true, false))).isNull();
         assertThat(owner.profileImageUrlFor(owner)).isEqualTo("https://img/1");
-        assertThat(owner.profileImageUrlFor(of(3, true, true))).isEqualTo("https://img/1");
+        assertThat(owner.profileImageUrlFor(of(3, true, true))).isNull();
         assertThat(of(4, true, false).profileImageUrlFor(of(2, true, false))).isEqualTo("https://img/4");
     }
 }

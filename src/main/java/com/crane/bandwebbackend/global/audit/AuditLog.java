@@ -45,7 +45,13 @@ public class AuditLog extends BaseCreatedTimeEntity {
     private String detail;
 
     public static AuditLog of(
-            Long clubId, Long actorUserId, String action, String targetType, Long targetId, String reason, String detail) {
+            Long clubId,
+            Long actorUserId,
+            String action,
+            String targetType,
+            Long targetId,
+            String reason,
+            String detail) {
         AuditLog log = new AuditLog();
         log.clubId = clubId;
         log.actorUserId = actorUserId;

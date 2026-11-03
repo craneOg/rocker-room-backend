@@ -25,9 +25,10 @@ import org.hibernate.type.SqlTypes;
 @Entity
 @Table(
         name = "song_vote",
-        uniqueConstraints = @UniqueConstraint(
-                name = "uk_song_vote",
-                columnNames = {"song_id", "performance_member_id"}))
+        uniqueConstraints =
+                @UniqueConstraint(
+                        name = "uk_song_vote",
+                        columnNames = {"song_id", "performance_member_id"}))
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class SongVote extends BaseTimeEntity {
 
@@ -73,6 +74,8 @@ public class SongVote extends BaseTimeEntity {
 
     // V-08: 입력자가 응답자 본인이 아니면 임원 대리 입력
     public boolean isEnteredByAdmin() {
-        return !submittedBy.getId().equals(performanceMember.getMembership().getUser().getId());
+        return !submittedBy
+                .getId()
+                .equals(performanceMember.getMembership().getUser().getId());
     }
 }
