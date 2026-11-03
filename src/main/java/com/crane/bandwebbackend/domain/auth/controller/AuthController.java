@@ -1,0 +1,64 @@
+package com.crane.bandwebbackend.domain.auth.controller;
+
+import com.crane.bandwebbackend.domain.auth.service.KakaoLoginService;
+import com.crane.bandwebbackend.global.security.CookieFactory;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
+import java.net.URI;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.util.WebUtils;
+
+@RestController
+@RequestMapping("/api/v1/auth")
+@RequiredArgsConstructor
+public class AuthController {
+
+    private final KakaoLoginService kakaoLoginService;
+    private final CookieFactory cookies;
+
+    // API 1
+    @GetMapping("/kakao/authorize")
+    public ResponseEntity<Void> authorize(@RequestParam(required = false) String returnTo) {
+        KakaoLoginService.AuthorizeRedirect redirect = kakaoLoginService.authorize(returnTo);
+        return redirect(redirect.location())
+                .header(
+                        HttpHeaders.SET_COOKIE,
+                        cookies.state(redirect.stateToken()).toString())
+                .build();
+    }
+
+    // API 2: 성공·실패 모두 FE 인증 완료 페이지로 302. 사용한 state 쿠키는 항상 지운다
+    @GetMapping("/kakao/callback")
+    public ResponseEntity<Void> callback(
+            @RequestParam(required = false) String code,
+            @RequestParam(required = false) String state,
+            @RequestParam(required = false) String error,
+            HttpServletRequest request) {
+        Cookie stateCookie = WebUtils.getCookie(request, cookies.stateName());
+        KakaoLoginService.CallbackResult result =
+                kakaoLoginService.callback(code, state, error, stateCookie == null ? null : stateCookie.getValue());
+        ResponseEntity.BodyBuilder response = redirect(result.location());
+        response.header(HttpHeaders.SET_COOKIE, cookies.deleteState().toString());
+        if (result.exchangeToken() != null) {
+            response.header(
+                    HttpHeaders.SET_COOKIE,
+                    cookies.exchange(result.exchangeToken()).toString());
+        }
+        return response.build();
+    }
+
+    // 인증 URL·콜백 URL이 Referer로 새지 않게 하고 캐시하지 않는다
+    private static ResponseEntity.BodyBuilder redirect(String location) {
+        return ResponseEntity.status(HttpStatus.FOUND)
+                .location(URI.create(location))
+                .header("Referrer-Policy", "no-referrer")
+                .header(HttpHeaders.CACHE_CONTROL, "no-store");
+    }
+}

@@ -54,4 +54,13 @@ public class User extends BaseTimeEntity {
     private LocalDateTime lastActiveAt;
 
     private LocalDateTime withdrawnAt;
+
+    // 카카오 최초 로그인 시 생성. handle은 온보딩에서 정한다
+    public static User createFromProvider(String name, String profileImageUrl) {
+        User user = new User();
+        user.name = name;
+        user.profileImageUrl = profileImageUrl;
+        user.status = UserStatus.ACTIVE;
+        return user;
+    }
 }
