@@ -294,6 +294,9 @@ class AuthSessionFlowTest {
         assertThat(ok).isEqualTo(1);
         assertThat(count("SELECT COUNT(*) FROM refresh_token WHERE revoke_reason = 'ROTATED'"))
                 .isEqualTo(1);
+        // 선점하지 못한 요청이 재사용으로 판정되어 묶음 전체(새로 발급된 토큰 포함)가 폐기된다
+        assertThat(count("SELECT COUNT(*) FROM refresh_token WHERE revoked_at IS NULL"))
+                .isZero();
     }
 
     @Test
