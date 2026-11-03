@@ -102,7 +102,7 @@ public class PlayabilityService {
     // API-093 본인 취소. 기존 응답이 없어도 204
     @Transactional
     public void deleteMine(PerformanceRef ref, Long songId, Long partId) {
-        PerformanceAccess access = accessService.get(ref);
+        PerformanceAccess access = accessService.getForUpdate(ref);
         PerformanceMember pm = access.requireParticipant();
         delete(access, songId, pm, partId);
     }
@@ -110,7 +110,7 @@ public class PlayabilityService {
     // API-094 임원 대리 취소
     @Transactional
     public void deleteFor(PerformanceRef ref, Long songId, Long performanceMemberId, Long partId) {
-        PerformanceAccess access = accessService.get(ref);
+        PerformanceAccess access = accessService.getForUpdate(ref);
         access.requireAdmin();
         PerformanceMember pm = target(access, performanceMemberId);
         delete(access, songId, pm, partId);
@@ -147,6 +147,7 @@ public class PlayabilityService {
         access.requireEditable();
         access.requireStatus(PerformanceStatus.ACTIVE);
         Song song = songSupport.getSong(access.performanceId(), songId);
+        evaluationService.requireGuestCanSee(access, song);
         if (song.getStatus() != SongStatus.PROPOSED) {
             throw BusinessException.invalidState("후보곡에만 응답할 수 있습니다.");
         }

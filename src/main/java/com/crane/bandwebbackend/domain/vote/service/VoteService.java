@@ -95,14 +95,14 @@ public class VoteService {
     // API-098. 기존 행이 없어도 204
     @Transactional
     public void deleteMine(PerformanceRef ref, Long songId) {
-        PerformanceAccess access = accessService.get(ref);
+        PerformanceAccess access = accessService.getForUpdate(ref);
         delete(access, songId, access.requireApprovedParticipant());
     }
 
     // API-099
     @Transactional
     public void deleteFor(PerformanceRef ref, Long songId, Long performanceMemberId) {
-        PerformanceAccess access = accessService.get(ref);
+        PerformanceAccess access = accessService.getForUpdate(ref);
         access.requireAdmin();
         PerformanceMember pm = target(access, performanceMemberId);
         delete(access, songId, pm);
@@ -153,6 +153,7 @@ public class VoteService {
         access.requireEditable();
         access.requireStatus(PerformanceStatus.ACTIVE);
         Song song = songSupport.getSong(access.performanceId(), songId);
+        evaluationService.requireGuestCanSee(access, song);
         if (song.getStatus() != SongStatus.PROPOSED) {
             throw BusinessException.invalidState("후보곡에만 투표할 수 있습니다.");
         }

@@ -241,6 +241,18 @@ public class EvaluationService {
     }
 
     // 곡 상세 GUEST 판단 등에서 연주자 ID 집합
+    // 가불·투표 쓰기도 조회(API-090)와 같은 곡 범위. 객원은 볼 수 없는 곡에 응답할 수 없음(404)
+    public void requireGuestCanSee(PerformanceAccess access, Song song) {
+        if (access.isGuest()
+                && !SongSupport.canSee(
+                        access,
+                        song,
+                        teamService.memberIdsByTeam(access.performanceId()),
+                        sessionMemberIds(songSupport.sessionsOf(song.getId())))) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "곡을 찾을 수 없습니다.");
+        }
+    }
+
     public static Set<Long> sessionMemberIds(List<SongSessionMember> sessions) {
         return sessions.stream().map(s -> s.getPerformanceMember().getId()).collect(Collectors.toSet());
     }

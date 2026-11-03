@@ -49,8 +49,7 @@ public final class SongRequests {
         private boolean assignedTeamIdPresent;
 
         // null = 생략(연주자 변경 없음)
-        @Valid
-        private List<Session> sessions;
+        private List<@NotNull @Valid Session> sessions;
 
         // decision_note에 최근 사유로 남김. LOCKED면 필수
         @Size(max = 500)
@@ -220,8 +219,7 @@ public final class SongRequests {
         private Long version;
 
         @NotNull
-        @Valid
-        private List<Session> sessions;
+        private List<@NotNull @Valid Session> sessions;
 
         @Size(max = 500)
         private String reason;
@@ -237,8 +235,7 @@ public final class SongRequests {
         private Long version;
 
         @NotNull
-        @Valid
-        private List<Requirement> requirements;
+        private List<@NotNull @Valid Requirement> requirements;
     }
 
     @Getter
