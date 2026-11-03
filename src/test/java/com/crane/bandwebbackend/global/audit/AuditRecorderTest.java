@@ -12,6 +12,7 @@ import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -98,6 +99,18 @@ class AuditRecorderTest {
                 .hasMessageContaining("email")
                 .hasMessageNotContaining("secret@x.com");
         assertThat(repository.count()).isZero();
+    }
+
+    @Test
+    @Timeout(10)
+    @DisplayName("깊게 중첩된 detail도 노드를 한 번씩만 검사한다")
+    void deepNestingIsLinear() {
+        Map<String, Object> detail = Map.of("leaf", "v");
+        for (int i = 0; i < 40; i++) {
+            detail = Map.of("n", detail);
+        }
+        Map<String, Object> deep = detail;
+        assertThatCode(() -> service.recordInTx("A", null, deep)).doesNotThrowAnyException();
     }
 
     @ParameterizedTest
