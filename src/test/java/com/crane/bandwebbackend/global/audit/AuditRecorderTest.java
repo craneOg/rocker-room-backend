@@ -86,6 +86,8 @@ class AuditRecorderTest {
         assertRejected(Map.of("after", Map.of("email", "secret@x.com")));
         assertRejected(Map.of("items", List.of(Map.of("ip", "1.2.3.4"))));
         assertRejected(Map.of("items", new Object[] {Map.of("email", "secret@x.com")}));
+        assertRejected(Map.of("after", objectMapper.createObjectNode().put("email", "secret@x.com")));
+        assertRejected(Map.of("after", objectMapper.createObjectNode().put("tokenHash", "v")));
         assertRejected(Map.of("providerUid", "v"));
         assertRejected(Map.of("displayName", "v"));
         assertRejected(Map.of("handle", "v"));
