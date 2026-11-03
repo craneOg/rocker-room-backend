@@ -80,11 +80,12 @@ class AuditRecorderTest {
     }
 
     @Test
-    @DisplayName("U-09 금지 키는 최상위·중첩 Map·List 안 Map 어디서든 거부하고 메시지에 값을 쓰지 않는다")
+    @DisplayName("U-09 금지 키는 최상위·중첩 Map·List·배열 안 Map 어디서든 거부하고 메시지에 값을 쓰지 않는다")
     void rejectsForbiddenKeys() {
         assertRejected(Map.of("name", "홍길동"));
         assertRejected(Map.of("after", Map.of("email", "secret@x.com")));
         assertRejected(Map.of("items", List.of(Map.of("ip", "1.2.3.4"))));
+        assertRejected(Map.of("items", new Object[] {Map.of("email", "secret@x.com")}));
         assertRejected(Map.of("providerUid", "v"));
         assertRejected(Map.of("displayName", "v"));
         assertRejected(Map.of("handle", "v"));
