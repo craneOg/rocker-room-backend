@@ -19,8 +19,7 @@ public class SetlistRequest {
     private Long version;
 
     @NotNull
-    @Valid
-    private List<Item> items;
+    private List<@NotNull @Valid Item> items;
 
     // LOCKED 공연이면 필수(X-02). 감사 기록 사유
     @Size(max = 500)

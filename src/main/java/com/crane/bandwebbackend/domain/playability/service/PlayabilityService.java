@@ -82,7 +82,7 @@ public class PlayabilityService {
     // API-091 본인 저장
     @Transactional
     public EvaluationRows.Playability saveMine(PerformanceRef ref, Long songId, Long partId, PlayabilityRequest req) {
-        PerformanceAccess access = accessService.get(ref);
+        PerformanceAccess access = accessService.getForUpdate(ref);
         PerformanceMember pm = access.requireParticipant();
         return save(access, songId, pm, partId, req);
     }
@@ -91,7 +91,7 @@ public class PlayabilityService {
     @Transactional
     public EvaluationRows.Playability saveFor(
             PerformanceRef ref, Long songId, Long performanceMemberId, Long partId, PlayabilityRequest req) {
-        PerformanceAccess access = accessService.get(ref);
+        PerformanceAccess access = accessService.getForUpdate(ref);
         access.requireAdmin();
         PerformanceMember pm = target(access, performanceMemberId);
         EvaluationRows.Playability row = save(access, songId, pm, partId, req);
@@ -121,8 +121,7 @@ public class PlayabilityService {
             PerformanceAccess access, Long songId, PerformanceMember pm, Long partId, PlayabilityRequest req) {
         Song song = requireInputOpen(access, songId, pm);
         Part part = accessService.getActivePart(access.clubId(), partId);
-        // 조회 후 삽입(upsert)이라 같은 (곡, 참여자, 파트) 동시 저장이 uk_song_playability에 걸리지 않도록 잠금
-        accessService.lock(pm);
+        // 조회 후 삽입(upsert). 호출부가 공연 행을 먼저 잠가(getForUpdate) 동시 저장이 uk_song_playability에 걸리지 않음
         var user = access.getMembership().getUser();
         SongPlayability row = playabilityRepository
                 .findBySongIdAndPerformanceMemberIdAndPartId(songId, pm.getId(), part.getId())

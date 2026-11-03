@@ -77,14 +77,14 @@ public class VoteService {
     // API-096
     @Transactional
     public EvaluationRows.Vote voteMine(PerformanceRef ref, Long songId, VoteRequest req) {
-        PerformanceAccess access = accessService.get(ref);
+        PerformanceAccess access = accessService.getForUpdate(ref);
         return save(access, songId, access.requireApprovedParticipant(), req.getScore());
     }
 
     // API-097 임원 대리. submittedBy = 요청한 임원, 한도 검사는 본인 입력과 같음
     @Transactional
     public EvaluationRows.Vote voteFor(PerformanceRef ref, Long songId, Long performanceMemberId, VoteRequest req) {
-        PerformanceAccess access = accessService.get(ref);
+        PerformanceAccess access = accessService.getForUpdate(ref);
         access.requireAdmin();
         PerformanceMember pm = target(access, performanceMemberId);
         EvaluationRows.Vote row = save(access, songId, pm, req.getScore());
@@ -113,8 +113,7 @@ public class VoteService {
         PerformancePolicy policy = accessService.getPolicy(access.performanceId());
         Song song = requireInputOpen(access, songId, pm, policy);
         validateScore(policy.getVoteMethod(), score);
-        // V-05: 참여자 행을 잠근 뒤 이 공연에서 한 찬성 수를 셈. 기존 행 변경은 초과 건수에 넣지 않음
-        accessService.lock(pm);
+        // V-05: 호출부가 공연 행을 먼저 잠가(getForUpdate) 스냅샷이 앞 트랜잭션 커밋 뒤에 생김. 기존 행 변경은 초과 건수에 넣지 않음
         var user = access.getMembership().getUser();
         SongVote vote = voteRepository
                 .findBySongIdAndPerformanceMemberId(songId, pm.getId())
