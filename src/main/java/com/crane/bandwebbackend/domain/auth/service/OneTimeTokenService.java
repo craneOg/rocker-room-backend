@@ -4,14 +4,9 @@ import com.crane.bandwebbackend.domain.auth.entity.OneTimeToken;
 import com.crane.bandwebbackend.domain.auth.entity.OneTimeTokenPurpose;
 import com.crane.bandwebbackend.domain.auth.repository.OneTimeTokenRepository;
 import com.crane.bandwebbackend.domain.user.entity.User;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.Base64;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -22,8 +17,6 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class OneTimeTokenService {
 
-    private static final SecureRandom RANDOM = new SecureRandom();
-    private static final int RAW_BYTES = 32;
     // 정상 원문은 43자(base64url). 이보다 긴 값은 해시 계산 전에 거른다
     private static final int MAX_RAW_LENGTH = 100;
 
@@ -36,10 +29,8 @@ public class OneTimeTokenService {
     // user·returnTo는 필요한 용도에서만 넘기고 아니면 null. 반환값은 쿠키에 담을 원문
     @Transactional
     public String issue(OneTimeTokenPurpose purpose, User user, String returnTo, Duration ttl) {
-        byte[] bytes = new byte[RAW_BYTES];
-        RANDOM.nextBytes(bytes);
-        String raw = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
-        repository.save(OneTimeToken.create(hash(raw), purpose, user, returnTo, now().plus(ttl)));
+        String raw = TokenCodec.newRaw();
+        repository.save(OneTimeToken.create(TokenCodec.hash(raw), purpose, user, returnTo, now().plus(ttl)));
         return raw;
     }
 
@@ -49,7 +40,7 @@ public class OneTimeTokenService {
         if (raw == null || raw.isBlank() || raw.length() > MAX_RAW_LENGTH) {
             return Optional.empty();
         }
-        byte[] hash = hash(raw);
+        byte[] hash = TokenCodec.hash(raw);
         if (repository.consume(hash, purpose, now()) != 1) {
             return Optional.empty();
         }
@@ -62,13 +53,5 @@ public class OneTimeTokenService {
 
     private LocalDateTime now() {
         return LocalDateTime.now(clock);
-    }
-
-    static byte[] hash(String raw) {
-        try {
-            return MessageDigest.getInstance("SHA-256").digest(raw.getBytes(StandardCharsets.UTF_8));
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256을 사용할 수 없습니다", e);
-        }
     }
 }

@@ -53,7 +53,7 @@ class OneTimeTokenServiceTest {
 
         assertThat(raw).matches("[A-Za-z0-9_-]{43}");
         byte[] stored = jdbc.queryForObject("SELECT token_hash FROM one_time_token", byte[].class);
-        assertThat(stored).hasSize(32).isEqualTo(OneTimeTokenService.hash(raw));
+        assertThat(stored).hasSize(32).isEqualTo(TokenCodec.hash(raw));
         assertThat(jdbc.queryForObject(
                         "SELECT COUNT(*) FROM one_time_token WHERE token_hash = ?", Integer.class, raw.getBytes()))
                 .isZero();
