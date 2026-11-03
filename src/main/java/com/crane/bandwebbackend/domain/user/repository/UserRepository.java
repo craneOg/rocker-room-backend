@@ -1,13 +1,21 @@
 package com.crane.bandwebbackend.domain.user.repository;
 
 import com.crane.bandwebbackend.domain.user.entity.User;
+import jakarta.persistence.LockModeType;
 import java.time.LocalDateTime;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface UserRepository extends JpaRepository<User, Long> {
+
+    // 복구·새로 시작처럼 같은 계정을 동시에 바꾸는 요청을 직렬화한다
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select u from User u where u.id = :id")
+    Optional<User> findByIdForUpdate(@Param("id") long id);
 
     // G-11: 하루 1회만 갱신. dayStart는 오늘 0시(KST)를 UTC로 바꾼 값
     @Modifying

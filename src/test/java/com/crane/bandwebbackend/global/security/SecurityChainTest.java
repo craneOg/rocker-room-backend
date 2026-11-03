@@ -257,8 +257,12 @@ class SecurityChainTest {
             if (cookie != null) {
                 request.cookie(cookie);
             }
-            int status = mockMvc.perform(request).andReturn().getResponse().getStatus();
-            assertThat(status).isNotIn(401, 403);
+            var response = mockMvc.perform(request).andReturn().getResponse();
+            // 컨트롤러가 있는 경로는 쿠키가 없다고 스스로 401을 낼 수 있다. 보안 계층의 거부는 details가 비어 있다
+            if (response.getStatus() == 401 || response.getStatus() == 403) {
+                assertThat(response.getContentAsString(java.nio.charset.StandardCharsets.UTF_8))
+                        .contains("\"reason\"");
+            }
         }
     }
 

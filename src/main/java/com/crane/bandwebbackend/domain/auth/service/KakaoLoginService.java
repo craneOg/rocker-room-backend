@@ -5,6 +5,7 @@ import com.crane.bandwebbackend.domain.auth.config.AuthLoginProperties;
 import com.crane.bandwebbackend.domain.auth.dto.KakaoProfile;
 import com.crane.bandwebbackend.domain.auth.entity.OneTimeTokenPurpose;
 import com.crane.bandwebbackend.domain.user.entity.User;
+import com.crane.bandwebbackend.domain.user.entity.UserStatus;
 import com.crane.bandwebbackend.global.error.BusinessException;
 import com.crane.bandwebbackend.global.error.ErrorCode;
 import com.crane.bandwebbackend.global.error.ErrorDetail;
@@ -85,8 +86,15 @@ public class KakaoLoginService {
         try {
             KakaoProfile profile = kakao.fetchProfile(code);
             User user = findOrRegister(profile);
+            // 탈퇴 후 90일 이내 계정만 "새로 시작"에 쓸 카카오 프로필을 잠깐 들고 간다(그 밖에는 저장하지 않음)
+            boolean withdrawn = user.getStatus() == UserStatus.WITHDRAWN;
             String exchange = tokens.issue(
-                    OneTimeTokenPurpose.LOGIN_EXCHANGE, user, consumed.get().returnTo(), EXCHANGE_TTL);
+                    OneTimeTokenPurpose.LOGIN_EXCHANGE,
+                    user,
+                    consumed.get().returnTo(),
+                    withdrawn ? KakaoAccountService.name(profile.nickname()) : null,
+                    withdrawn ? KakaoAccountService.imageUrl(profile.imageUrl()) : null,
+                    EXCHANGE_TTL);
             return new CallbackResult(properties.completeUrl(), exchange);
         } catch (RuntimeException e) {
             // 카카오 응답·code는 남기지 않는다. 예외 종류와 스택만 기록

@@ -2,6 +2,9 @@ package com.crane.bandwebbackend.domain.auth.controller;
 
 import com.crane.bandwebbackend.domain.auth.dto.ExchangeResponse;
 import com.crane.bandwebbackend.domain.auth.dto.RefreshResponse;
+import com.crane.bandwebbackend.domain.auth.dto.RestorationInfo;
+import com.crane.bandwebbackend.domain.auth.dto.RestorationResult;
+import com.crane.bandwebbackend.domain.auth.service.AccountRestorationService;
 import com.crane.bandwebbackend.domain.auth.service.AuthExchangeService;
 import com.crane.bandwebbackend.domain.auth.service.AuthLogoutService;
 import com.crane.bandwebbackend.domain.auth.service.AuthRefreshService;
@@ -34,6 +37,7 @@ public class AuthController {
     private final AuthExchangeService authExchangeService;
     private final AuthRefreshService authRefreshService;
     private final AuthLogoutService authLogoutService;
+    private final AccountRestorationService accountRestorationService;
     private final CookieFactory cookies;
 
     // API 1
@@ -128,6 +132,47 @@ public class AuthController {
     public ResponseEntity<Void> logoutAll(@AuthenticationPrincipal AuthPrincipal principal) {
         authLogoutService.logoutAll(principal);
         return clearedSession();
+    }
+
+    // API 131: 복구 선택 쿠키로 보관 정보 조회(소비하지 않음)
+    @GetMapping("/restoration")
+    public ResponseEntity<ApiResponse<RestorationInfo>> restorationInfo(HttpServletRequest request) {
+        RestorationInfo info = accountRestorationService.info(restorationToken(request));
+        return ResponseEntity.ok().header(HttpHeaders.CACHE_CONTROL, "no-store").body(ApiResponse.ok(info));
+    }
+
+    // API 132
+    @PostMapping(value = "/restoration/restore", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ApiResponse<RestorationResult>> restore(HttpServletRequest request) {
+        return restorationResponse(accountRestorationService.restore(
+                restorationToken(request), request.getRemoteAddr(), request.getHeader(HttpHeaders.USER_AGENT)));
+    }
+
+    // API 133
+    @PostMapping(value = "/restoration/start-new", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ApiResponse<RestorationResult>> startNew(HttpServletRequest request) {
+        return restorationResponse(accountRestorationService.startNew(
+                restorationToken(request), request.getRemoteAddr(), request.getHeader(HttpHeaders.USER_AGENT)));
+    }
+
+    // 로그인 쿠키를 발급하고 쓴 복구 선택 쿠키를 지운다
+    private ResponseEntity<ApiResponse<RestorationResult>> restorationResponse(
+            AccountRestorationService.Result result) {
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CACHE_CONTROL, "no-store")
+                .header(HttpHeaders.SET_COOKIE, cookies.deleteRestore().toString())
+                .header(
+                        HttpHeaders.SET_COOKIE,
+                        cookies.access(result.tokens().accessToken()).toString())
+                .header(
+                        HttpHeaders.SET_COOKIE,
+                        cookies.refresh(result.tokens().refreshToken()).toString())
+                .body(ApiResponse.ok(result.body()));
+    }
+
+    private String restorationToken(HttpServletRequest request) {
+        Cookie cookie = WebUtils.getCookie(request, cookies.restoreName());
+        return cookie == null ? null : cookie.getValue();
     }
 
     private ResponseEntity<Void> clearedSession() {
