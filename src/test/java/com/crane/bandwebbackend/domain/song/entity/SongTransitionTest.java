@@ -33,11 +33,11 @@ class SongTransitionTest {
     }
 
     @Test
-    @DisplayName("팀 범위 후보 확정 시 담당 팀 기본값 = 후보 팀")
-    void confirmDefaultsToCandidateTeam() {
+    @DisplayName("API-080 assignedTeamId null 명시 = 담당 팀 없이 확정")
+    void confirmWithoutTeam() {
         Song song = Song.propose(null, team, "곡", null, null, null, null);
         song.confirm(null, null, null);
-        assertThat(song.getAssignedTeam()).isSameAs(team);
+        assertThat(song.getAssignedTeam()).isNull();
     }
 
     @Test
@@ -54,17 +54,18 @@ class SongTransitionTest {
 
     @Test
     @DisplayName("SONG-003 9-5 재검토 REJECTED → PROPOSED")
-    void reopen() {
+    void reconsider() {
         Song song = proposed();
-        song.reject(null);
-        song.reopen("다시 보기");
+        song.reject("편성 불가");
+        song.reconsider();
         assertThat(song.getStatus()).isEqualTo(SongStatus.PROPOSED);
+        assertThat(song.getDecisionNote()).isEqualTo("편성 불가");
     }
 
     @Test
     @DisplayName("재검토는 REJECTED에서만 409")
-    void reopenOnlyFromRejected() {
-        assertThatThrownBy(() -> proposed().reopen(null)).isInstanceOf(BusinessException.class);
+    void reconsiderOnlyFromRejected() {
+        assertThatThrownBy(() -> proposed().reconsider()).isInstanceOf(BusinessException.class);
     }
 
     @Test

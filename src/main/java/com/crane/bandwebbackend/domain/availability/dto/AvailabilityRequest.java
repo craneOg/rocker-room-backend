@@ -1,22 +1,37 @@
 package com.crane.bandwebbackend.domain.availability.dto;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
-import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-// API-101 가능 시간 저장: 한 주(월요일 시작, KST) 단위 교체(AV-03). slots = 30분 슬롯 시작 시각(AV-02)
+// API-101: 기간 [from, to)의 본인 슬롯을 slots로 원자적 교체(AV-03). 시작·종료는 30분 단위(AV-02)
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class AvailabilityRequest {
 
     @NotNull
-    private LocalDate weekStart;
+    private OffsetDateTime from;
 
-    // 빈 목록 = 그 주 전부 비우기
     @NotNull
-    private List<@NotNull OffsetDateTime> slots;
+    private OffsetDateTime to;
+
+    // 빈 배열 = 기간 안의 슬롯 모두 삭제
+    @NotNull
+    @Valid
+    private List<Slot> slots;
+
+    @Getter
+    @NoArgsConstructor(access = AccessLevel.PROTECTED)
+    public static class Slot {
+
+        @NotNull
+        private OffsetDateTime startAt;
+
+        @NotNull
+        private OffsetDateTime endAt;
+    }
 }

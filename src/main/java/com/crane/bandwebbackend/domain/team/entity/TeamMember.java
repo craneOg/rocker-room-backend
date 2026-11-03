@@ -57,4 +57,8 @@ public class TeamMember extends BaseCreatedTimeEntity {
         m.part = part;
         return m;
     }
+
+    public void changePart(Part part) {
+        this.part = part;
+    }
 }

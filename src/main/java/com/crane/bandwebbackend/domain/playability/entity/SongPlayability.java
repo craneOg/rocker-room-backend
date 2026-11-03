@@ -88,4 +88,9 @@ public class SongPlayability extends BaseTimeEntity {
         this.reason = answer == PlayabilityAnswer.POSSIBLE ? null : reason;
         this.submittedBy = submittedBy;
     }
+
+    // V-08: 입력자가 응답자 본인이 아니면 임원 대리 입력
+    public boolean isEnteredByAdmin() {
+        return !submittedBy.getId().equals(performanceMember.getMembership().getUser().getId());
+    }
 }

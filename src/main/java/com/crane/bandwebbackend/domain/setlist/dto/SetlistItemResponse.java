@@ -1,29 +1,29 @@
 package com.crane.bandwebbackend.domain.setlist.dto;
 
-import com.crane.bandwebbackend.domain.song.entity.Song;
+import com.crane.bandwebbackend.domain.song.dto.SongViews;
+import java.util.List;
 import lombok.Builder;
 import lombok.Getter;
 
+// API-087 항목. GUEST에게 본인 곡이 아니면 sessions는 빈 목록, 팀 정보·version은 NULL
 @Getter
 @Builder
 public class SetlistItemResponse {
 
-    private final Long songId;
-    private final String title;
-    private final String artist;
-    private final Long assignedTeamId;
-    // NULL = 미배정
-    private final Integer order;
-    private final Long version;
+    private final Song song;
+    private final List<SongViews.Session> sessions;
 
-    public static SetlistItemResponse from(Song song) {
-        return SetlistItemResponse.builder()
-                .songId(song.getId())
-                .title(song.getTitle())
-                .artist(song.getArtist())
-                .assignedTeamId(song.getAssignedTeam() == null ? null : song.getAssignedTeam().getId())
-                .order(song.getSetlistOrder())
-                .version(song.getVersion())
-                .build();
+    @Getter
+    @Builder
+    public static class Song {
+
+        private final Long id;
+        private final String title;
+        private final String artist;
+        // NULL = 미배정
+        private final Integer setlistOrder;
+        private final Long assignedTeamId;
+        private final String assignedTeamName;
+        private final Long version;
     }
 }

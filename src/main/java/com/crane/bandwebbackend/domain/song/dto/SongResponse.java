@@ -1,59 +1,82 @@
 package com.crane.bandwebbackend.domain.song.dto;
 
+import com.crane.bandwebbackend.domain.participant.service.PerformanceAccessService;
 import com.crane.bandwebbackend.domain.song.entity.Song;
 import com.crane.bandwebbackend.domain.song.entity.SongStatus;
 import com.crane.bandwebbackend.domain.song.entity.WithdrawalType;
+import com.crane.bandwebbackend.domain.team.entity.Team;
 import com.crane.bandwebbackend.global.time.Kst;
 import java.time.OffsetDateTime;
-import java.util.List;
 import lombok.Builder;
 import lombok.Getter;
 
+// 곡 공통 필드(API-075 카드, 077 song, 변경 응답 song)
 @Getter
 @Builder
 public class SongResponse {
 
     private final Long id;
-    private final Long performanceId;
-    private final Long candidateTeamId;
-    private final Long assignedTeamId;
+    private final SongStatus status;
     private final String title;
     private final String artist;
     private final String referenceUrl;
     private final String memo;
-    private final SongStatus status;
-    private final WithdrawalType withdrawalType;
-    private final Long proposedByMembershipId;
+    // 후보 범위 팀, 공연 전체 범위면 NULL
+    private final Long candidateTeamId;
+    private final String candidateTeamName;
+    private final Long assignedTeamId;
+    private final String assignedTeamName;
+    private final Proposer proposedBy;
+    private final OffsetDateTime createdAt;
     private final Integer setlistOrder;
-    // 결정 사유(SONG-003 "결정 사유" 박스)
     private final String decisionNote;
+    private final WithdrawalType withdrawalType;
     private final OffsetDateTime decidedAt;
     private final Long version;
-    // "경고" 강도 규칙 결과. 없으면 빈 목록
-    private final List<String> warnings;
 
-    public static SongResponse from(Song song) {
-        return from(song, List.of());
+    @Getter
+    @Builder
+    public static class Proposer {
+
+        private final Long membershipId;
+        private final String displayName;
     }
 
-    public static SongResponse from(Song song, List<String> warnings) {
+    public static SongResponse from(Song song) {
+        Team candidate = song.getCandidateTeam();
+        Team assigned = song.getAssignedTeam();
         return SongResponse.builder()
                 .id(song.getId())
-                .performanceId(song.getPerformance().getId())
-                .candidateTeamId(song.getCandidateTeam() == null ? null : song.getCandidateTeam().getId())
-                .assignedTeamId(song.getAssignedTeam() == null ? null : song.getAssignedTeam().getId())
+                .status(song.getStatus())
                 .title(song.getTitle())
                 .artist(song.getArtist())
                 .referenceUrl(song.getReferenceUrl())
                 .memo(song.getMemo())
-                .status(song.getStatus())
-                .withdrawalType(song.getWithdrawalType())
-                .proposedByMembershipId(song.getProposedBy().getId())
+                .candidateTeamId(candidate == null ? null : candidate.getId())
+                .candidateTeamName(candidate == null ? null : candidate.getName())
+                .assignedTeamId(assigned == null ? null : assigned.getId())
+                .assignedTeamName(assigned == null ? null : assigned.getName())
+                .proposedBy(Proposer.builder()
+                        .membershipId(song.getProposedBy().getId())
+                        .displayName(PerformanceAccessService.displayName(song.getProposedBy()))
+                        .build())
+                .createdAt(Kst.fromUtc(song.getCreatedAt()))
                 .setlistOrder(song.getSetlistOrder())
                 .decisionNote(song.getDecisionNote())
+                .withdrawalType(song.getWithdrawalType())
                 .decidedAt(Kst.fromUtc(song.getDecidedAt()))
                 .version(song.getVersion())
-                .warnings(warnings)
+                .build();
+    }
+
+    // GUEST가 본인 곡이 아닌 세트리스트 곡을 볼 때
+    public static SongResponse minimal(Song song) {
+        return SongResponse.builder()
+                .id(song.getId())
+                .status(song.getStatus())
+                .title(song.getTitle())
+                .artist(song.getArtist())
+                .setlistOrder(song.getSetlistOrder())
                 .build();
     }
 }

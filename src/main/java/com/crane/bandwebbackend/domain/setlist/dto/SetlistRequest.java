@@ -8,10 +8,14 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-// API-088 세트리스트 저장: 확정 곡 전체를 {songId, order|null}로. order NULL = 미배정(SET-001 "빼기")
+// API-088: 현재 CONFIRMED 전곡을 정확히 한 번씩 {songId, order|null, version}. order NULL = 미배정
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class SetlistRequest {
+
+    // 공연 version
+    @NotNull
+    private Long version;
 
     @NotNull
     @Valid
@@ -26,5 +30,8 @@ public class SetlistRequest {
 
         @Positive
         private Integer order;
+
+        @NotNull
+        private Long version;
     }
 }

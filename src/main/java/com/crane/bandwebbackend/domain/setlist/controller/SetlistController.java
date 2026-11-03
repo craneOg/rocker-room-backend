@@ -1,5 +1,6 @@
 package com.crane.bandwebbackend.domain.setlist.controller;
 
+import com.crane.bandwebbackend.domain.participant.service.PerformanceRef;
 import com.crane.bandwebbackend.domain.setlist.dto.SetlistItemResponse;
 import com.crane.bandwebbackend.domain.setlist.dto.SetlistRequest;
 import com.crane.bandwebbackend.domain.setlist.service.SetlistService;
@@ -16,21 +17,25 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/performances/{performanceId}/setlist")
+@RequestMapping("/api/v1/clubs/{clubId}/performances/{performanceId}/setlist")
 public class SetlistController {
 
     private final SetlistService setlistService;
 
+    // API-087
     @GetMapping
-    public List<SetlistItemResponse> get(@PathVariable Long performanceId, @AuthenticationPrincipal Long userId) {
-        return setlistService.get(performanceId, userId);
+    public List<SetlistItemResponse> get(
+            @PathVariable Long clubId, @PathVariable Long performanceId, @AuthenticationPrincipal Long userId) {
+        return setlistService.get(new PerformanceRef(clubId, performanceId, userId));
     }
 
-    @PutMapping
+    // API-088
+    @PutMapping("/order")
     public List<SetlistItemResponse> save(
+            @PathVariable Long clubId,
             @PathVariable Long performanceId,
             @AuthenticationPrincipal Long userId,
             @Valid @RequestBody SetlistRequest req) {
-        return setlistService.save(performanceId, userId, req);
+        return setlistService.save(new PerformanceRef(clubId, performanceId, userId), req);
     }
 }

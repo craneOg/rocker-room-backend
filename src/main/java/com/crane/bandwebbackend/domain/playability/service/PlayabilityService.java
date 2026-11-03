@@ -1,150 +1,175 @@
 package com.crane.bandwebbackend.domain.playability.service;
 
+import com.crane.bandwebbackend.domain.evaluation.dto.EvaluationRows;
+import com.crane.bandwebbackend.domain.evaluation.service.EvaluationService;
+import com.crane.bandwebbackend.domain.evaluation.service.EvaluationSnapshot;
+import com.crane.bandwebbackend.domain.part.entity.Part;
 import com.crane.bandwebbackend.domain.participant.entity.PerformanceMember;
-import com.crane.bandwebbackend.domain.participant.entity.PerformanceMemberStatus;
 import com.crane.bandwebbackend.domain.participant.service.PerformanceAccess;
 import com.crane.bandwebbackend.domain.participant.service.PerformanceAccessService;
-import com.crane.bandwebbackend.domain.part.entity.Part;
+import com.crane.bandwebbackend.domain.participant.service.PerformanceRef;
 import com.crane.bandwebbackend.domain.performance.entity.PerformancePolicy;
-import com.crane.bandwebbackend.domain.playability.dto.PlayabilityMatrixResponse;
+import com.crane.bandwebbackend.domain.performance.entity.PerformanceStatus;
 import com.crane.bandwebbackend.domain.playability.dto.PlayabilityRequest;
-import com.crane.bandwebbackend.domain.playability.entity.PlayabilityAnswer;
 import com.crane.bandwebbackend.domain.playability.entity.SongPlayability;
 import com.crane.bandwebbackend.domain.playability.repository.SongPlayabilityRepository;
 import com.crane.bandwebbackend.domain.song.entity.Song;
 import com.crane.bandwebbackend.domain.song.entity.SongStatus;
-import com.crane.bandwebbackend.domain.song.service.SongService;
+import com.crane.bandwebbackend.domain.song.service.SongSupport;
 import com.crane.bandwebbackend.domain.team.service.TeamService;
+import com.crane.bandwebbackend.global.audit.AuditLog;
+import com.crane.bandwebbackend.global.audit.AuditLogRepository;
 import com.crane.bandwebbackend.global.error.BusinessException;
 import com.crane.bandwebbackend.global.error.ErrorCode;
-import java.util.ArrayList;
-import java.util.EnumMap;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * 가불 응답(API-090~094). 파트 단위 upsert, 미응답(행 없음)과 UNDECIDED를 구분.
+ * 가불 파트는 본인 보유 파트가 기본이지만 다른 활성 파트도 허용
+ */
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class PlayabilityService {
 
-    private static final List<SongStatus> TARGET_SONGS = List.of(SongStatus.PROPOSED, SongStatus.CONFIRMED);
-    private static final List<PerformanceMemberStatus> TARGET_MEMBERS =
-            List.of(PerformanceMemberStatus.APPLIED, PerformanceMemberStatus.APPROVED);
-
     private final SongPlayabilityRepository playabilityRepository;
     private final PerformanceAccessService accessService;
-    private final SongService songService;
+    private final SongSupport songSupport;
     private final TeamService teamService;
+    private final EvaluationService evaluationService;
+    private final AuditLogRepository auditLogRepository;
 
-    // 내 가불 응답(파트 단위 upsert). 팀 범위 후보는 그 팀원만
+    /**
+     * API-090. A는 대상 전체의 현재 원본과 비유효 원본(valid=false). 일반 사용자는 본인 행,
+     * 응답 범위 안이고 playabilityResultPublic이면 범위 전체(V-09, UI-8). reason은 A만
+     */
+    public List<EvaluationRows.Playability> list(PerformanceRef ref, Long songId, Long performanceMemberId) {
+        PerformanceAccess access = accessService.get(ref);
+        Song song = songSupport.getSong(access.performanceId(), songId);
+        EvaluationSnapshot snap = evaluationService.snapshot(access.performanceId());
+        Long me = access.myMemberId();
+        Set<Long> targets = snap.targets(song, false);
+        boolean inScope = me != null && targets.contains(me);
+        Set<Long> sessionIds = access.isGuest()
+                ? EvaluationService.sessionMemberIds(songSupport.sessionsOf(songId))
+                : Set.of();
+        if (!SongSupport.canSee(access, song, snap.teamMembers(), sessionIds) || (access.isGuest() && !inScope)) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "곡을 찾을 수 없습니다.");
+        }
+        List<SongPlayability> rows;
+        if (access.isAdmin()) {
+            rows = snap.allPlays(songId);
+        } else if (inScope && accessService.getPolicy(access.performanceId()).isPlayabilityResultPublic()) {
+            rows = snap.validPlays(song);
+        } else {
+            rows = snap.playsOf(songId, me);
+        }
+        return rows.stream()
+                .filter(p -> performanceMemberId == null || p.getPerformanceMember().getId().equals(performanceMemberId))
+                .map(p -> EvaluationRows.Playability.of(
+                        p, access.isAdmin(), access.isAdmin() ? targets.contains(p.getPerformanceMember().getId()) : null))
+                .toList();
+    }
+
+    // API-091 본인 저장
     @Transactional
-    public void answer(Long performanceId, Long songId, Long userId, PlayabilityRequest req) {
-        PerformanceAccess access = accessService.get(performanceId, userId);
-        access.requireEditable();
+    public EvaluationRows.Playability saveMine(PerformanceRef ref, Long songId, Long partId, PlayabilityRequest req) {
+        PerformanceAccess access = accessService.get(ref);
         PerformanceMember pm = access.requireParticipant();
-        PerformancePolicy policy = accessService.getPolicy(performanceId);
-        PerformanceAccess.requireOpen(policy.getPlayabilityState(), policy.getPlayabilityDeadline(), "가불 응답");
+        return save(access, songId, pm, partId, req);
+    }
 
-        Song song = songService.getSong(performanceId, songId);
-        if (!TARGET_SONGS.contains(song.getStatus())) {
-            throw new BusinessException(ErrorCode.STATE_CONFLICT, "응답할 수 없는 곡입니다.");
-        }
-        if (song.getCandidateTeam() != null && !teamService.isMember(song.getCandidateTeam().getId(), pm.getId())) {
-            throw new BusinessException(ErrorCode.FORBIDDEN, "팀 후보곡은 팀원만 응답할 수 있습니다.");
-        }
-        Part part = accessService.getActivePart(access.clubId(), req.getPartId());
+    // API-092 임원 대리 저장. 대상은 참여자(P), submittedBy = 요청한 임원
+    @Transactional
+    public EvaluationRows.Playability saveFor(
+            PerformanceRef ref, Long songId, Long performanceMemberId, Long partId, PlayabilityRequest req) {
+        PerformanceAccess access = accessService.get(ref);
+        access.requireAdmin();
+        PerformanceMember pm = target(access, performanceMemberId);
+        EvaluationRows.Playability row = save(access, songId, pm, partId, req);
+        audit(access, "PLAYABILITY_PROXY_SAVED", songId, pm.getId(), partId);
+        return row;
+    }
+
+    // API-093 본인 취소. 기존 응답이 없어도 204
+    @Transactional
+    public void deleteMine(PerformanceRef ref, Long songId, Long partId) {
+        PerformanceAccess access = accessService.get(ref);
+        PerformanceMember pm = access.requireParticipant();
+        delete(access, songId, pm, partId);
+    }
+
+    // API-094 임원 대리 취소
+    @Transactional
+    public void deleteFor(PerformanceRef ref, Long songId, Long performanceMemberId, Long partId) {
+        PerformanceAccess access = accessService.get(ref);
+        access.requireAdmin();
+        PerformanceMember pm = target(access, performanceMemberId);
+        delete(access, songId, pm, partId);
+        audit(access, "PLAYABILITY_PROXY_DELETED", songId, pm.getId(), partId);
+    }
+
+    private EvaluationRows.Playability save(
+            PerformanceAccess access, Long songId, PerformanceMember pm, Long partId, PlayabilityRequest req) {
+        Song song = requireInputOpen(access, songId, pm);
+        Part part = accessService.getActivePart(access.clubId(), partId);
         var user = access.getMembership().getUser();
-        playabilityRepository
+        SongPlayability row = playabilityRepository
                 .findBySongIdAndPerformanceMemberIdAndPartId(songId, pm.getId(), part.getId())
-                .ifPresentOrElse(
-                        p -> p.update(req.getAnswer(), req.getReason(), user),
-                        () -> playabilityRepository.save(
-                                SongPlayability.of(song, pm, part, req.getAnswer(), req.getReason(), user)));
+                .map(p -> {
+                    p.update(req.getAnswer(), req.getReason(), user);
+                    return p;
+                })
+                .orElseGet(() -> playabilityRepository.save(
+                        SongPlayability.of(song, pm, part, req.getAnswer(), req.getReason(), user)));
+        playabilityRepository.flush();
+        return EvaluationRows.Playability.of(row, access.isAdmin(), null);
     }
 
-    // SONG-005: 곡마다 사람 수만큼 부르던 것을 한 번에
-    public PlayabilityMatrixResponse matrix(Long performanceId, Long userId) {
-        PerformanceAccess access = accessService.get(performanceId, userId);
-        boolean namesVisible =
-                access.isAdmin() || accessService.getPolicy(performanceId).isPlayabilityResultPublic();
+    private void delete(PerformanceAccess access, Long songId, PerformanceMember pm, Long partId) {
+        requireInputOpen(access, songId, pm);
+        playabilityRepository
+                .findBySongIdAndPerformanceMemberIdAndPartId(songId, pm.getId(), partId)
+                .ifPresent(playabilityRepository::delete);
+    }
 
-        List<PerformanceMember> members = accessService.getMembers(performanceId, TARGET_MEMBERS);
-        Set<Long> memberIds = members.stream().map(PerformanceMember::getId).collect(Collectors.toSet());
-        Map<Long, Set<Long>> teamMembers = teamService.memberIdsByTeam(performanceId);
-        Map<Long, List<SongPlayability>> bySong = playabilityRepository.findByPerformanceId(performanceId).stream()
-                .collect(Collectors.groupingBy(p -> p.getSong().getId()));
-
-        int targetPairs = 0;
-        int respondedPairs = 0;
-        Set<Long> nonResponderIds = new HashSet<>();
-        List<PlayabilityMatrixResponse.SongRow> rows = new ArrayList<>();
-        for (Song song : songService.getSongs(performanceId, TARGET_SONGS)) {
-            // 팀 범위 후보 = 그 팀원, 공연 범위 후보 = 참여자 전체
-            Set<Long> targets = new HashSet<>(memberIds);
-            if (song.getCandidateTeam() != null) {
-                targets.retainAll(teamMembers.getOrDefault(song.getCandidateTeam().getId(), Set.of()));
-            }
-            List<SongPlayability> answers = bySong.getOrDefault(song.getId(), List.of()).stream()
-                    .filter(p -> targets.contains(p.getPerformanceMember().getId()))
-                    .toList();
-            Set<Long> responded = answers.stream()
-                    .map(p -> p.getPerformanceMember().getId())
-                    .collect(Collectors.toSet());
-            targets.stream().filter(id -> !responded.contains(id)).forEach(nonResponderIds::add);
-            targetPairs += targets.size();
-            respondedPairs += responded.size();
-
-            Map<PlayabilityAnswer, Long> counts = new EnumMap<>(PlayabilityAnswer.class);
-            for (PlayabilityAnswer a : PlayabilityAnswer.values()) {
-                counts.put(a, 0L);
-            }
-            answers.forEach(p -> counts.merge(p.getAnswer(), 1L, Long::sum));
-            rows.add(PlayabilityMatrixResponse.SongRow.builder()
-                    .songId(song.getId())
-                    .title(song.getTitle())
-                    .status(song.getStatus())
-                    .targetCount(targets.size())
-                    .respondedCount(responded.size())
-                    .answerCounts(counts)
-                    .answers(namesVisible ? answers.stream().map(PlayabilityService::toAnswer).toList() : null)
-                    .build());
+    // 공연 ACTIVE, 곡 PROPOSED, 가불 OPEN·마감 전, 현재 후보 범위(팀 범위면 그 팀원)
+    private Song requireInputOpen(PerformanceAccess access, Long songId, PerformanceMember pm) {
+        access.requireEditable();
+        access.requireStatus(PerformanceStatus.ACTIVE);
+        Song song = songSupport.getSong(access.performanceId(), songId);
+        if (song.getStatus() != SongStatus.PROPOSED) {
+            throw BusinessException.invalidState("후보곡에만 응답할 수 있습니다.");
         }
-
-        return PlayabilityMatrixResponse.builder()
-                .targetPairs(targetPairs)
-                .respondedPairs(respondedPairs)
-                .namesVisible(namesVisible)
-                .songs(rows)
-                .members(namesVisible ? members.stream().map(PlayabilityService::toMember).toList() : null)
-                .nonResponders(
-                        namesVisible
-                                ? members.stream()
-                                        .filter(m -> nonResponderIds.contains(m.getId()))
-                                        .map(PlayabilityService::toMember)
-                                        .toList()
-                                : null)
-                .build();
+        PerformancePolicy policy = accessService.getPolicy(access.performanceId());
+        PerformanceAccess.requireOpen(
+                policy.getPlayabilityState(), policy.getPlayabilityDeadline(), "PLAYABILITY_CLOSED");
+        if (song.getCandidateTeam() != null && !teamService.isMember(song.getCandidateTeam().getId(), pm.getId())) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "OUT_OF_CANDIDATE_SCOPE", "팀 후보곡은 팀원만 응답할 수 있습니다.");
+        }
+        return song;
     }
 
-    private static PlayabilityMatrixResponse.Answer toAnswer(SongPlayability p) {
-        return PlayabilityMatrixResponse.Answer.builder()
-                .performanceMemberId(p.getPerformanceMember().getId())
-                .partId(p.getPart().getId())
-                .answer(p.getAnswer())
-                .reason(p.getReason())
-                .build();
+    private PerformanceMember target(PerformanceAccess access, Long performanceMemberId) {
+        PerformanceMember pm = accessService.getMember(access.performanceId(), performanceMemberId);
+        if (!pm.isActiveParticipant()) {
+            throw BusinessException.invalidState("공연 참여자가 아닙니다.");
+        }
+        return pm;
     }
 
-    private static PlayabilityMatrixResponse.Member toMember(PerformanceMember m) {
-        return PlayabilityMatrixResponse.Member.builder()
-                .performanceMemberId(m.getId())
-                .name(PerformanceAccessService.displayName(m))
-                .build();
+    private void audit(PerformanceAccess access, String action, Long songId, Long memberId, Long partId) {
+        auditLogRepository.save(AuditLog.of(
+                access.clubId(),
+                access.userId(),
+                action,
+                "SONG",
+                songId,
+                null,
+                "{\"performanceMemberId\":" + memberId + ",\"partId\":" + partId + "}"));
     }
 }

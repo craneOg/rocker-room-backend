@@ -56,4 +56,23 @@ public class SongVote extends BaseTimeEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "submitted_by_user_id", nullable = false)
     private User submittedBy;
+
+    public static SongVote of(Song song, PerformanceMember performanceMember, int score, User submittedBy) {
+        SongVote v = new SongVote();
+        v.song = song;
+        v.performanceId = song.getPerformance().getId();
+        v.performanceMember = performanceMember;
+        v.update(score, submittedBy);
+        return v;
+    }
+
+    public void update(int score, User submittedBy) {
+        this.score = score;
+        this.submittedBy = submittedBy;
+    }
+
+    // V-08: 입력자가 응답자 본인이 아니면 임원 대리 입력
+    public boolean isEnteredByAdmin() {
+        return !submittedBy.getId().equals(performanceMember.getMembership().getUser().getId());
+    }
 }

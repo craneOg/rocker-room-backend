@@ -44,4 +44,23 @@ class TeamTransitionTest {
     void approveOnlySubmitted() {
         assertThatThrownBy(() -> draft().approve()).isInstanceOf(BusinessException.class);
     }
+
+    @Test
+    @DisplayName("API-074 철회(WITHDRAWN) 팀도 reopen으로 DRAFT")
+    void reopenFromWithdrawn() {
+        Team team = draft();
+        team.withdraw();
+        assertThat(team.getStatus()).isEqualTo(TeamStatus.WITHDRAWN);
+        team.reopen();
+        assertThat(team.getStatus()).isEqualTo(TeamStatus.DRAFT);
+    }
+
+    @Test
+    @DisplayName("반려(REJECTED) 팀은 철회할 수 없음 409")
+    void withdrawNotFromRejected() {
+        Team team = draft();
+        team.submit();
+        team.reject("인원 부족");
+        assertThatThrownBy(team::withdraw).isInstanceOf(BusinessException.class);
+    }
 }

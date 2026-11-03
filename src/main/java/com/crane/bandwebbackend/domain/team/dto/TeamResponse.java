@@ -1,40 +1,51 @@
 package com.crane.bandwebbackend.domain.team.dto;
 
-import com.crane.bandwebbackend.domain.team.entity.Team;
 import com.crane.bandwebbackend.domain.team.entity.TeamSource;
 import com.crane.bandwebbackend.domain.team.entity.TeamStatus;
-import com.crane.bandwebbackend.global.time.Kst;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.OffsetDateTime;
+import java.util.List;
 import lombok.Builder;
 import lombok.Getter;
 
+// 팀 카드·상세 공통(API-061·063)
 @Getter
 @Builder
 public class TeamResponse {
 
     private final Long id;
-    private final Long performanceId;
     private final String name;
     private final TeamStatus status;
     private final TeamSource source;
-    private final Long leaderMemberId;
+
+    @Getter(onMethod_ = @JsonProperty("isDefault"))
+    private final boolean isDefault;
+
+    private final Long leaderMembershipId;
+    private final String leaderDisplayName;
+    // REJECTED 팀에서만, 팀원과 A에게만
+    private final String rejectReason;
+    private final int memberCount;
+    private final List<PartCount> partSummary;
+    // 팀원과 A에게만, 그 밖에는 NULL
+    private final Integer assignedSongCount;
+    private final Integer candidateSongCount;
+
+    @Getter(onMethod_ = @JsonProperty("isMine"))
+    private final boolean isMine;
+
     private final OffsetDateTime submittedAt;
     private final OffsetDateTime decidedAt;
-    private final String rejectReason;
+    private final OffsetDateTime createdAt;
     private final Long version;
 
-    public static TeamResponse from(Team team) {
-        return TeamResponse.builder()
-                .id(team.getId())
-                .performanceId(team.getPerformance().getId())
-                .name(team.getName())
-                .status(team.getStatus())
-                .source(team.getSource())
-                .leaderMemberId(team.getLeader() == null ? null : team.getLeader().getId())
-                .submittedAt(Kst.fromUtc(team.getSubmittedAt()))
-                .decidedAt(Kst.fromUtc(team.getDecidedAt()))
-                .rejectReason(team.getRejectReason())
-                .version(team.getVersion())
-                .build();
+    // 대표 파트 기준 파트별 팀원 수. 대표 파트가 없는 팀원은 partId·partName NULL 한 항목
+    @Getter
+    @Builder
+    public static class PartCount {
+
+        private final Long partId;
+        private final String partName;
+        private final int count;
     }
 }

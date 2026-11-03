@@ -34,4 +34,12 @@ public class SongPartRequirement {
     // ck_song_part_requirement_count: 0보다 큼
     @Column(nullable = false)
     private int requiredCount;
+
+    public static SongPartRequirement of(Song song, Part part, int requiredCount) {
+        SongPartRequirement r = new SongPartRequirement();
+        r.song = song;
+        r.part = part;
+        r.requiredCount = requiredCount;
+        return r;
+    }
 }

@@ -127,13 +127,22 @@ public class Song extends BaseTimeEntity {
         return song;
     }
 
-    // PROPOSED → CONFIRMED. 담당 팀·순서·사유를 한 번에(X-05). 팀 범위 후보는 담당 팀 기본값 = 후보 팀
+    // PROPOSED → CONFIRMED. 담당 팀·순서·사유를 한 번에(X-05). 담당 팀 기본값은 서비스가 정함(NULL = 담당 팀 없음)
     public void confirm(Team assignedTeam, Integer setlistOrder, String note) {
         requireStatus(SongStatus.PROPOSED);
         this.status = SongStatus.CONFIRMED;
-        this.assignedTeam = assignedTeam != null ? assignedTeam : candidateTeam;
+        this.assignedTeam = assignedTeam;
         this.setlistOrder = setlistOrder;
         decide(note);
+    }
+
+    // API-078: 후보곡 기본 정보(임원만, S-11)
+    public void update(String title, String artist, String referenceUrl, String memo) {
+        requireStatus(SongStatus.PROPOSED);
+        this.title = title;
+        this.artist = artist;
+        this.referenceUrl = referenceUrl;
+        this.memo = memo;
     }
 
     // CONFIRMED → PROPOSED(확정 취소)
@@ -152,11 +161,11 @@ public class Song extends BaseTimeEntity {
         decide(note);
     }
 
-    // REJECTED → PROPOSED(재검토, SONG-003 9-5)
-    public void reopen(String note) {
+    // REJECTED → PROPOSED(재검토, SONG-003 9-5). 이전 제외 사유는 감사 기록으로 남기고 decisionNote는 유지
+    public void reconsider() {
         requireStatus(SongStatus.REJECTED);
         this.status = SongStatus.PROPOSED;
-        decide(note);
+        this.decidedAt = LocalDateTime.now(ZoneOffset.UTC);
     }
 
     // 철회는 PROPOSED에서만. 임원 삭제도 WITHDRAWN + ADMIN(S-11)
@@ -190,8 +199,11 @@ public class Song extends BaseTimeEntity {
         this.setlistOrder = null;
     }
 
+    // 사유를 보냈을 때만 최근 결정 사유로 덮어씀
     private void decide(String note) {
-        this.decisionNote = note;
+        if (note != null) {
+            this.decisionNote = note;
+        }
         this.decidedAt = LocalDateTime.now(ZoneOffset.UTC);
     }
 
@@ -209,6 +221,6 @@ public class Song extends BaseTimeEntity {
     }
 
     private BusinessException invalidTransition() {
-        return new BusinessException(ErrorCode.STATE_CONFLICT, "현재 곡 상태(" + status + ")에서는 할 수 없습니다.");
+        return new BusinessException(ErrorCode.STATE_CONFLICT, "INVALID_STATE", "현재 곡 상태(" + status + ")에서는 할 수 없습니다.");
     }
 }

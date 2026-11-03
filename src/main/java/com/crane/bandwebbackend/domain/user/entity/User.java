@@ -36,6 +36,17 @@ public class User extends BaseTimeEntity {
     @Column(length = 500)
     private String profileImageUrl;
 
+    // FALSE면 본인·Super Admin 외에는 profileImageUrl을 NULL로 반환(임원 포함)
+    @Column(nullable = false)
+    private boolean profileImagePublic;
+
+    // 요청자(viewer)에게 보일 프로필 사진 URL
+    public String profileImageUrlFor(User viewer) {
+        boolean self = viewer != null && viewer.getId().equals(id);
+        boolean superAdmin = viewer != null && viewer.isSuperAdmin();
+        return profileImagePublic || self || superAdmin ? profileImageUrl : null;
+    }
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private UserStatus status;
