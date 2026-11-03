@@ -10,6 +10,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
+import org.springframework.core.env.Profiles;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -52,7 +53,8 @@ public class SecurityConfig {
                 new JwtAuthenticationFilter(jwtProvider, cookieFactory, blacklistRepository, userAuthQueryService);
 
         // U7: springdoc은 local 프로필에서만 켜지고, 켜져 있을 때만 문서 경로를 비인증 허용한다
-        boolean docsEnabled = environment.getProperty("springdoc.swagger-ui.enabled", Boolean.class, false);
+        boolean docsEnabled = environment.acceptsProfiles(Profiles.of("local"))
+                && environment.getProperty("springdoc.swagger-ui.enabled", Boolean.class, false);
 
         http.sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .formLogin(AbstractHttpConfigurer::disable)

@@ -15,6 +15,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.core.env.Environment;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
 class OpenApiExposureTest {
@@ -50,6 +51,25 @@ class OpenApiExposureTest {
         @Test
         @DisplayName("U7 기본 설정(운영과 동일)에서 /swagger-ui/index.html은 인증 없이 열리지 않는다")
         void swaggerUiHidden() throws Exception {
+            mockMvc.perform(get("/swagger-ui/index.html")).andExpect(status().isUnauthorized());
+        }
+    }
+
+    @Import(TestcontainersConfiguration.class)
+    @ActiveProfiles("test")
+    @TestPropertySource(properties = {"springdoc.api-docs.enabled=true", "springdoc.swagger-ui.enabled=true"})
+    @SpringBootTest
+    @AutoConfigureMockMvc
+    @Nested
+    class EnabledOutsideLocal {
+
+        @Autowired
+        MockMvc mockMvc;
+
+        @Test
+        @DisplayName("U7 local이 아니면 springdoc을 켜도 문서 경로는 인증 없이 열리지 않는다")
+        void docsStayBehindAuth() throws Exception {
+            mockMvc.perform(get("/v3/api-docs")).andExpect(status().isUnauthorized());
             mockMvc.perform(get("/swagger-ui/index.html")).andExpect(status().isUnauthorized());
         }
     }
