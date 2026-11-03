@@ -139,7 +139,7 @@ CREATE TABLE one_time_token (
     token_hash  BINARY(32)   NOT NULL COMMENT '토큰 원문의 SHA-256(32바이트). 평문 저장 금지',
     purpose     VARCHAR(30)  NOT NULL COMMENT 'OAUTH_STATE(카카오 로그인 시작→콜백, 10분) / LOGIN_EXCHANGE(AUTH-02→03, 60초) / ACCOUNT_RESTORATION(AUTH-03→13, 10분). [v7.1] OAUTH_STATE 저장 확정(10-28 결정)',
     user_id     BIGINT       NULL     COMMENT '토큰 대상 사용자. OAUTH_STATE처럼 사용자 없는 용도는 NULL',
-    return_to   VARCHAR(200) NULL     COMMENT '로그인 후 돌아갈 FE 상대 경로(OAUTH_STATE일 때만)',
+    return_to   VARCHAR(200) NULL     COMMENT '로그인 후 돌아갈 FE 상대 경로(OAUTH_STATE, 로그인 교환 토큰에 복사. 그 외 용도는 NULL)',
     expires_at  DATETIME(6)  NOT NULL,
     used_at     DATETIME(6)  NULL     COMMENT 'NULL이면 미사용. 1회 소비 시각',
     created_at  DATETIME(6)  NOT NULL DEFAULT CURRENT_TIMESTAMP(6),

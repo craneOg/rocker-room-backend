@@ -48,4 +48,12 @@ public class AuthIdentity extends BaseTimeEntity {
     // 탈퇴 후에도 90일 보관(U-10), 파기(U-11) 시 삭제
     @Column(nullable = false, length = 255)
     private String providerUid;
+
+    public static AuthIdentity create(User user, AuthProvider provider, String providerUid) {
+        AuthIdentity identity = new AuthIdentity();
+        identity.user = user;
+        identity.provider = provider;
+        identity.providerUid = providerUid;
+        return identity;
+    }
 }
