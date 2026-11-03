@@ -65,4 +65,15 @@ class CookieFactoryTest {
                 .contains("HttpOnly", "Secure", "SameSite=Lax")
                 .doesNotContain("Domain");
     }
+
+    @Test
+    @DisplayName("Access 쿠키 Max-Age는 app.jwt.access-ttl을 따른다")
+    void accessMaxAgeFollowsJwtTtl() {
+        CookieFactory f = new CookieFactory(new AppProperties(
+                new AppProperties.Jwt("x".repeat(32), Duration.ofMinutes(5)),
+                new AppProperties.Cors("http://localhost:5173"),
+                new AppProperties.Cookie(false, false)));
+
+        assertThat(f.access("v").getMaxAge()).isEqualTo(Duration.ofMinutes(5));
+    }
 }

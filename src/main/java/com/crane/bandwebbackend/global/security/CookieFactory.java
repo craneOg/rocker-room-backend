@@ -11,17 +11,18 @@ public class CookieFactory {
 
     public static final String REFRESH_PATH = "/api/v1/auth/refresh";
 
-    private static final Duration ACCESS_MAX_AGE = Duration.ofSeconds(900);
     private static final Duration REFRESH_MAX_AGE = Duration.ofDays(30);
     private static final Duration EXCHANGE_MAX_AGE = Duration.ofSeconds(60);
     private static final Duration SHORT_MAX_AGE = Duration.ofSeconds(600);
 
     private final boolean hostPrefix;
     private final boolean secure;
+    private final Duration accessMaxAge;
 
     public CookieFactory(AppProperties properties) {
         this.hostPrefix = properties.cookie().hostPrefix();
         this.secure = properties.cookie().secure();
+        this.accessMaxAge = properties.jwt().accessTtl();
     }
 
     public String accessName() {
@@ -45,7 +46,7 @@ public class CookieFactory {
     }
 
     public ResponseCookie access(String value) {
-        return build(accessName(), value, "/", ACCESS_MAX_AGE);
+        return build(accessName(), value, "/", accessMaxAge);
     }
 
     public ResponseCookie refresh(String value) {
