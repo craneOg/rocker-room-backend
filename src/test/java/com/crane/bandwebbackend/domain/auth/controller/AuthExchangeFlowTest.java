@@ -277,10 +277,10 @@ class AuthExchangeFlowTest {
         assertThat(result.getResponse().getStatus()).isEqualTo(200);
         assertThat(setCookie(result, cookies.accessName()))
                 .contains("Max-Age=0")
-                .contains("Path=/");
+                .contains("Path=/;");
         assertThat(setCookie(result, cookies.refreshName()))
                 .contains("Max-Age=0")
-                .contains("Path=/api/v1/auth/refresh");
+                .contains("Path=/api/v1/auth/refresh;");
         assertThat(cookieValue(result, cookies.accessName())).isEmpty();
         assertThat(setCookie(result, cookies.restoreName())).contains("Max-Age=600");
     }
