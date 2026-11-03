@@ -53,6 +53,8 @@ dependencies {
 
 tasks.named('test') {
     useJUnitPlatform()
+    // 저장은 UTC 전제(agent.md). JVM 기본 시간대가 KST인 개발 PC에서도 시각 비교 결과가 같도록 고정한다
+    jvmArgs '-Duser.timezone=UTC'
 }
 
 // 포맷: palantir-java-format(4칸, 120자). 커밋 전 ./gradlew spotlessApply
