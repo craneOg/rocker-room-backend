@@ -5,7 +5,8 @@ import com.crane.bandwebbackend.domain.song.entity.Song;
 import com.crane.bandwebbackend.domain.song.entity.SongStatus;
 import com.crane.bandwebbackend.domain.song.entity.WithdrawalType;
 import com.crane.bandwebbackend.domain.team.entity.Team;
-import com.crane.bandwebbackend.global.time.Kst;
+import com.crane.bandwebbackend.global.serialization.IdString;
+import com.crane.bandwebbackend.global.time.KstTime;
 import java.time.OffsetDateTime;
 import lombok.Builder;
 import lombok.Getter;
@@ -15,16 +16,23 @@ import lombok.Getter;
 @Builder
 public class SongResponse {
 
+    @IdString
     private final Long id;
+
     private final SongStatus status;
     private final String title;
     private final String artist;
     private final String referenceUrl;
     private final String memo;
     // 후보 범위 팀, 공연 전체 범위면 NULL
+    @IdString
     private final Long candidateTeamId;
+
     private final String candidateTeamName;
+
+    @IdString
     private final Long assignedTeamId;
+
     private final String assignedTeamName;
     private final Proposer proposedBy;
     private final OffsetDateTime createdAt;
@@ -32,13 +40,17 @@ public class SongResponse {
     private final String decisionNote;
     private final WithdrawalType withdrawalType;
     private final OffsetDateTime decidedAt;
+
+    @IdString
     private final Long version;
 
     @Getter
     @Builder
     public static class Proposer {
 
+        @IdString
         private final Long membershipId;
+
         private final String displayName;
     }
 
@@ -60,11 +72,11 @@ public class SongResponse {
                         .membershipId(song.getProposedBy().getId())
                         .displayName(PerformanceAccessService.displayName(song.getProposedBy()))
                         .build())
-                .createdAt(Kst.fromUtc(song.getCreatedAt()))
+                .createdAt(KstTime.toKst(song.getCreatedAt()))
                 .setlistOrder(song.getSetlistOrder())
                 .decisionNote(song.getDecisionNote())
                 .withdrawalType(song.getWithdrawalType())
-                .decidedAt(Kst.fromUtc(song.getDecidedAt()))
+                .decidedAt(KstTime.toKst(song.getDecidedAt()))
                 .version(song.getVersion())
                 .build();
     }

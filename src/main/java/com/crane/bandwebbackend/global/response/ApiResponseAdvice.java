@@ -30,6 +30,6 @@ public class ApiResponseAdvice implements ResponseBodyAdvice<Object> {
         if (body instanceof ApiResponse<?> || body instanceof ErrorResponse) {
             return body;
         }
-        return new ApiResponse<>(body, RequestIds.current());
+        return ApiResponse.ok(body);
     }
 }

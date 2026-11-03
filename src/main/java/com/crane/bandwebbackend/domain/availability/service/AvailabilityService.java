@@ -16,7 +16,7 @@ import com.crane.bandwebbackend.domain.song.service.SongSupport;
 import com.crane.bandwebbackend.domain.team.service.TeamService;
 import com.crane.bandwebbackend.global.error.BusinessException;
 import com.crane.bandwebbackend.global.error.ErrorCode;
-import com.crane.bandwebbackend.global.time.Kst;
+import com.crane.bandwebbackend.global.time.KstTime;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -95,7 +95,7 @@ public class AvailabilityService {
                 policy.getPracticeSeasonStart(),
                 policy.getPracticeSeasonEnd());
         accessService.lock(pm);
-        slotRepository.deleteInRange(pm.getId(), Kst.toUtc(req.getFrom()), Kst.toUtc(req.getTo()));
+        slotRepository.deleteInRange(pm.getId(), KstTime.toUtc(req.getFrom()), KstTime.toUtc(req.getTo()));
         slotRepository.saveAll(slots.stream().map(s -> AvailableSlot.of(pm, s)).toList());
         return response(pm.getId(), req.getFrom(), req.getTo(), slots);
     }
@@ -160,21 +160,22 @@ public class AvailabilityService {
                                 .build()));
         Set<Long> ids = names.keySet();
         Set<Long> responded = ids.isEmpty() ? Set.of() : Set.copyOf(slotRepository.findRespondedMemberIds(ids));
-        List<AvailableSlot> slots =
-                ids.isEmpty() ? List.of() : slotRepository.findByMembersInRange(ids, Kst.toUtc(from), Kst.toUtc(to));
+        List<AvailableSlot> slots = ids.isEmpty()
+                ? List.of()
+                : slotRepository.findByMembersInRange(ids, KstTime.toUtc(from), KstTime.toUtc(to));
         Map<LocalDateTime, List<Long>> bySlot = new TreeMap<>();
         slots.forEach(s -> bySlot.computeIfAbsent(s.getSlotStart(), k -> new ArrayList<>())
                 .add(s.getPerformanceMember().getId()));
 
         boolean admin = access.isAdmin();
         return CommonAvailabilityResponse.builder()
-                .from(from.withOffsetSameInstant(Kst.OFFSET))
-                .to(to.withOffsetSameInstant(Kst.OFFSET))
+                .from(from.withOffsetSameInstant(KstTime.KST))
+                .to(to.withOffsetSameInstant(KstTime.KST))
                 .participantCount(targets.size())
                 .respondedCount(responded.size())
                 .slots(bySlot.entrySet().stream()
                         .map(e -> CommonAvailabilityResponse.Slot.builder()
-                                .startAt(Kst.fromUtc(e.getKey()))
+                                .startAt(KstTime.toKst(e.getKey()))
                                 .availableCount(e.getValue().size())
                                 .availableMembers(
                                         admin
@@ -208,7 +209,8 @@ public class AvailabilityService {
             return response(memberId, null, null, slotRepository.findStarts(memberId));
         }
         validateRange(from, to);
-        return response(memberId, from, to, slotRepository.findStartsInRange(memberId, Kst.toUtc(from), Kst.toUtc(to)));
+        return response(
+                memberId, from, to, slotRepository.findStartsInRange(memberId, KstTime.toUtc(from), KstTime.toUtc(to)));
     }
 
     /**
@@ -235,13 +237,13 @@ public class AvailabilityService {
                 throw new BusinessException(ErrorCode.VALIDATION_ERROR, "OUTSIDE_RANGE", "요청 기간 안의 시간만 저장할 수 있습니다.");
             }
             for (OffsetDateTime t = start; t.isBefore(end); t = t.plus(SLOT)) {
-                LocalDate date = t.atZoneSameInstant(Kst.OFFSET).toLocalDate();
+                LocalDate date = t.atZoneSameInstant(KstTime.KST).toLocalDate();
                 if ((seasonStart != null && date.isBefore(seasonStart))
                         || (seasonEnd != null && date.isAfter(seasonEnd))) {
                     throw new BusinessException(
                             ErrorCode.VALIDATION_ERROR, "OUTSIDE_PRACTICE_SEASON", "합주 시즌 밖의 시간은 입력할 수 없습니다.");
                 }
-                result.add(Kst.toUtc(t));
+                result.add(KstTime.toUtc(t));
             }
         }
         return List.copyOf(result);
@@ -271,8 +273,8 @@ public class AvailabilityService {
 
     private static AvailabilityResponse.Interval interval(LocalDateTime start, LocalDateTime end) {
         return AvailabilityResponse.Interval.builder()
-                .startAt(Kst.fromUtc(start))
-                .endAt(Kst.fromUtc(end))
+                .startAt(KstTime.toKst(start))
+                .endAt(KstTime.toKst(end))
                 .build();
     }
 
@@ -280,8 +282,8 @@ public class AvailabilityService {
             Long memberId, OffsetDateTime from, OffsetDateTime to, List<LocalDateTime> utcStarts) {
         return AvailabilityResponse.builder()
                 .performanceMemberId(memberId)
-                .from(from == null ? null : from.withOffsetSameInstant(Kst.OFFSET))
-                .to(to == null ? null : to.withOffsetSameInstant(Kst.OFFSET))
+                .from(from == null ? null : from.withOffsetSameInstant(KstTime.KST))
+                .to(to == null ? null : to.withOffsetSameInstant(KstTime.KST))
                 .slots(merge(utcStarts))
                 .build();
     }
@@ -299,7 +301,7 @@ public class AvailabilityService {
 
     // AV-02: KST 기준 30분 정렬(KST는 정시 오프셋이라 UTC 정렬과 같음)
     private static void requireAligned(OffsetDateTime t) {
-        OffsetDateTime kst = t.withOffsetSameInstant(Kst.OFFSET);
+        OffsetDateTime kst = t.withOffsetSameInstant(KstTime.KST);
         if (kst.getMinute() % 30 != 0 || kst.getSecond() != 0 || kst.getNano() != 0) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "SLOT_NOT_ALIGNED", "가능 시간은 30분 단위로만 입력할 수 있습니다.");
         }

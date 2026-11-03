@@ -44,14 +44,14 @@ public class AuditLog extends BaseCreatedTimeEntity {
     @JdbcTypeCode(SqlTypes.JSON)
     private String detail;
 
-    public static AuditLog of(
+    public static AuditLog create(
             Long clubId,
             Long actorUserId,
             String action,
             String targetType,
             Long targetId,
             String reason,
-            String detail) {
+            String detailJson) {
         AuditLog log = new AuditLog();
         log.clubId = clubId;
         log.actorUserId = actorUserId;
@@ -59,7 +59,7 @@ public class AuditLog extends BaseCreatedTimeEntity {
         log.targetType = targetType;
         log.targetId = targetId;
         log.reason = reason;
-        log.detail = detail;
+        log.detail = detailJson;
         return log;
     }
 }

@@ -1,6 +1,7 @@
 package com.crane.bandwebbackend.domain.team.dto;
 
 import com.crane.bandwebbackend.domain.evaluation.dto.EvaluationSummary;
+import com.crane.bandwebbackend.global.serialization.IdString;
 import java.util.List;
 import lombok.Builder;
 import lombok.Getter;
@@ -20,13 +21,17 @@ public class TeamDetailResponse {
     @Builder
     public static class AssignedSong {
 
+        @IdString
         private final Long id;
+
         private final String title;
         private final String artist;
         private final Integer setlistOrder;
         private final int sessionCount;
         // 필요 편성이 없으면 NULL
         private final Boolean requirementsSatisfied;
+
+        @IdString
         private final Long version;
     }
 
@@ -35,10 +40,14 @@ public class TeamDetailResponse {
     @Builder
     public static class CandidateSong {
 
+        @IdString
         private final Long id;
+
         private final String title;
         private final String artist;
         private final EvaluationSummary evaluation;
+
+        @IdString
         private final Long version;
     }
 }

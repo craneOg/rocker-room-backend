@@ -69,7 +69,10 @@ Boot가 관리하는 라이브러리는 build.gradle에 버전을 쓰지 않는�
    로그: 개인정보(이름, 카카오 식별자, 토큰, IP 전체) 로그 금지. 감사 기록 detail에는 ID와 변경 전·후 값만(U-09).
 7. API 규칙
    공통 응답·오류 본문 모양은 API 명세의 공통 규칙을 따른다. 명세에 없으면 묻는다.
-   오류 코드는 검증 규칙 0.2의 9종만 사용: VALIDATION_ERROR(400), UNAUTHENTICATED(401), FORBIDDEN(403), NOT_FOUND(404), STATE_CONFLICT(409), DUPLICATE(409), VERSION_CONFLICT(409), CONFIRMATION_REQUIRED(409), RULE_VIOLATION(422).
+   응답 봉투 {data, meta:{requestId}}(ApiResponse), 오류 봉투 {error:{code,message,details,requestId}}(경고 목록은 error.warnings). 요청 ID는 서버가 req-+랜덤 12자로 생성하고 X-Request-Id 헤더로도 반환.
+   DTO의 ID(Long) 필드에는 @IdString, 일시는 KstTime으로 +09:00 변환.
+   감사 기록은 AuditRecorder.record를 서비스 트랜잭션 안에서 호출. detail에 name, displayName, handle, email, providerUid, token*, ip 키 금지(예외 발생).
+   오류 코드는 검증 규칙 0.2의 9종만 사용: VALIDATION_ERROR(400), UNAUTHENTICATED(401), FORBIDDEN(403), NOT_FOUND(404), STATE_CONFLICT(409), DUPLICATE(409), VERSION_CONFLICT(409), CONFIRMATION_REQUIRED(409), RULE_VIOLATION(422). 415→400 VALIDATION_ERROR, 429→RULE_VIOLATION, 500은 code 없이 {error:{message,requestId}}.
    다른 동아리·다른 공연의 리소스는 404(존재 비노출, G-04).
    강도: "확인 필요" 규칙은 confirmed=true 없으면 409 + 경고 목록, "경고" 규칙은 성공 응답의 warnings.
    DB 제약 위반(1062, 1451, 1452, 3819)을 그대로 내보내지 않는다. 서비스에서 먼저 검사해 위 코드로 변환.
@@ -89,7 +92,9 @@ Boot가 관리하는 라이브러리는 build.gradle에 버전을 쓰지 않는�
    Access Token 15분, Refresh Token 30일, 둘 다 HttpOnly; Secure; SameSite=Lax 쿠키(Domain 생략).
    Refresh Token: DB가 원본(SHA-256 해시 저장), Caffeine은 캐시. 재발급마다 로테이션, 이미 교체된 토큰이 오면 같은 family_id 전부 폐기. 만료 = min(발급+30일, 최초 로그인+90일). 만료+7일 후 삭제.
    현재 기기 로그아웃은 jti 블랙리스트, 전체 무효화는 users.token_version + 1. token_version은 모든 요청에서 비교.
-   상태 변경 요청에 X-Requested-With 헤더가 없으면 403. CORS는 FE 출처 하나만.
+   상태 변경 요청에 X-Requested-With 헤더가 없거나 비어 있으면 403(값은 검사 안 함, 예외 없음). CORS는 FE 출처 하나만(환경 변수 APP_CORS_ORIGIN, 기본 http://localhost:5173).
+   JWT 서명 키는 환경 변수 JWT_SECRET(HS256, 32바이트 이상, 없으면 기동 실패). 쿠키는 CookieFactory로만 만든다: 운영·스테이징은 __Host-rr_at 등 접두사+Secure, local 프로필은 rr_at 등 접두사 없음+Secure=false.
+   springdoc(Swagger UI)은 local 프로필에서만 노출.
    역할은 토큰이 아니라 요청마다 membership.role로 확인(G-07).
    비밀값(카카오 키, JWT 서명 키, DB 비밀번호)은 절대 커밋 금지. application-local.yml(gitignore) 또는 환경 변수.
 10. 테스트

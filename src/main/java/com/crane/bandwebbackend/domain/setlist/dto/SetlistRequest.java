@@ -1,5 +1,6 @@
 package com.crane.bandwebbackend.domain.setlist.dto;
 
+import com.crane.bandwebbackend.global.serialization.IdString;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
@@ -16,6 +17,7 @@ public class SetlistRequest {
 
     // 공연 version
     @NotNull
+    @IdString
     private Long version;
 
     @NotNull
@@ -30,12 +32,14 @@ public class SetlistRequest {
     public static class Item {
 
         @NotNull
+        @IdString
         private Long songId;
 
         @Positive
         private Integer order;
 
         @NotNull
+        @IdString
         private Long version;
     }
 }

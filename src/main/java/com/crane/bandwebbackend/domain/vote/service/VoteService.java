@@ -173,7 +173,7 @@ public class VoteService {
     }
 
     private void audit(PerformanceAccess access, String action, Long songId, Long memberId) {
-        auditLogRepository.save(AuditLog.of(
+        auditLogRepository.save(AuditLog.create(
                 access.clubId(),
                 access.userId(),
                 action,

@@ -32,7 +32,7 @@ public class VoteController {
             @PathVariable Long clubId,
             @PathVariable Long performanceId,
             @PathVariable Long songId,
-            @AuthenticationPrincipal Long userId,
+            @AuthenticationPrincipal(expression = "userId()") Long userId,
             @RequestParam(required = false) Long performanceMemberId) {
         return voteService.list(new PerformanceRef(clubId, performanceId, userId), songId, performanceMemberId);
     }
@@ -43,7 +43,7 @@ public class VoteController {
             @PathVariable Long clubId,
             @PathVariable Long performanceId,
             @PathVariable Long songId,
-            @AuthenticationPrincipal Long userId,
+            @AuthenticationPrincipal(expression = "userId()") Long userId,
             @Valid @RequestBody VoteRequest req) {
         return voteService.voteMine(new PerformanceRef(clubId, performanceId, userId), songId, req);
     }
@@ -55,7 +55,7 @@ public class VoteController {
             @PathVariable Long clubId,
             @PathVariable Long performanceId,
             @PathVariable Long songId,
-            @AuthenticationPrincipal Long userId) {
+            @AuthenticationPrincipal(expression = "userId()") Long userId) {
         voteService.deleteMine(new PerformanceRef(clubId, performanceId, userId), songId);
     }
 
@@ -66,7 +66,7 @@ public class VoteController {
             @PathVariable Long performanceId,
             @PathVariable Long songId,
             @PathVariable Long performanceMemberId,
-            @AuthenticationPrincipal Long userId,
+            @AuthenticationPrincipal(expression = "userId()") Long userId,
             @Valid @RequestBody VoteRequest req) {
         return voteService.voteFor(new PerformanceRef(clubId, performanceId, userId), songId, performanceMemberId, req);
     }
@@ -79,7 +79,7 @@ public class VoteController {
             @PathVariable Long performanceId,
             @PathVariable Long songId,
             @PathVariable Long performanceMemberId,
-            @AuthenticationPrincipal Long userId) {
+            @AuthenticationPrincipal(expression = "userId()") Long userId) {
         voteService.deleteFor(new PerformanceRef(clubId, performanceId, userId), songId, performanceMemberId);
     }
 }

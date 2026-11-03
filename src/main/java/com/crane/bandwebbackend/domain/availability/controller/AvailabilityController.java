@@ -32,7 +32,7 @@ public class AvailabilityController {
     public AvailabilityResponse getMine(
             @PathVariable Long clubId,
             @PathVariable Long performanceId,
-            @AuthenticationPrincipal Long userId,
+            @AuthenticationPrincipal(expression = "userId()") Long userId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime to) {
         return availabilityService.getMine(new PerformanceRef(clubId, performanceId, userId), from, to);
@@ -43,7 +43,7 @@ public class AvailabilityController {
     public AvailabilityResponse replaceMine(
             @PathVariable Long clubId,
             @PathVariable Long performanceId,
-            @AuthenticationPrincipal Long userId,
+            @AuthenticationPrincipal(expression = "userId()") Long userId,
             @Valid @RequestBody AvailabilityRequest req) {
         return availabilityService.replaceMine(new PerformanceRef(clubId, performanceId, userId), req);
     }
@@ -54,7 +54,7 @@ public class AvailabilityController {
             @PathVariable Long clubId,
             @PathVariable Long performanceId,
             @PathVariable Long performanceMemberId,
-            @AuthenticationPrincipal Long userId,
+            @AuthenticationPrincipal(expression = "userId()") Long userId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime to) {
         return availabilityService.getMember(
@@ -66,7 +66,7 @@ public class AvailabilityController {
     public CommonAvailabilityResponse common(
             @PathVariable Long clubId,
             @PathVariable Long performanceId,
-            @AuthenticationPrincipal Long userId,
+            @AuthenticationPrincipal(expression = "userId()") Long userId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime to,
             @RequestParam(required = false) List<Long> teamIds,

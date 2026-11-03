@@ -37,7 +37,7 @@ public class TeamController {
     public TeamResults.ListResult list(
             @PathVariable Long clubId,
             @PathVariable Long performanceId,
-            @AuthenticationPrincipal Long userId,
+            @AuthenticationPrincipal(expression = "userId()") Long userId,
             @RequestParam(required = false) String status,
             @RequestParam(defaultValue = "false") boolean mine) {
         return teamQueryService.list(ref(clubId, performanceId, userId), status, mine);
@@ -49,7 +49,7 @@ public class TeamController {
     public TeamResults.Result create(
             @PathVariable Long clubId,
             @PathVariable Long performanceId,
-            @AuthenticationPrincipal Long userId,
+            @AuthenticationPrincipal(expression = "userId()") Long userId,
             @Valid @RequestBody TeamRequests.Create req) {
         PerformanceRef ref = ref(clubId, performanceId, userId);
         return req.getSourceSongId() != null ? songService.createTeamFromSong(ref, req) : teamService.create(ref, req);
@@ -58,7 +58,9 @@ public class TeamController {
     // API-154
     @GetMapping("/default-name")
     public TeamResults.DefaultName defaultName(
-            @PathVariable Long clubId, @PathVariable Long performanceId, @AuthenticationPrincipal Long userId) {
+            @PathVariable Long clubId,
+            @PathVariable Long performanceId,
+            @AuthenticationPrincipal(expression = "userId()") Long userId) {
         return teamService.defaultName(ref(clubId, performanceId, userId));
     }
 
@@ -67,7 +69,7 @@ public class TeamController {
     public TeamResults.Result setDefault(
             @PathVariable Long clubId,
             @PathVariable Long performanceId,
-            @AuthenticationPrincipal Long userId,
+            @AuthenticationPrincipal(expression = "userId()") Long userId,
             @Valid @RequestBody TeamRequests.Default req) {
         return teamService.setDefault(ref(clubId, performanceId, userId), req);
     }
@@ -78,7 +80,7 @@ public class TeamController {
             @PathVariable Long clubId,
             @PathVariable Long performanceId,
             @PathVariable Long teamId,
-            @AuthenticationPrincipal Long userId) {
+            @AuthenticationPrincipal(expression = "userId()") Long userId) {
         return teamQueryService.detail(ref(clubId, performanceId, userId), teamId);
     }
 
@@ -88,7 +90,7 @@ public class TeamController {
             @PathVariable Long clubId,
             @PathVariable Long performanceId,
             @PathVariable Long teamId,
-            @AuthenticationPrincipal Long userId,
+            @AuthenticationPrincipal(expression = "userId()") Long userId,
             @Valid @RequestBody TeamRequests.Rename req) {
         return teamService.rename(ref(clubId, performanceId, userId), teamId, req);
     }
@@ -99,7 +101,7 @@ public class TeamController {
             @PathVariable Long clubId,
             @PathVariable Long performanceId,
             @PathVariable Long teamId,
-            @AuthenticationPrincipal Long userId,
+            @AuthenticationPrincipal(expression = "userId()") Long userId,
             @Valid @RequestBody TeamRequests.AddMember req) {
         return teamService.addMember(ref(clubId, performanceId, userId), teamId, req);
     }
@@ -111,7 +113,7 @@ public class TeamController {
             @PathVariable Long performanceId,
             @PathVariable Long teamId,
             @PathVariable Long teamMemberId,
-            @AuthenticationPrincipal Long userId,
+            @AuthenticationPrincipal(expression = "userId()") Long userId,
             @Valid @RequestBody TeamRequests.ChangePart req) {
         return teamService.changeMemberPart(ref(clubId, performanceId, userId), teamId, teamMemberId, req);
     }
@@ -123,7 +125,7 @@ public class TeamController {
             @PathVariable Long performanceId,
             @PathVariable Long teamId,
             @PathVariable Long teamMemberId,
-            @AuthenticationPrincipal Long userId,
+            @AuthenticationPrincipal(expression = "userId()") Long userId,
             @Valid @RequestBody TeamRequests.RemoveMember req) {
         return teamService.removeMember(ref(clubId, performanceId, userId), teamId, teamMemberId, req);
     }
@@ -134,7 +136,7 @@ public class TeamController {
             @PathVariable Long clubId,
             @PathVariable Long performanceId,
             @PathVariable Long teamId,
-            @AuthenticationPrincipal Long userId,
+            @AuthenticationPrincipal(expression = "userId()") Long userId,
             @Valid @RequestBody TeamRequests.Leader req) {
         return teamService.changeLeader(ref(clubId, performanceId, userId), teamId, req);
     }
@@ -145,7 +147,7 @@ public class TeamController {
             @PathVariable Long clubId,
             @PathVariable Long performanceId,
             @PathVariable Long teamId,
-            @AuthenticationPrincipal Long userId,
+            @AuthenticationPrincipal(expression = "userId()") Long userId,
             @Valid @RequestBody TeamRequests.Transition req) {
         return teamService.submit(ref(clubId, performanceId, userId), teamId, req);
     }
@@ -156,7 +158,7 @@ public class TeamController {
             @PathVariable Long clubId,
             @PathVariable Long performanceId,
             @PathVariable Long teamId,
-            @AuthenticationPrincipal Long userId,
+            @AuthenticationPrincipal(expression = "userId()") Long userId,
             @Valid @RequestBody TeamRequests.Transition req) {
         return teamService.unsubmit(ref(clubId, performanceId, userId), teamId, req);
     }
@@ -167,7 +169,7 @@ public class TeamController {
             @PathVariable Long clubId,
             @PathVariable Long performanceId,
             @PathVariable Long teamId,
-            @AuthenticationPrincipal Long userId,
+            @AuthenticationPrincipal(expression = "userId()") Long userId,
             @Valid @RequestBody TeamRequests.Transition req) {
         return teamService.approve(ref(clubId, performanceId, userId), teamId, req);
     }
@@ -178,7 +180,7 @@ public class TeamController {
             @PathVariable Long clubId,
             @PathVariable Long performanceId,
             @PathVariable Long teamId,
-            @AuthenticationPrincipal Long userId,
+            @AuthenticationPrincipal(expression = "userId()") Long userId,
             @Valid @RequestBody TeamRequests.Transition req) {
         return teamService.reject(ref(clubId, performanceId, userId), teamId, req);
     }
@@ -189,7 +191,7 @@ public class TeamController {
             @PathVariable Long clubId,
             @PathVariable Long performanceId,
             @PathVariable Long teamId,
-            @AuthenticationPrincipal Long userId,
+            @AuthenticationPrincipal(expression = "userId()") Long userId,
             @Valid @RequestBody TeamRequests.Transition req) {
         return teamService.withdraw(ref(clubId, performanceId, userId), teamId, req);
     }
@@ -200,7 +202,7 @@ public class TeamController {
             @PathVariable Long clubId,
             @PathVariable Long performanceId,
             @PathVariable Long teamId,
-            @AuthenticationPrincipal Long userId,
+            @AuthenticationPrincipal(expression = "userId()") Long userId,
             @Valid @RequestBody TeamRequests.Transition req) {
         return teamService.reopen(ref(clubId, performanceId, userId), teamId, req);
     }

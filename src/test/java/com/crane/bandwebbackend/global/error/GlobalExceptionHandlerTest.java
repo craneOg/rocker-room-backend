@@ -5,18 +5,25 @@ import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.crane.bandwebbackend.global.config.RequestIdFilter;
 import jakarta.validation.ConstraintViolationException;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.Map;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.slf4j.MDC;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.MediaType;
@@ -40,10 +47,16 @@ class GlobalExceptionHandlerTest {
     void setUp() {
         validator = new LocalValidatorFactoryBean();
         validator.afterPropertiesSet();
+        MDC.put(RequestIdFilter.MDC_KEY, "req-test00000001");
         mockMvc = MockMvcBuilders.standaloneSetup(new StubController())
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .setValidator(validator)
                 .build();
+    }
+
+    @AfterEach
+    void tearDown() {
+        MDC.clear();
     }
 
     @Test
@@ -53,7 +66,10 @@ class GlobalExceptionHandlerTest {
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.error.code").value("NOT_FOUND"))
                 .andExpect(jsonPath("$.error.message").value("팀을 찾을 수 없습니다."))
-                .andExpect(jsonPath("$.error.warnings").doesNotExist());
+                .andExpect(jsonPath("$.error.details").isArray())
+                .andExpect(jsonPath("$.error.details.length()").value(0))
+                .andExpect(jsonPath("$.error.warnings").doesNotExist())
+                .andExpect(jsonPath("$.error.requestId").value("req-test00000001"));
     }
 
     @Test
@@ -62,19 +78,23 @@ class GlobalExceptionHandlerTest {
         mockMvc.perform(get("/stub/confirm"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.error.code").value("CONFIRMATION_REQUIRED"))
-                .andExpect(jsonPath("$.error.warnings[0].message").value("마지막 임원이라 후임에게 권한이 넘어갑니다."))
+                .andExpect(jsonPath("$.error.warnings[0].type").value("LAST_ADMIN"))
+                .andExpect(jsonPath("$.error.warnings[0].clubId").value("3"))
                 .andExpect(jsonPath("$.error.warnings.length()").value(2));
     }
 
     @Test
-    @DisplayName("0.2 요청 본문 검증 실패는 400 VALIDATION_ERROR이고 첫 필드 오류를 알려준다")
+    @DisplayName("0.2 요청 본문 검증 실패는 400 VALIDATION_ERROR이고 모든 필드 오류를 details에 담는다")
     void bodyValidation() throws Exception {
         mockMvc.perform(post("/stub/valid")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"\"}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"))
-                .andExpect(jsonPath("$.error.message").value(containsString("name")));
+                .andExpect(jsonPath("$.error.details.length()").value(2))
+                .andExpect(
+                        jsonPath("$.error.details[?(@.field=='name')].reason").value("INVALID_VALUE"))
+                .andExpect(jsonPath("$.error.details[?(@.field=='age')].reason").value("INVALID_VALUE"));
     }
 
     @Test
@@ -83,7 +103,8 @@ class GlobalExceptionHandlerTest {
         mockMvc.perform(get("/stub/constraint"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"))
-                .andExpect(jsonPath("$.error.message").value(containsString("name")));
+                .andExpect(
+                        jsonPath("$.error.details[?(@.field=='name')].reason").value("INVALID_VALUE"));
     }
 
     @Test
@@ -110,6 +131,14 @@ class GlobalExceptionHandlerTest {
                 .andExpect(jsonPath("$.error.code").value("VERSION_CONFLICT"));
     }
 
+    @Test
+    @DisplayName("프레임워크가 정한 4xx는 상태·헤더를 유지한다(405는 Allow 헤더)")
+    void frameworkHeadersPreserved() throws Exception {
+        mockMvc.perform(post("/stub/business"))
+                .andExpect(status().isMethodNotAllowed())
+                .andExpect(header().string("Allow", "GET"));
+    }
+
     @ParameterizedTest(name = "MySQL {0} → {1} {2}")
     @CsvSource({
         "1062, 409, DUPLICATE",
@@ -126,9 +155,52 @@ class GlobalExceptionHandlerTest {
                 .andExpect(content().string(not(containsString("secret@example.com"))));
     }
 
+    @Test
+    @DisplayName("0.2 지원하지 않는 Content-Type(415)은 400 VALIDATION_ERROR, reason UNSUPPORTED_MEDIA_TYPE")
+    void unsupportedMediaType() throws Exception {
+        mockMvc.perform(post("/stub/valid").contentType(MediaType.TEXT_PLAIN).content("x"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.error.details[0].reason").value("UNSUPPORTED_MEDIA_TYPE"))
+                .andExpect(jsonPath("$.error.details[0].field").doesNotExist());
+    }
+
+    @Test
+    @DisplayName("0.2 예상하지 못한 오류는 500, code·details 없이 message·requestId만 내리고 예외 메시지를 노출하지 않는다")
+    void unexpectedException() throws Exception {
+        mockMvc.perform(get("/stub/boom"))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.error.code").doesNotExist())
+                .andExpect(jsonPath("$.error.details").doesNotExist())
+                .andExpect(jsonPath("$.error.message").value("서버 내부 오류가 발생했습니다."))
+                .andExpect(jsonPath("$.error.requestId").value("req-test00000001"))
+                .andExpect(content().string(not(containsString("secret@example.com"))));
+    }
+
+    @Test
+    @DisplayName("0.2 허용되지 않은 메서드(405) 같은 프레임워크 요청 오류는 500으로 바꾸지 않는다")
+    void methodNotAllowed() throws Exception {
+        mockMvc.perform(post("/stub/business"))
+                .andExpect(status().isMethodNotAllowed())
+                .andExpect(jsonPath("$.error.code").doesNotExist());
+    }
+
+    @Test
+    @DisplayName("0.2 컨트롤러 파라미터 제약 위반(HandlerMethodValidationException)은 400 VALIDATION_ERROR")
+    void handlerMethodValidation() throws Exception {
+        mockMvc.perform(get("/stub/min").param("size", "0"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.error.details[0].field").value("size"))
+                .andExpect(jsonPath("$.error.details[0].reason").value("INVALID_VALUE"));
+    }
+
     static class Body {
         @NotBlank
         public String name;
+
+        @NotNull
+        public Integer age;
     }
 
     @RestController
@@ -143,10 +215,11 @@ class GlobalExceptionHandlerTest {
         @GetMapping("/confirm")
         void confirm() {
             throw BusinessException.confirmationRequired(
-                    "확인이 필요합니다.", List.of("마지막 임원이라 후임에게 권한이 넘어갑니다.", "진행 중 공연의 팀장이 바뀝니다."));
+                    "확인이 필요합니다.",
+                    List.of(Map.of("type", "LAST_ADMIN", "clubId", "3"), Map.of("type", "TEAM_LEADER_CHANGES")));
         }
 
-        @PostMapping("/valid")
+        @PostMapping(value = "/valid", consumes = MediaType.APPLICATION_JSON_VALUE)
         void valid(@jakarta.validation.Valid @RequestBody Body body) {}
 
         @GetMapping("/constraint")
@@ -159,6 +232,14 @@ class GlobalExceptionHandlerTest {
 
         @GetMapping("/required")
         void required(@RequestParam String name) {}
+
+        @GetMapping("/min")
+        void min(@RequestParam @Min(1) int size) {}
+
+        @GetMapping("/boom")
+        void boom() {
+            throw new IllegalStateException("secret@example.com");
+        }
 
         @GetMapping("/lock")
         void lock() {

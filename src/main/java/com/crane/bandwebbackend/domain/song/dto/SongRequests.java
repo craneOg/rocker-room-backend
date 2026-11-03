@@ -1,6 +1,7 @@
 package com.crane.bandwebbackend.domain.song.dto;
 
 import com.crane.bandwebbackend.domain.song.entity.SongStatus;
+import com.crane.bandwebbackend.global.serialization.IdString;
 import com.fasterxml.jackson.annotation.JsonSetter;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -22,9 +23,11 @@ public final class SongRequests {
     public static class Session {
 
         @NotNull
+        @IdString
         private Long performanceMemberId;
 
         @NotNull
+        @IdString
         private Long partId;
     }
 
@@ -39,6 +42,7 @@ public final class SongRequests {
         @Positive
         private Integer setlistOrder;
 
+        @IdString
         private Long assignedTeamId;
 
         @Getter(AccessLevel.NONE)
@@ -82,6 +86,7 @@ public final class SongRequests {
         private String memo;
 
         // 값 있으면 팀 범위 후보. 등록 뒤 변경 불가
+        @IdString
         private Long candidateTeamId;
 
         // PROPOSED(기본) 또는 CONFIRMED(A만)
@@ -94,6 +99,7 @@ public final class SongRequests {
     public static class Confirm extends ConfirmFields {
 
         @NotNull
+        @IdString
         private Long version;
     }
 
@@ -103,6 +109,7 @@ public final class SongRequests {
     public static class Update {
 
         @NotNull
+        @IdString
         private Long version;
 
         private String title;
@@ -169,6 +176,7 @@ public final class SongRequests {
     public static class Decision {
 
         @NotNull
+        @IdString
         private Long version;
 
         // 감사 기록 사유. LOCKED 공연이면 필수(X-02)
@@ -192,8 +200,10 @@ public final class SongRequests {
     public static class AssignTeam {
 
         @NotNull
+        @IdString
         private Long version;
 
+        @IdString
         private Long assignedTeamId;
 
         @Size(max = 500)
@@ -206,6 +216,7 @@ public final class SongRequests {
     public static class Sessions {
 
         @NotNull
+        @IdString
         private Long version;
 
         @NotNull
@@ -222,6 +233,7 @@ public final class SongRequests {
     public static class Requirements {
 
         @NotNull
+        @IdString
         private Long version;
 
         @NotNull
@@ -234,6 +246,7 @@ public final class SongRequests {
     public static class Requirement {
 
         @NotNull
+        @IdString
         private Long partId;
 
         @NotNull

@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.crane.bandwebbackend.TestcontainersConfiguration;
+import com.crane.bandwebbackend.global.security.AuthPrincipal;
 import com.jayway.jsonpath.JsonPath;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
@@ -20,6 +21,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.jdbc.Sql;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
@@ -30,9 +32,11 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
  * 인증 필터가 아직 없어 principal(users.id)을 직접 넣음
  */
 @SpringBootTest
+@ActiveProfiles("test")
 @AutoConfigureMockMvc
 @Import(TestcontainersConfiguration.class)
-@Sql("/performance-flow-seed.sql")
+@Sql({"/performance-flow-cleanup.sql", "/performance-flow-seed.sql"})
+@Sql(scripts = "/performance-flow-cleanup.sql", executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD)
 class PerformanceFlowTest {
 
     private static final String BASE = "/api/v1/clubs/1/performances/1";
@@ -150,7 +154,7 @@ class PerformanceFlowTest {
         // API-075·077
         send(get(BASE + "/songs?sort=setlistOrder,asc&status=CONFIRMED,PROPOSED"), MEMBER, null)
                 .andExpect(jsonPath("$.data.totalElements").value(2))
-                .andExpect(jsonPath("$.data.content[0].sessionCount").value(1))
+                .andExpect(jsonPath("$.data.items[0].sessionCount").value(1))
                 .andExpect(jsonPath("$.data.myProposalCount").value(1));
         send(get(BASE + "/songs?sort=id,asc"), MEMBER, null).andExpect(status().isBadRequest());
         send(get(BASE + "/songs/" + songId), MEMBER, null)
@@ -201,8 +205,10 @@ class PerformanceFlowTest {
     }
 
     private ResultActions send(MockHttpServletRequestBuilder req, long userId, String body) throws Exception {
-        req.with(authentication(new UsernamePasswordAuthenticationToken(userId, null, List.of())))
-                .with(csrf());
+        req.with(authentication(new UsernamePasswordAuthenticationToken(
+                        new AuthPrincipal(userId, "sid", "jti", false), null, List.of())))
+                .with(csrf())
+                .header("X-Requested-With", "XMLHttpRequest");
         if (body != null) {
             req.contentType(MediaType.APPLICATION_JSON).content(body);
         }

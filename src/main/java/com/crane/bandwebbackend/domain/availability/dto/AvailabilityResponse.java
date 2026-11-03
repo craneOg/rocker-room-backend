@@ -1,5 +1,6 @@
 package com.crane.bandwebbackend.domain.availability.dto;
 
+import com.crane.bandwebbackend.global.serialization.IdString;
 import java.time.OffsetDateTime;
 import java.util.List;
 import lombok.Builder;
@@ -10,7 +11,9 @@ import lombok.Getter;
 @Builder
 public class AvailabilityResponse {
 
+    @IdString
     private final Long performanceMemberId;
+
     private final OffsetDateTime from;
     private final OffsetDateTime to;
     private final List<Interval> slots;

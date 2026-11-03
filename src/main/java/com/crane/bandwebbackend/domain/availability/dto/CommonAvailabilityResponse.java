@@ -1,5 +1,6 @@
 package com.crane.bandwebbackend.domain.availability.dto;
 
+import com.crane.bandwebbackend.global.serialization.IdString;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -22,6 +23,8 @@ public class CommonAvailabilityResponse {
     private final int respondedCount;
     private final List<Slot> slots;
     private final List<Member> participants;
+
+    @IdString
     private final List<Long> missingAvailabilityMemberIds;
 
     @Getter
@@ -38,7 +41,9 @@ public class CommonAvailabilityResponse {
     @Builder
     public static class Member {
 
+        @IdString
         private final Long performanceMemberId;
+
         private final String displayName;
     }
 }

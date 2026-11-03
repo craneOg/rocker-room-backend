@@ -5,7 +5,8 @@ import com.crane.bandwebbackend.domain.participant.service.PerformanceAccessServ
 import com.crane.bandwebbackend.domain.playability.entity.PlayabilityAnswer;
 import com.crane.bandwebbackend.domain.playability.entity.SongPlayability;
 import com.crane.bandwebbackend.domain.vote.entity.SongVote;
-import com.crane.bandwebbackend.global.time.Kst;
+import com.crane.bandwebbackend.global.serialization.IdString;
+import com.crane.bandwebbackend.global.time.KstTime;
 import java.time.OffsetDateTime;
 import lombok.Builder;
 import lombok.Getter;
@@ -19,10 +20,17 @@ public final class EvaluationRows {
     @Builder
     public static class Playability {
 
+        @IdString
         private final Long songId;
+
+        @IdString
         private final Long performanceMemberId;
+
         private final String displayName;
+
+        @IdString
         private final Long partId;
+
         private final String partName;
         private final PlayabilityAnswer answer;
         private final String reason;
@@ -43,7 +51,7 @@ public final class EvaluationRows {
                     .reason(withReason ? p.getReason() : null)
                     .enteredByAdmin(p.isEnteredByAdmin())
                     .valid(valid)
-                    .updatedAt(Kst.fromUtc(p.getUpdatedAt()))
+                    .updatedAt(KstTime.toKst(p.getUpdatedAt()))
                     .build();
         }
     }
@@ -52,8 +60,12 @@ public final class EvaluationRows {
     @Builder
     public static class Vote {
 
+        @IdString
         private final Long songId;
+
+        @IdString
         private final Long performanceMemberId;
+
         private final String displayName;
         // 찬성 방식 1, 점수 방식 1~5(API-096과 같은 이름)
         private final int score;
@@ -69,7 +81,7 @@ public final class EvaluationRows {
                     .score(v.getScore())
                     .enteredByAdmin(v.isEnteredByAdmin())
                     .valid(valid)
-                    .updatedAt(Kst.fromUtc(v.getUpdatedAt()))
+                    .updatedAt(KstTime.toKst(v.getUpdatedAt()))
                     .build();
         }
     }
@@ -78,7 +90,9 @@ public final class EvaluationRows {
     @Builder
     public static class Member {
 
+        @IdString
         private final Long performanceMemberId;
+
         private final String displayName;
         // API-158 nonResponders: 그 탭에서 응답하지 않은 후보곡 수
         private final Integer unrespondedSongCount;

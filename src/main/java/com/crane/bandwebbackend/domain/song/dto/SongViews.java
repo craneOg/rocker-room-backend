@@ -11,7 +11,8 @@ import com.crane.bandwebbackend.domain.song.entity.SongPartRequirement;
 import com.crane.bandwebbackend.global.response.Effects;
 import com.crane.bandwebbackend.global.response.PageResponse;
 import com.crane.bandwebbackend.global.response.Warning;
-import com.crane.bandwebbackend.global.time.Kst;
+import com.crane.bandwebbackend.global.serialization.IdString;
+import com.crane.bandwebbackend.global.time.KstTime;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonUnwrapped;
@@ -48,7 +49,9 @@ public final class SongViews {
     @Builder
     public static class MyPlayability {
 
+        @IdString
         private final Long partId;
+
         private final String partName;
         private final PlayabilityAnswer answer;
         private final String reason;
@@ -90,11 +93,20 @@ public final class SongViews {
     @Builder
     public static class Session {
 
+        @IdString
         private final Long id;
+
+        @IdString
         private final Long performanceMemberId;
+
+        @IdString
         private final Long membershipId;
+
         private final String displayName;
+
+        @IdString
         private final Long partId;
+
         private final String partName;
 
         // M-03: 담당 팀의 팀원이 아닌 연주자(조회 때 계산)
@@ -109,7 +121,9 @@ public final class SongViews {
     @Builder
     public static class Requirement {
 
+        @IdString
         private final Long partId;
+
         private final String partName;
         private final int requiredCount;
 
@@ -127,7 +141,9 @@ public final class SongViews {
     @Builder
     public static class Schedule {
 
+        @IdString
         private final Long id;
+
         private final String title;
         private final ScheduleType scheduleType;
         private final ScheduleStatus status;
@@ -141,8 +157,8 @@ public final class SongViews {
                     .title(s.getTitle())
                     .scheduleType(s.getScheduleType())
                     .status(s.getStatus())
-                    .startAt(Kst.fromUtc(s.getStartAt()))
-                    .endAt(Kst.fromUtc(s.getEndAt()))
+                    .startAt(KstTime.toKst(s.getStartAt()))
+                    .endAt(KstTime.toKst(s.getEndAt()))
                     .location(s.getLocation())
                     .build();
         }
@@ -153,9 +169,15 @@ public final class SongViews {
     @Builder
     public static class Audition {
 
+        @IdString
         private final Long id;
+
+        @IdString
         private final Long performanceMemberId;
+
+        @IdString
         private final Long partId;
+
         private final String partName;
         private final AuditionResult result;
         private final String comment;
@@ -173,8 +195,8 @@ public final class SongViews {
                     .partName(a.getPart() == null ? null : a.getPart().getName())
                     .result(a.getResult())
                     .comment(a.getComment())
-                    .reviewedAt(Kst.fromUtc(a.getReviewedAt()))
-                    .createdAt(Kst.fromUtc(a.getCreatedAt()))
+                    .reviewedAt(KstTime.toKst(a.getReviewedAt()))
+                    .createdAt(KstTime.toKst(a.getCreatedAt()))
                     .build();
         }
     }

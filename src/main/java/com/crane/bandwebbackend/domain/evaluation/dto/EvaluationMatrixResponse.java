@@ -1,6 +1,7 @@
 package com.crane.bandwebbackend.domain.evaluation.dto;
 
 import com.crane.bandwebbackend.domain.performance.entity.VoteMethod;
+import com.crane.bandwebbackend.global.serialization.IdString;
 import java.util.List;
 import lombok.Builder;
 import lombok.Getter;
@@ -26,9 +27,13 @@ public class EvaluationMatrixResponse {
     @Builder
     public static class SongColumn {
 
+        @IdString
         private final Long id;
+
         private final String title;
         private final String artist;
+
+        @IdString
         private final Long candidateTeamId;
     }
 

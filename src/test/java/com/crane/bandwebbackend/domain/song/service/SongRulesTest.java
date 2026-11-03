@@ -37,7 +37,7 @@ class SongRulesTest {
         assertThat(SongService.requireHttps("")).isNull();
         assertThatThrownBy(() -> SongService.requireHttps("http://youtu.be/x"))
                 .isInstanceOf(BusinessException.class)
-                .extracting("reason")
+                .extracting(e -> ((BusinessException) e).getDetails().get(0).getReason())
                 .isEqualTo("INVALID_URL");
     }
 

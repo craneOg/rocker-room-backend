@@ -26,7 +26,7 @@ public class EvaluationController {
             @PathVariable Long clubId,
             @PathVariable Long performanceId,
             @PathVariable Long songId,
-            @AuthenticationPrincipal Long userId) {
+            @AuthenticationPrincipal(expression = "userId()") Long userId) {
         return evaluationService.songEvaluation(new PerformanceRef(clubId, performanceId, userId), songId);
     }
 
@@ -35,7 +35,7 @@ public class EvaluationController {
     public EvaluationMatrixResponse matrix(
             @PathVariable Long clubId,
             @PathVariable Long performanceId,
-            @AuthenticationPrincipal Long userId,
+            @AuthenticationPrincipal(expression = "userId()") Long userId,
             @RequestParam(required = false) EvaluationType type,
             @RequestParam(required = false) Long teamId) {
         return evaluationService.matrix(new PerformanceRef(clubId, performanceId, userId), type, teamId);

@@ -56,7 +56,7 @@ class AvailabilitySlotRulesTest {
                         null,
                         null))
                 .isInstanceOf(BusinessException.class)
-                .extracting("reason")
+                .extracting(e -> ((BusinessException) e).getDetails().get(0).getReason())
                 .isEqualTo("SLOT_NOT_ALIGNED");
     }
 
@@ -70,7 +70,7 @@ class AvailabilitySlotRulesTest {
                         null,
                         null))
                 .isInstanceOf(BusinessException.class)
-                .extracting("reason")
+                .extracting(e -> ((BusinessException) e).getDetails().get(0).getReason())
                 .isEqualTo("OUTSIDE_RANGE");
     }
 
@@ -84,7 +84,7 @@ class AvailabilitySlotRulesTest {
                         LocalDate.of(2026, 10, 13),
                         null))
                 .isInstanceOf(BusinessException.class)
-                .extracting("reason")
+                .extracting(e -> ((BusinessException) e).getDetails().get(0).getReason())
                 .isEqualTo("OUTSIDE_PRACTICE_SEASON");
     }
 }

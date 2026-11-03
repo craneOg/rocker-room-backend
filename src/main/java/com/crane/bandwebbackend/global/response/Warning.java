@@ -1,7 +1,11 @@
 package com.crane.bandwebbackend.global.response;
 
+import com.crane.bandwebbackend.global.serialization.IdString;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
+import java.util.Map;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -21,17 +25,40 @@ import lombok.Getter;
 public class Warning {
 
     private final String type;
+
+    @IdString
     private final Long partId;
+
     private final String partName;
     private final Integer requiredCount;
     private final Integer assignedCount;
+
+    @IdString
     private final Long performanceMemberId;
+
+    @IdString
     private final Long membershipId;
+
     private final String displayName;
     private final Integer songCount;
+
+    @IdString
     private final Long songId;
+
+    @IdString
     private final Long teamId;
+
     private final Integer setlistOrder;
+
+    @IdString
     private final List<Long> scheduleIds;
+
     private final String message;
+
+    private static final ObjectMapper MAPPER = new ObjectMapper();
+
+    // 409 error.warnings(BusinessException.confirmationRequired)용. @IdString·NON_NULL이 그대로 적용됨
+    public static List<Map<String, Object>> toMaps(List<Warning> warnings) {
+        return MAPPER.convertValue(warnings, new TypeReference<>() {});
+    }
 }

@@ -32,7 +32,7 @@ import com.crane.bandwebbackend.global.error.BusinessException;
 import com.crane.bandwebbackend.global.error.ErrorCode;
 import com.crane.bandwebbackend.global.response.Effects;
 import com.crane.bandwebbackend.global.response.Warning;
-import com.crane.bandwebbackend.global.time.Kst;
+import com.crane.bandwebbackend.global.time.KstTime;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
 import java.util.ArrayList;
@@ -148,9 +148,9 @@ public class TeamService {
                 .assignedSongCount(privileged ? (int) assigned : null)
                 .candidateSongCount(privileged ? (int) candidates : null)
                 .isMine(mine)
-                .submittedAt(Kst.fromUtc(team.getSubmittedAt()))
-                .decidedAt(Kst.fromUtc(team.getDecidedAt()))
-                .createdAt(Kst.fromUtc(team.getCreatedAt()))
+                .submittedAt(KstTime.toKst(team.getSubmittedAt()))
+                .decidedAt(KstTime.toKst(team.getDecidedAt()))
+                .createdAt(KstTime.toKst(team.getCreatedAt()))
                 .version(team.getVersion())
                 .build();
     }
@@ -499,15 +499,13 @@ public class TeamService {
         Effects[] effects = new Effects[1];
         TeamResults.Result r = transition(ref, teamId, req, true, (access, team) -> {
             if (!req.isConfirmed() && songSupport.countConfirmedInScope(teamId) > 0) {
-                throw new BusinessException(
-                        ErrorCode.CONFIRMATION_REQUIRED,
-                        "CONFIRMED_SONGS_IN_TEAM_SCOPE",
+                throw BusinessException.confirmationRequired(
                         "이 팀 범위의 선정곡이 있습니다. 확인 후 다시 요청해 주세요.",
-                        List.of(Warning.builder()
+                        Warning.toMaps(List.of(Warning.builder()
                                 .type("CONFIRMED_SONGS_IN_TEAM_SCOPE")
                                 .teamId(teamId)
                                 .songCount((int) songSupport.countConfirmedInScope(teamId))
-                                .build()));
+                                .build())));
             }
             team.reject(req.getReason().strip());
             List<Long> withdrawn = songSupport.withdrawCandidates(teamId);
@@ -614,7 +612,7 @@ public class TeamService {
         List<Team> previous = teamRepository.findByPerformanceIdAndIsDefaultTrue(access.performanceId());
         previous.forEach(t -> t.markDefault(false));
         team.markDefault(true);
-        auditLogRepository.save(AuditLog.of(
+        auditLogRepository.save(AuditLog.create(
                 access.clubId(),
                 access.userId(),
                 "DEFAULT_TEAM_CHANGED",
@@ -804,7 +802,7 @@ public class TeamService {
 
     private void auditIfLocked(PerformanceAccess access, Team team, String reason, String detail) {
         if (access.isLocked()) {
-            auditLogRepository.save(AuditLog.of(
+            auditLogRepository.save(AuditLog.create(
                     access.clubId(), access.userId(), "LOCKED_EXCEPTION_EDIT", "TEAM", team.getId(), reason, detail));
         }
     }

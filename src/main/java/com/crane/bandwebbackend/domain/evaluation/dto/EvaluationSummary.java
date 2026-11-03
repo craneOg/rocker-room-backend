@@ -1,6 +1,7 @@
 package com.crane.bandwebbackend.domain.evaluation.dto;
 
 import com.crane.bandwebbackend.domain.playability.entity.PlayabilityAnswer;
+import com.crane.bandwebbackend.global.serialization.IdString;
 import java.util.List;
 import java.util.Map;
 import lombok.Builder;
@@ -25,7 +26,9 @@ public class EvaluationSummary {
     @Builder
     public static class PartPlayability {
 
+        @IdString
         private final Long partId;
+
         private final String partName;
         private final int possible;
         private final int impossible;

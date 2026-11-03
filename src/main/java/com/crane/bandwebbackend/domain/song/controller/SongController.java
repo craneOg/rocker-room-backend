@@ -32,7 +32,7 @@ public class SongController {
     public SongViews.ListResult list(
             @PathVariable Long clubId,
             @PathVariable Long performanceId,
-            @AuthenticationPrincipal Long userId,
+            @AuthenticationPrincipal(expression = "userId()") Long userId,
             @RequestParam(required = false) String status,
             @RequestParam(required = false) Long candidateTeamId,
             @RequestParam(defaultValue = "false") boolean proposedByMe,
@@ -57,7 +57,7 @@ public class SongController {
     public SongViews.Result create(
             @PathVariable Long clubId,
             @PathVariable Long performanceId,
-            @AuthenticationPrincipal Long userId,
+            @AuthenticationPrincipal(expression = "userId()") Long userId,
             @Valid @RequestBody SongRequests.Create req) {
         return songService.create(ref(clubId, performanceId, userId), req);
     }
@@ -68,7 +68,7 @@ public class SongController {
             @PathVariable Long clubId,
             @PathVariable Long performanceId,
             @PathVariable Long songId,
-            @AuthenticationPrincipal Long userId) {
+            @AuthenticationPrincipal(expression = "userId()") Long userId) {
         return songService.detail(ref(clubId, performanceId, userId), songId);
     }
 
@@ -78,7 +78,7 @@ public class SongController {
             @PathVariable Long clubId,
             @PathVariable Long performanceId,
             @PathVariable Long songId,
-            @AuthenticationPrincipal Long userId,
+            @AuthenticationPrincipal(expression = "userId()") Long userId,
             @Valid @RequestBody SongRequests.Update req) {
         return songService.update(ref(clubId, performanceId, userId), songId, req);
     }
@@ -89,7 +89,7 @@ public class SongController {
             @PathVariable Long clubId,
             @PathVariable Long performanceId,
             @PathVariable Long songId,
-            @AuthenticationPrincipal Long userId,
+            @AuthenticationPrincipal(expression = "userId()") Long userId,
             @Valid @RequestBody SongRequests.Requirements req) {
         return songService.replaceRequirements(ref(clubId, performanceId, userId), songId, req);
     }
@@ -100,7 +100,7 @@ public class SongController {
             @PathVariable Long clubId,
             @PathVariable Long performanceId,
             @PathVariable Long songId,
-            @AuthenticationPrincipal Long userId,
+            @AuthenticationPrincipal(expression = "userId()") Long userId,
             @Valid @RequestBody SongRequests.Confirm req) {
         return songService.confirm(ref(clubId, performanceId, userId), songId, req);
     }
@@ -111,7 +111,7 @@ public class SongController {
             @PathVariable Long clubId,
             @PathVariable Long performanceId,
             @PathVariable Long songId,
-            @AuthenticationPrincipal Long userId,
+            @AuthenticationPrincipal(expression = "userId()") Long userId,
             @Valid @RequestBody SongRequests.Decision req) {
         return songService.unconfirm(ref(clubId, performanceId, userId), songId, req);
     }
@@ -122,7 +122,7 @@ public class SongController {
             @PathVariable Long clubId,
             @PathVariable Long performanceId,
             @PathVariable Long songId,
-            @AuthenticationPrincipal Long userId,
+            @AuthenticationPrincipal(expression = "userId()") Long userId,
             @Valid @RequestBody SongRequests.Decision req) {
         return songService.reject(ref(clubId, performanceId, userId), songId, req);
     }
@@ -133,7 +133,7 @@ public class SongController {
             @PathVariable Long clubId,
             @PathVariable Long performanceId,
             @PathVariable Long songId,
-            @AuthenticationPrincipal Long userId,
+            @AuthenticationPrincipal(expression = "userId()") Long userId,
             @Valid @RequestBody SongRequests.Decision req) {
         return songService.withdraw(ref(clubId, performanceId, userId), songId, req);
     }
@@ -144,7 +144,7 @@ public class SongController {
             @PathVariable Long clubId,
             @PathVariable Long performanceId,
             @PathVariable Long songId,
-            @AuthenticationPrincipal Long userId,
+            @AuthenticationPrincipal(expression = "userId()") Long userId,
             @Valid @RequestBody SongRequests.Decision req) {
         return songService.reconsider(ref(clubId, performanceId, userId), songId, req);
     }
@@ -155,7 +155,7 @@ public class SongController {
             @PathVariable Long clubId,
             @PathVariable Long performanceId,
             @PathVariable Long songId,
-            @AuthenticationPrincipal Long userId,
+            @AuthenticationPrincipal(expression = "userId()") Long userId,
             @Valid @RequestBody SongRequests.Decision req) {
         return songService.remove(ref(clubId, performanceId, userId), songId, req);
     }
@@ -166,7 +166,7 @@ public class SongController {
             @PathVariable Long clubId,
             @PathVariable Long performanceId,
             @PathVariable Long songId,
-            @AuthenticationPrincipal Long userId,
+            @AuthenticationPrincipal(expression = "userId()") Long userId,
             @Valid @RequestBody SongRequests.AssignTeam req) {
         return songService.assignTeam(ref(clubId, performanceId, userId), songId, req);
     }
@@ -177,7 +177,7 @@ public class SongController {
             @PathVariable Long clubId,
             @PathVariable Long performanceId,
             @PathVariable Long songId,
-            @AuthenticationPrincipal Long userId,
+            @AuthenticationPrincipal(expression = "userId()") Long userId,
             @Valid @RequestBody SongRequests.Sessions req) {
         return songService.replaceSessions(ref(clubId, performanceId, userId), songId, req);
     }

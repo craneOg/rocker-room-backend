@@ -55,6 +55,9 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -136,7 +139,7 @@ public class SongService {
                         .count()
                 : null;
         return SongViews.ListResult.builder()
-                .page(new PageResponse<>(cards, page, size))
+                .page(PageResponse.from(page(cards, page, size)))
                 .myProposalCount(myProposalCount)
                 .myVoteCount(myVoteCount)
                 .build();
@@ -541,8 +544,7 @@ public class SongService {
                         .scheduleIds(upcoming)
                         .build());
             }
-            throw new BusinessException(
-                    ErrorCode.CONFIRMATION_REQUIRED, "CONFIRMED_SONG_REJECTION", "선정곡을 제외하면 담당 팀·순서가 해제됩니다.", warnings);
+            throw BusinessException.confirmationRequired("선정곡을 제외하면 담당 팀·순서가 해제됩니다.", Warning.toMaps(warnings));
         }
         Map<Long, Integer> before = confirmedOrders(access.performanceId());
         song.reject(blankToNull(req.getDecisionNote()));
@@ -641,7 +643,7 @@ public class SongService {
                         ? null
                         : teamService.getApprovedTeam(access.performanceId(), req.getAssignedTeamId()));
         if (access.isLocked()) {
-            auditLogRepository.save(AuditLog.of(
+            auditLogRepository.save(AuditLog.create(
                     access.clubId(),
                     access.userId(),
                     "LOCKED_EXCEPTION_EDIT",
@@ -957,7 +959,7 @@ public class SongService {
     }
 
     private void audit(PerformanceAccess access, String action, Song song, String reason, String detail) {
-        auditLogRepository.save(AuditLog.of(
+        auditLogRepository.save(AuditLog.create(
                 access.clubId(), access.userId(), action, "SONG", song.getId(), blankToNull(reason), detail));
     }
 
@@ -991,7 +993,7 @@ public class SongService {
                 .sorted()
                 .map(id -> "{\"songId\":" + id + ",\"from\":" + before.get(id) + ",\"to\":" + after.get(id) + "}")
                 .collect(Collectors.joining(",", "[", "]"));
-        auditLogRepository.save(AuditLog.of(
+        auditLogRepository.save(AuditLog.create(
                 access.clubId(),
                 access.userId(),
                 "LOCKED_EXCEPTION_EDIT",
@@ -999,5 +1001,12 @@ public class SongService {
                 targetId,
                 blankToNull(reason),
                 "{" + prefix + "\"orders\":" + changes + "}"));
+    }
+
+    // 메모리 목록을 잘라 Spring Page로. page*size 오버플로를 피하려고 long으로 계산
+    static <T> Page<T> page(List<T> all, int page, int size) {
+        int from = (int) Math.min((long) page * size, all.size());
+        int to = (int) Math.min((long) from + size, all.size());
+        return new PageImpl<>(all.subList(from, to), PageRequest.of(page, size), all.size());
     }
 }

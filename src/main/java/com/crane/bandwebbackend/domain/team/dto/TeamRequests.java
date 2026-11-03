@@ -1,5 +1,6 @@
 package com.crane.bandwebbackend.domain.team.dto;
 
+import com.crane.bandwebbackend.global.serialization.IdString;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -20,6 +21,7 @@ public final class TeamRequests {
     public static class Create {
 
         // 있으면 API-086
+        @IdString
         private Long sourceSongId;
 
         @Size(max = 100)
@@ -28,6 +30,7 @@ public final class TeamRequests {
         @Valid
         private List<Member> members;
 
+        @IdString
         private Long leaderMembershipId;
     }
 
@@ -36,9 +39,11 @@ public final class TeamRequests {
     public static class Member {
 
         @NotNull
+        @IdString
         private Long membershipId;
 
         // 대표 파트(선택)
+        @IdString
         private Long partId;
     }
 
@@ -48,6 +53,7 @@ public final class TeamRequests {
     public static class Rename {
 
         @NotNull
+        @IdString
         private Long version;
 
         @NotBlank
@@ -64,11 +70,14 @@ public final class TeamRequests {
     public static class AddMember {
 
         @NotNull
+        @IdString
         private Long version;
 
         @NotNull
+        @IdString
         private Long membershipId;
 
+        @IdString
         private Long partId;
 
         @Size(max = 500)
@@ -81,8 +90,10 @@ public final class TeamRequests {
     public static class ChangePart {
 
         @NotNull
+        @IdString
         private Long version;
 
+        @IdString
         private Long partId;
 
         @Size(max = 500)
@@ -95,6 +106,7 @@ public final class TeamRequests {
     public static class RemoveMember {
 
         @NotNull
+        @IdString
         private Long version;
 
         private boolean removeSessions;
@@ -109,8 +121,10 @@ public final class TeamRequests {
     public static class Leader {
 
         @NotNull
+        @IdString
         private Long version;
 
+        @IdString
         private Long leaderMembershipId;
 
         @Size(max = 500)
@@ -123,6 +137,7 @@ public final class TeamRequests {
     public static class Transition {
 
         @NotNull
+        @IdString
         private Long version;
 
         @Size(max = 500)
@@ -137,9 +152,11 @@ public final class TeamRequests {
     public static class Default {
 
         @NotNull
+        @IdString
         private Long teamId;
 
         @NotNull
+        @IdString
         private Long version;
 
         @Size(max = 500)

@@ -1,6 +1,7 @@
 package com.crane.bandwebbackend.domain.evaluation.dto;
 
 import com.crane.bandwebbackend.domain.performance.entity.VoteMethod;
+import com.crane.bandwebbackend.global.serialization.IdString;
 import com.fasterxml.jackson.annotation.JsonUnwrapped;
 import java.util.List;
 import lombok.Builder;
@@ -11,7 +12,9 @@ import lombok.Getter;
 @Builder
 public class SongEvaluationResponse {
 
+    @IdString
     private final Long songId;
+
     private final VoteMethod voteMethod;
 
     @JsonUnwrapped

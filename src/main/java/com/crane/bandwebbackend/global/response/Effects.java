@@ -1,5 +1,6 @@
 package com.crane.bandwebbackend.global.response;
 
+import com.crane.bandwebbackend.global.serialization.IdString;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import java.util.List;
 import lombok.Builder;
@@ -12,9 +13,12 @@ import lombok.Getter;
 public class Effects {
 
     // API-081·082: 해제된 일정 연결
+    @IdString
     private final List<Long> affectedScheduleIds;
     // API-072·073: TEAM_WITHDRAWN으로 바뀐 후보곡
+    @IdString
     private final List<Long> withdrawnSongIds;
     // API-072: REJECTED가 된 참여 희망자
+    @IdString
     private final List<Long> rejectedPerformanceMemberIds;
 }

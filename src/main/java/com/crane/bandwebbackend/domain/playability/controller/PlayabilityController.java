@@ -32,7 +32,7 @@ public class PlayabilityController {
             @PathVariable Long clubId,
             @PathVariable Long performanceId,
             @PathVariable Long songId,
-            @AuthenticationPrincipal Long userId,
+            @AuthenticationPrincipal(expression = "userId()") Long userId,
             @RequestParam(required = false) Long performanceMemberId) {
         return playabilityService.list(ref(clubId, performanceId, userId), songId, performanceMemberId);
     }
@@ -44,7 +44,7 @@ public class PlayabilityController {
             @PathVariable Long performanceId,
             @PathVariable Long songId,
             @PathVariable Long partId,
-            @AuthenticationPrincipal Long userId,
+            @AuthenticationPrincipal(expression = "userId()") Long userId,
             @Valid @RequestBody PlayabilityRequest req) {
         return playabilityService.saveMine(ref(clubId, performanceId, userId), songId, partId, req);
     }
@@ -57,7 +57,7 @@ public class PlayabilityController {
             @PathVariable Long performanceId,
             @PathVariable Long songId,
             @PathVariable Long partId,
-            @AuthenticationPrincipal Long userId) {
+            @AuthenticationPrincipal(expression = "userId()") Long userId) {
         playabilityService.deleteMine(ref(clubId, performanceId, userId), songId, partId);
     }
 
@@ -69,7 +69,7 @@ public class PlayabilityController {
             @PathVariable Long songId,
             @PathVariable Long performanceMemberId,
             @PathVariable Long partId,
-            @AuthenticationPrincipal Long userId,
+            @AuthenticationPrincipal(expression = "userId()") Long userId,
             @Valid @RequestBody PlayabilityRequest req) {
         return playabilityService.saveFor(ref(clubId, performanceId, userId), songId, performanceMemberId, partId, req);
     }
@@ -83,7 +83,7 @@ public class PlayabilityController {
             @PathVariable Long songId,
             @PathVariable Long performanceMemberId,
             @PathVariable Long partId,
-            @AuthenticationPrincipal Long userId) {
+            @AuthenticationPrincipal(expression = "userId()") Long userId) {
         playabilityService.deleteFor(ref(clubId, performanceId, userId), songId, performanceMemberId, partId);
     }
 

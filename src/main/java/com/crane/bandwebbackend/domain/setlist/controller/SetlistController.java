@@ -25,7 +25,9 @@ public class SetlistController {
     // API-087
     @GetMapping
     public List<SetlistItemResponse> get(
-            @PathVariable Long clubId, @PathVariable Long performanceId, @AuthenticationPrincipal Long userId) {
+            @PathVariable Long clubId,
+            @PathVariable Long performanceId,
+            @AuthenticationPrincipal(expression = "userId()") Long userId) {
         return setlistService.get(new PerformanceRef(clubId, performanceId, userId));
     }
 
@@ -34,7 +36,7 @@ public class SetlistController {
     public List<SetlistItemResponse> save(
             @PathVariable Long clubId,
             @PathVariable Long performanceId,
-            @AuthenticationPrincipal Long userId,
+            @AuthenticationPrincipal(expression = "userId()") Long userId,
             @Valid @RequestBody SetlistRequest req) {
         return setlistService.save(new PerformanceRef(clubId, performanceId, userId), req);
     }

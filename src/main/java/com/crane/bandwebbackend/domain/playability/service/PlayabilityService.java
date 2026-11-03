@@ -169,7 +169,7 @@ public class PlayabilityService {
     }
 
     private void audit(PerformanceAccess access, String action, Long songId, Long memberId, Long partId) {
-        auditLogRepository.save(AuditLog.of(
+        auditLogRepository.save(AuditLog.create(
                 access.clubId(),
                 access.userId(),
                 action,
