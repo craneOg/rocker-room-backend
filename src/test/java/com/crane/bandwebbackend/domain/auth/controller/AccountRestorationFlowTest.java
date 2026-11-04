@@ -293,7 +293,7 @@ class AccountRestorationFlowTest {
         assertThat(String.valueOf(audit.get("detail"))).doesNotContain("앨리스");
 
         String access = cookieValue(result, cookies.accessName());
-        assertThat(jwtProvider.parse(access).tokenVersion()).isEqualTo(versionBefore + 1);
+        assertThat(jwtProvider.parse(access).getTokenVersion()).isEqualTo(versionBefore + 1);
         assertThat(protectedStatus(access)).isEqualTo(200);
         assertThat(count("SELECT COUNT(*) FROM refresh_token WHERE revoked_at IS NULL"))
                 .isEqualTo(1);
@@ -396,7 +396,7 @@ class AccountRestorationFlowTest {
         assertThat(String.valueOf(audit.get("detail"))).contains("newUserId").doesNotContain("앨리스");
 
         String access = cookieValue(result, cookies.accessName());
-        assertThat(jwtProvider.parse(access).userId()).isEqualTo(((Number) fresh.get("id")).longValue());
+        assertThat(jwtProvider.parse(access).getUserId()).isEqualTo(((Number) fresh.get("id")).longValue());
         assertThat(protectedStatus(access)).isEqualTo(200);
         assertError(startNew(token), 401, "UNAUTHENTICATED", "RESTORATION_COOKIE_INVALID");
     }
@@ -415,7 +415,7 @@ class AccountRestorationFlowTest {
                 .doesNotContain("RESTORATION_REQUIRED");
         assertThat(jwtProvider
                         .parse(cookieValue(exchange, cookies.accessName()))
-                        .userId())
+                        .getUserId())
                 .isEqualTo(freshId);
     }
 

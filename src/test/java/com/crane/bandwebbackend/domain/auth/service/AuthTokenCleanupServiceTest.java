@@ -100,7 +100,7 @@ class AuthTokenCleanupServiceTest {
 
         AuthTokenCleanupService.Deleted deleted = cleanup.deleteExpired();
 
-        assertThat(deleted.oneTimeTokens()).isEqualTo(1);
+        assertThat(deleted.getOneTimeTokens()).isEqualTo(1);
         assertThat(count("SELECT COUNT(*) FROM one_time_token WHERE id = ?", old))
                 .isZero();
         assertThat(count("SELECT COUNT(*) FROM one_time_token WHERE id IN (?, ?)", recent, valid))
@@ -118,7 +118,7 @@ class AuthTokenCleanupServiceTest {
 
         AuthTokenCleanupService.Deleted deleted = cleanup.deleteExpired();
 
-        assertThat(deleted.refreshTokens()).isEqualTo(1);
+        assertThat(deleted.getRefreshTokens()).isEqualTo(1);
         assertThat(count("SELECT COUNT(*) FROM refresh_token WHERE id = ?", old))
                 .isZero();
         assertThat(count("SELECT COUNT(*) FROM refresh_token WHERE id IN (?, ?)", recent, valid))
@@ -136,7 +136,7 @@ class AuthTokenCleanupServiceTest {
 
         AuthTokenCleanupService.Deleted deleted = cleanup.deleteExpired();
 
-        assertThat(deleted.refreshTokens()).isEqualTo(3);
+        assertThat(deleted.getRefreshTokens()).isEqualTo(3);
         assertThat(count("SELECT COUNT(*) FROM refresh_token")).isZero();
     }
 
@@ -147,7 +147,7 @@ class AuthTokenCleanupServiceTest {
         long live = refresh("DATE_ADD(UTC_TIMESTAMP(6), INTERVAL 30 DAY)");
         jdbc.update("UPDATE refresh_token SET replaced_by_id = ? WHERE id = ?", live, old);
 
-        assertThat(cleanup.deleteExpired().refreshTokens()).isZero();
+        assertThat(cleanup.deleteExpired().getRefreshTokens()).isZero();
         assertThat(jdbc.queryForObject("SELECT replaced_by_id FROM refresh_token WHERE id = ?", Long.class, old))
                 .isEqualTo(live);
     }
@@ -164,7 +164,7 @@ class AuthTokenCleanupServiceTest {
 
         AuthTokenCleanupService.Deleted deleted = cleanup.deleteExpired();
 
-        assertThat(deleted.blacklistEntries()).isEqualTo(1);
+        assertThat(deleted.getBlacklistEntries()).isEqualTo(1);
         assertThat(count("SELECT COUNT(*) FROM access_token_blacklist")).isEqualTo(1);
     }
 

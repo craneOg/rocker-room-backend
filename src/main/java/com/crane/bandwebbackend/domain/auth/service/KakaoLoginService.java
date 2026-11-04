@@ -14,6 +14,7 @@ import java.security.MessageDigest;
 import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -41,10 +42,22 @@ public class KakaoLoginService {
     private final KakaoOAuthClient kakao;
 
     // 카카오 인증 URL과 쿠키에 담을 state 원문
-    public record AuthorizeRedirect(String location, String stateToken) {}
+    @Getter
+    @RequiredArgsConstructor
+    public static class AuthorizeRedirect {
+
+        private final String location;
+        private final String stateToken;
+    }
 
     // location은 FE 인증 완료 페이지. exchangeToken은 성공일 때만 있고 쿠키에 담는다
-    public record CallbackResult(String location, String exchangeToken) {}
+    @Getter
+    @RequiredArgsConstructor
+    public static class CallbackResult {
+
+        private final String location;
+        private final String exchangeToken;
+    }
 
     public AuthorizeRedirect authorize(String returnTo) {
         if (returnTo != null && !ReturnToValidator.isValid(returnTo)) {
@@ -91,9 +104,9 @@ public class KakaoLoginService {
             String exchange = tokens.issue(
                     OneTimeTokenPurpose.LOGIN_EXCHANGE,
                     user,
-                    consumed.get().returnTo(),
-                    withdrawn ? KakaoAccountService.name(profile.nickname()) : null,
-                    withdrawn ? KakaoAccountService.imageUrl(profile.imageUrl()) : null,
+                    consumed.get().getReturnTo(),
+                    withdrawn ? KakaoAccountService.name(profile.getNickname()) : null,
+                    withdrawn ? KakaoAccountService.imageUrl(profile.getImageUrl()) : null,
                     EXCHANGE_TTL);
             return new CallbackResult(properties.completeUrl(), exchange);
         } catch (RuntimeException e) {

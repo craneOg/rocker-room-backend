@@ -8,6 +8,8 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Optional;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,7 +26,21 @@ public class OneTimeTokenService {
     private final Clock clock;
 
     // 소비한 토큰이 가리키던 값. userId는 사용자 없는 용도(OAUTH_STATE)에서 null
-    public record Consumed(Long userId, String returnTo, String profileName, String profileImageUrl) {
+    @Getter
+    @EqualsAndHashCode
+    public static class Consumed {
+
+        private final Long userId;
+        private final String returnTo;
+        private final String profileName;
+        private final String profileImageUrl;
+
+        public Consumed(Long userId, String returnTo, String profileName, String profileImageUrl) {
+            this.userId = userId;
+            this.returnTo = returnTo;
+            this.profileName = profileName;
+            this.profileImageUrl = profileImageUrl;
+        }
 
         public Consumed(Long userId, String returnTo) {
             this(userId, returnTo, null, null);

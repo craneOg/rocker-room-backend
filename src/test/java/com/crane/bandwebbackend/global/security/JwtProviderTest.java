@@ -38,21 +38,21 @@ class JwtProviderTest {
         JwtProvider provider = provider(KEY, NOW);
 
         JwtProvider.IssuedToken issued = provider.createAccessToken(42L, "sid-1", 7);
-        JwtProvider.AccessTokenClaims claims = provider.parse(issued.token());
+        JwtProvider.AccessTokenClaims claims = provider.parse(issued.getToken());
 
-        assertThat(claims.userId()).isEqualTo(42L);
-        assertThat(claims.sid()).isEqualTo("sid-1");
-        assertThat(claims.tokenVersion()).isEqualTo(7);
-        assertThat(claims.jti()).isEqualTo(issued.jti());
-        assertThat(issued.expiresAt()).isEqualTo(NOW.plus(Duration.ofMinutes(15)));
-        assertThat(claims.expiresAt()).isEqualTo(issued.expiresAt());
+        assertThat(claims.getUserId()).isEqualTo(42L);
+        assertThat(claims.getSid()).isEqualTo("sid-1");
+        assertThat(claims.getTokenVersion()).isEqualTo(7);
+        assertThat(claims.getJti()).isEqualTo(issued.getJti());
+        assertThat(issued.getExpiresAt()).isEqualTo(NOW.plus(Duration.ofMinutes(15)));
+        assertThat(claims.getExpiresAt()).isEqualTo(issued.getExpiresAt());
     }
 
     @Test
     @DisplayName("0.5 서명이 변조된 토큰은 INVALID_SIGNATURE")
     void tamperedSignature() {
         JwtProvider provider = provider(KEY, NOW);
-        String token = provider.createAccessToken(1L, "s", 0).token();
+        String token = provider.createAccessToken(1L, "s", 0).getToken();
         int idx = token.length() - 10;
         char replaced = token.charAt(idx) == 'A' ? 'B' : 'A';
         String tampered = token.substring(0, idx) + replaced + token.substring(idx + 1);
@@ -63,7 +63,7 @@ class JwtProviderTest {
     @Test
     @DisplayName("0.5 만료된 토큰은 EXPIRED")
     void expired() {
-        String token = provider(KEY, NOW).createAccessToken(1L, "s", 0).token();
+        String token = provider(KEY, NOW).createAccessToken(1L, "s", 0).getToken();
 
         assertReason(provider(KEY, NOW.plus(Duration.ofMinutes(16))), token, AccessTokenException.Reason.EXPIRED);
     }
@@ -73,7 +73,7 @@ class JwtProviderTest {
     void otherKey() {
         String token = provider("another-test-only-key-0123456789-abcdefgh", NOW)
                 .createAccessToken(1L, "s", 0)
-                .token();
+                .getToken();
 
         assertReason(provider(KEY, NOW), token, AccessTokenException.Reason.INVALID_SIGNATURE);
     }

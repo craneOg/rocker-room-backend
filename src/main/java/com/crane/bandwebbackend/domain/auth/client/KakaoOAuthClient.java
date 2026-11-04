@@ -4,6 +4,9 @@ import com.crane.bandwebbackend.domain.auth.config.AuthLoginProperties;
 import com.crane.bandwebbackend.domain.auth.dto.KakaoProfile;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.util.LinkedMultiValueMap;
@@ -53,10 +56,12 @@ public class KakaoOAuthClient {
                 .body(form)
                 .retrieve()
                 .body(TokenResponse.class);
-        if (token == null || token.accessToken() == null || token.accessToken().isBlank()) {
+        if (token == null
+                || token.getAccessToken() == null
+                || token.getAccessToken().isBlank()) {
             throw new KakaoOAuthException("카카오 토큰 응답에 access_token이 없습니다");
         }
-        return token.accessToken();
+        return token.getAccessToken();
     }
 
     private KakaoProfile fetchProfileWith(String accessToken) {
@@ -66,31 +71,57 @@ public class KakaoOAuthClient {
                 .headers(h -> h.setBearerAuth(accessToken))
                 .retrieve()
                 .body(MeResponse.class);
-        if (me == null || me.id() == null) {
+        if (me == null || me.getId() == null) {
             throw new KakaoOAuthException("카카오 프로필 응답에 회원번호가 없습니다");
         }
         MeResponse.Profile profile =
-                me.kakaoAccount() == null ? null : me.kakaoAccount().profile();
+                me.getKakaoAccount() == null ? null : me.getKakaoAccount().getProfile();
         return new KakaoProfile(
-                String.valueOf(me.id()),
-                profile == null ? null : profile.nickname(),
-                profile == null ? null : profile.profileImageUrl());
+                String.valueOf(me.getId()),
+                profile == null ? null : profile.getNickname(),
+                profile == null ? null : profile.getProfileImageUrl());
     }
 
+    // 카카오 응답 JSON 매핑용. 필드에 @JsonProperty를 붙여 setter 없이 역직렬화한다
+    @Getter
+    @NoArgsConstructor(access = AccessLevel.PRIVATE)
     @JsonIgnoreProperties(ignoreUnknown = true)
-    private record TokenResponse(
-            @JsonProperty("access_token") String accessToken) {}
+    private static class TokenResponse {
 
+        @JsonProperty("access_token")
+        private String accessToken;
+    }
+
+    @Getter
+    @NoArgsConstructor(access = AccessLevel.PRIVATE)
     @JsonIgnoreProperties(ignoreUnknown = true)
-    private record MeResponse(
-            Long id, @JsonProperty("kakao_account") Account kakaoAccount) {
+    private static class MeResponse {
 
-        @JsonIgnoreProperties(ignoreUnknown = true)
-        private record Account(Profile profile) {}
+        @JsonProperty("id")
+        private Long id;
 
+        @JsonProperty("kakao_account")
+        private Account kakaoAccount;
+
+        @Getter
+        @NoArgsConstructor(access = AccessLevel.PRIVATE)
         @JsonIgnoreProperties(ignoreUnknown = true)
-        private record Profile(
-                String nickname,
-                @JsonProperty("profile_image_url") String profileImageUrl) {}
+        private static class Account {
+
+            @JsonProperty("profile")
+            private Profile profile;
+        }
+
+        @Getter
+        @NoArgsConstructor(access = AccessLevel.PRIVATE)
+        @JsonIgnoreProperties(ignoreUnknown = true)
+        private static class Profile {
+
+            @JsonProperty("nickname")
+            private String nickname;
+
+            @JsonProperty("profile_image_url")
+            private String profileImageUrl;
+        }
     }
 }
