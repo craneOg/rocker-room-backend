@@ -11,6 +11,7 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,7 +30,13 @@ public class AuthSessionService {
     private final Clock clock;
 
     // 쿠키에 담을 원문
-    public record Tokens(String accessToken, String refreshToken) {}
+    @Getter
+    @RequiredArgsConstructor
+    public static class Tokens {
+
+        private final String accessToken;
+        private final String refreshToken;
+    }
 
     // 새 로그인 묶음. 클라이언트 정보는 기록용이며 차단 기준이 아니다
     @Transactional
@@ -52,7 +59,7 @@ public class AuthSessionService {
     String accessToken(User user, String familyId) {
         return jwtProvider
                 .createAccessToken(user.getId(), familyId, user.getTokenVersion())
-                .token();
+                .getToken();
     }
 
     // G-11: 오늘 0시(KST) 이후 기록이 없을 때만 갱신

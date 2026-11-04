@@ -62,16 +62,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             log.debug("access token rejected: {}", e.getReason());
             return;
         }
-        if (blacklistRepository.existsById(claims.jti())) {
+        if (blacklistRepository.existsById(claims.getJti())) {
             log.debug("access token rejected: BLACKLISTED");
             return;
         }
-        Optional<UserAuthInfo> user = userAuthQueryService.findAuthInfo(claims.userId());
+        Optional<UserAuthInfo> user = userAuthQueryService.findAuthInfo(claims.getUserId());
         if (user.isEmpty()) {
             log.debug("access token rejected: USER_NOT_FOUND");
             return;
         }
-        if (user.get().getTokenVersion() != claims.tokenVersion()) {
+        if (user.get().getTokenVersion() != claims.getTokenVersion()) {
             log.debug("access token rejected: TOKEN_VERSION_MISMATCH"); // G-02
             return;
         }
@@ -80,7 +80,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
         AuthPrincipal principal = new AuthPrincipal(
-                claims.userId(), claims.sid(), claims.jti(), user.get().isSuperAdmin());
+                claims.getUserId(), claims.getSid(), claims.getJti(), user.get().isSuperAdmin());
         List<GrantedAuthority> authorities = new ArrayList<>();
         authorities.add(new SimpleGrantedAuthority("ROLE_USER"));
         if (principal.isSuperAdmin()) {

@@ -11,6 +11,7 @@ import com.crane.bandwebbackend.global.error.ErrorCode;
 import com.crane.bandwebbackend.global.error.ErrorDetail;
 import java.time.LocalDateTime;
 import java.util.List;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -31,7 +32,13 @@ public class AuthRefreshService {
     private final RefreshTokenRepository refreshTokens;
     private final AuthSessionService sessions;
 
-    public record Result(RefreshResponse body, AuthSessionService.Tokens tokens) {}
+    @Getter
+    @RequiredArgsConstructor
+    public static class Result {
+
+        private final RefreshResponse body;
+        private final AuthSessionService.Tokens tokens;
+    }
 
     // 재사용을 탐지해 401을 내려도 묶음 폐기는 커밋되어야 하므로 BusinessException에는 롤백하지 않는다
     @Transactional(noRollbackFor = BusinessException.class)

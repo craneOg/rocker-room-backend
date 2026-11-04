@@ -82,7 +82,7 @@ class SecurityChainTest {
     }
 
     private String validToken(long userId, int tokenVersion) {
-        return jwtProvider.createAccessToken(userId, "sid-1", tokenVersion).token();
+        return jwtProvider.createAccessToken(userId, "sid-1", tokenVersion).getToken();
     }
 
     private void assertEnvelope(ResultActions result, String code, String message) throws Exception {
@@ -130,7 +130,7 @@ class SecurityChainTest {
     void expired() throws Exception {
         long id = insertUser("ACTIVE", 0, false);
         JwtProvider past = new JwtProvider(properties, Clock.offset(Clock.systemUTC(), Duration.ofHours(-1)));
-        String token = past.createAccessToken(id, "sid-1", 0).token();
+        String token = past.createAccessToken(id, "sid-1", 0).getToken();
 
         assertUnauthorized(mockMvc.perform(get(PROTECTED).cookie(accessCookie(token))));
     }
@@ -142,11 +142,11 @@ class SecurityChainTest {
         JwtProvider.IssuedToken issued = jwtProvider.createAccessToken(id, "sid-1", 0);
         jdbc.update(
                 "INSERT INTO access_token_blacklist (jti, user_id, expires_at) VALUES (?, ?, ?)",
-                issued.jti(),
+                issued.getJti(),
                 id,
                 LocalDateTime.now().plusMinutes(15));
 
-        assertUnauthorized(mockMvc.perform(get(PROTECTED).cookie(accessCookie(issued.token()))));
+        assertUnauthorized(mockMvc.perform(get(PROTECTED).cookie(accessCookie(issued.getToken()))));
     }
 
     @Test
@@ -257,8 +257,12 @@ class SecurityChainTest {
             if (cookie != null) {
                 request.cookie(cookie);
             }
-            int status = mockMvc.perform(request).andReturn().getResponse().getStatus();
-            assertThat(status).isNotIn(401, 403);
+            var response = mockMvc.perform(request).andReturn().getResponse();
+            // 컨트롤러가 있는 경로는 쿠키가 없다고 스스로 401을 낼 수 있다. 보안 계층의 거부는 details가 비어 있다
+            if (response.getStatus() == 401 || response.getStatus() == 403) {
+                assertThat(response.getContentAsString(java.nio.charset.StandardCharsets.UTF_8))
+                        .contains("\"reason\"");
+            }
         }
     }
 

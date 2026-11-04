@@ -2,6 +2,9 @@ package com.crane.bandwebbackend.domain.auth.controller;
 
 import com.crane.bandwebbackend.domain.auth.dto.ExchangeResponse;
 import com.crane.bandwebbackend.domain.auth.dto.RefreshResponse;
+import com.crane.bandwebbackend.domain.auth.dto.RestorationInfo;
+import com.crane.bandwebbackend.domain.auth.dto.RestorationResult;
+import com.crane.bandwebbackend.domain.auth.service.AccountRestorationService;
 import com.crane.bandwebbackend.domain.auth.service.AuthExchangeService;
 import com.crane.bandwebbackend.domain.auth.service.AuthLogoutService;
 import com.crane.bandwebbackend.domain.auth.service.AuthRefreshService;
@@ -34,16 +37,17 @@ public class AuthController {
     private final AuthExchangeService authExchangeService;
     private final AuthRefreshService authRefreshService;
     private final AuthLogoutService authLogoutService;
+    private final AccountRestorationService accountRestorationService;
     private final CookieFactory cookies;
 
     // API 1
     @GetMapping("/kakao/authorize")
     public ResponseEntity<Void> authorize(@RequestParam(required = false) String returnTo) {
         KakaoLoginService.AuthorizeRedirect redirect = kakaoLoginService.authorize(returnTo);
-        return redirect(redirect.location())
+        return redirect(redirect.getLocation())
                 .header(
                         HttpHeaders.SET_COOKIE,
-                        cookies.state(redirect.stateToken()).toString())
+                        cookies.state(redirect.getStateToken()).toString())
                 .build();
     }
 
@@ -57,12 +61,12 @@ public class AuthController {
         Cookie stateCookie = WebUtils.getCookie(request, cookies.stateName());
         KakaoLoginService.CallbackResult result =
                 kakaoLoginService.callback(code, state, error, stateCookie == null ? null : stateCookie.getValue());
-        ResponseEntity.BodyBuilder response = redirect(result.location());
+        ResponseEntity.BodyBuilder response = redirect(result.getLocation());
         response.header(HttpHeaders.SET_COOKIE, cookies.deleteState().toString());
-        if (result.exchangeToken() != null) {
+        if (result.getExchangeToken() != null) {
             response.header(
                     HttpHeaders.SET_COOKIE,
-                    cookies.exchange(result.exchangeToken()).toString());
+                    cookies.exchange(result.getExchangeToken()).toString());
         }
         return response.build();
     }
@@ -78,22 +82,23 @@ public class AuthController {
         ResponseEntity.BodyBuilder response = ResponseEntity.ok()
                 .header(HttpHeaders.CACHE_CONTROL, "no-store")
                 .header(HttpHeaders.SET_COOKIE, cookies.deleteExchange().toString());
-        if (result.accessToken() != null) {
-            response.header(
-                    HttpHeaders.SET_COOKIE, cookies.access(result.accessToken()).toString());
+        if (result.getAccessToken() != null) {
             response.header(
                     HttpHeaders.SET_COOKIE,
-                    cookies.refresh(result.refreshToken()).toString());
+                    cookies.access(result.getAccessToken()).toString());
+            response.header(
+                    HttpHeaders.SET_COOKIE,
+                    cookies.refresh(result.getRefreshToken()).toString());
         }
-        if (result.restorationToken() != null) {
+        if (result.getRestorationToken() != null) {
             // 다른 계정으로 로그인된 브라우저에서 복구 대상 계정으로 로그인해도 이전 계정의 인증이 남지 않게 한다
             response.header(HttpHeaders.SET_COOKIE, cookies.deleteAccess().toString());
             response.header(HttpHeaders.SET_COOKIE, cookies.deleteRefresh().toString());
             response.header(
                     HttpHeaders.SET_COOKIE,
-                    cookies.restore(result.restorationToken()).toString());
+                    cookies.restore(result.getRestorationToken()).toString());
         }
-        return response.body(ApiResponse.ok(result.body()));
+        return response.body(ApiResponse.ok(result.getBody()));
     }
 
     // API 4: 토큰은 본문이 아니라 Set-Cookie로만 준다. Refresh 쿠키는 이 경로에만 실린다
@@ -108,11 +113,11 @@ public class AuthController {
                 .header(HttpHeaders.CACHE_CONTROL, "no-store")
                 .header(
                         HttpHeaders.SET_COOKIE,
-                        cookies.access(result.tokens().accessToken()).toString())
+                        cookies.access(result.getTokens().getAccessToken()).toString())
                 .header(
                         HttpHeaders.SET_COOKIE,
-                        cookies.refresh(result.tokens().refreshToken()).toString())
-                .body(ApiResponse.ok(result.body()));
+                        cookies.refresh(result.getTokens().getRefreshToken()).toString())
+                .body(ApiResponse.ok(result.getBody()));
     }
 
     // API 5: Refresh 쿠키는 Path 제한 때문에 이 요청에 실리지 않는다. 있든 없든 204
@@ -128,6 +133,47 @@ public class AuthController {
     public ResponseEntity<Void> logoutAll(@AuthenticationPrincipal AuthPrincipal principal) {
         authLogoutService.logoutAll(principal);
         return clearedSession();
+    }
+
+    // API 131: 복구 선택 쿠키로 보관 정보 조회(소비하지 않음)
+    @GetMapping("/restoration")
+    public ResponseEntity<ApiResponse<RestorationInfo>> restorationInfo(HttpServletRequest request) {
+        RestorationInfo info = accountRestorationService.info(restorationToken(request));
+        return ResponseEntity.ok().header(HttpHeaders.CACHE_CONTROL, "no-store").body(ApiResponse.ok(info));
+    }
+
+    // API 132
+    @PostMapping(value = "/restoration/restore", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ApiResponse<RestorationResult>> restore(HttpServletRequest request) {
+        return restorationResponse(accountRestorationService.restore(
+                restorationToken(request), request.getRemoteAddr(), request.getHeader(HttpHeaders.USER_AGENT)));
+    }
+
+    // API 133
+    @PostMapping(value = "/restoration/start-new", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ApiResponse<RestorationResult>> startNew(HttpServletRequest request) {
+        return restorationResponse(accountRestorationService.startNew(
+                restorationToken(request), request.getRemoteAddr(), request.getHeader(HttpHeaders.USER_AGENT)));
+    }
+
+    // 로그인 쿠키를 발급하고 쓴 복구 선택 쿠키를 지운다
+    private ResponseEntity<ApiResponse<RestorationResult>> restorationResponse(
+            AccountRestorationService.Result result) {
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CACHE_CONTROL, "no-store")
+                .header(HttpHeaders.SET_COOKIE, cookies.deleteRestore().toString())
+                .header(
+                        HttpHeaders.SET_COOKIE,
+                        cookies.access(result.getTokens().getAccessToken()).toString())
+                .header(
+                        HttpHeaders.SET_COOKIE,
+                        cookies.refresh(result.getTokens().getRefreshToken()).toString())
+                .body(ApiResponse.ok(result.getBody()));
+    }
+
+    private String restorationToken(HttpServletRequest request) {
+        Cookie cookie = WebUtils.getCookie(request, cookies.restoreName());
+        return cookie == null ? null : cookie.getValue();
     }
 
     private ResponseEntity<Void> clearedSession() {

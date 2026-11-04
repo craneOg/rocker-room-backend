@@ -5,6 +5,7 @@ import com.crane.bandwebbackend.domain.auth.config.AuthLoginProperties;
 import com.crane.bandwebbackend.domain.auth.dto.KakaoProfile;
 import com.crane.bandwebbackend.domain.auth.entity.OneTimeTokenPurpose;
 import com.crane.bandwebbackend.domain.user.entity.User;
+import com.crane.bandwebbackend.domain.user.entity.UserStatus;
 import com.crane.bandwebbackend.global.error.BusinessException;
 import com.crane.bandwebbackend.global.error.ErrorCode;
 import com.crane.bandwebbackend.global.error.ErrorDetail;
@@ -13,6 +14,7 @@ import java.security.MessageDigest;
 import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -40,10 +42,22 @@ public class KakaoLoginService {
     private final KakaoOAuthClient kakao;
 
     // 카카오 인증 URL과 쿠키에 담을 state 원문
-    public record AuthorizeRedirect(String location, String stateToken) {}
+    @Getter
+    @RequiredArgsConstructor
+    public static class AuthorizeRedirect {
+
+        private final String location;
+        private final String stateToken;
+    }
 
     // location은 FE 인증 완료 페이지. exchangeToken은 성공일 때만 있고 쿠키에 담는다
-    public record CallbackResult(String location, String exchangeToken) {}
+    @Getter
+    @RequiredArgsConstructor
+    public static class CallbackResult {
+
+        private final String location;
+        private final String exchangeToken;
+    }
 
     public AuthorizeRedirect authorize(String returnTo) {
         if (returnTo != null && !ReturnToValidator.isValid(returnTo)) {
@@ -85,8 +99,15 @@ public class KakaoLoginService {
         try {
             KakaoProfile profile = kakao.fetchProfile(code);
             User user = findOrRegister(profile);
+            // 탈퇴 후 90일 이내 계정만 "새로 시작"에 쓸 카카오 프로필을 잠깐 들고 간다(그 밖에는 저장하지 않음)
+            boolean withdrawn = user.getStatus() == UserStatus.WITHDRAWN;
             String exchange = tokens.issue(
-                    OneTimeTokenPurpose.LOGIN_EXCHANGE, user, consumed.get().returnTo(), EXCHANGE_TTL);
+                    OneTimeTokenPurpose.LOGIN_EXCHANGE,
+                    user,
+                    consumed.get().getReturnTo(),
+                    withdrawn ? KakaoAccountService.name(profile.getNickname()) : null,
+                    withdrawn ? KakaoAccountService.imageUrl(profile.getImageUrl()) : null,
+                    EXCHANGE_TTL);
             return new CallbackResult(properties.completeUrl(), exchange);
         } catch (RuntimeException e) {
             // 카카오 응답·code는 남기지 않는다. 예외 종류와 스택만 기록
