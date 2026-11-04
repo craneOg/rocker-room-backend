@@ -52,6 +52,13 @@ public class OneTimeToken extends BaseCreatedTimeEntity {
     @Column(length = 200)
     private String returnTo;
 
+    // 탈퇴 후 90일 이내 계정이 "새로 시작"할 때 쓸 카카오 프로필(교환 → 복구 선택 토큰으로 전달). 소비되면 지운다
+    @Column(length = 50)
+    private String profileName;
+
+    @Column(length = 500)
+    private String profileImageUrl;
+
     @Column(nullable = false)
     private LocalDateTime expiresAt;
 
@@ -59,8 +66,16 @@ public class OneTimeToken extends BaseCreatedTimeEntity {
     private LocalDateTime usedAt;
 
     public static OneTimeToken create(
-            byte[] tokenHash, OneTimeTokenPurpose purpose, User user, String returnTo, LocalDateTime expiresAt) {
+            byte[] tokenHash,
+            OneTimeTokenPurpose purpose,
+            User user,
+            String returnTo,
+            String profileName,
+            String profileImageUrl,
+            LocalDateTime expiresAt) {
         OneTimeToken token = new OneTimeToken();
+        token.profileName = profileName;
+        token.profileImageUrl = profileImageUrl;
         token.tokenHash = tokenHash;
         token.purpose = purpose;
         token.user = user;

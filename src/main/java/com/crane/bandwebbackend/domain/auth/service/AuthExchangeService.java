@@ -42,8 +42,13 @@ public class AuthExchangeService {
 
         // 탈퇴 후 90일 이내(파기 전) 계정: 로그인시키지 않고 복구 선택 쿠키만 발급한다(G-03 예외, U-10)
         if (user.getStatus() == UserStatus.WITHDRAWN) {
-            String restoration =
-                    oneTimeTokens.issue(OneTimeTokenPurpose.ACCOUNT_RESTORATION, user, null, RESTORATION_TTL);
+            String restoration = oneTimeTokens.issue(
+                    OneTimeTokenPurpose.ACCOUNT_RESTORATION,
+                    user,
+                    null,
+                    consumed.profileName(),
+                    consumed.profileImageUrl(),
+                    RESTORATION_TTL);
             return new Result(ExchangeResponse.restorationRequired(consumed.returnTo()), null, null, restoration);
         }
 

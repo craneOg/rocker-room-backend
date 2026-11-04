@@ -61,6 +61,15 @@ public class User extends BaseTimeEntity {
 
     private LocalDateTime withdrawnAt;
 
+    // 탈퇴 복구(U-10): 보관한 이름·사진을 되돌리고 토큰 버전을 올린다. handle은 복구하지 않는다
+    public void restore(String name, String profileImageUrl) {
+        this.name = name;
+        this.profileImageUrl = profileImageUrl;
+        this.status = UserStatus.ACTIVE;
+        this.withdrawnAt = null;
+        this.tokenVersion++;
+    }
+
     // 카카오 최초 로그인 시 생성. handle은 온보딩에서 정한다
     public static User createFromProvider(String name, String profileImageUrl) {
         User user = new User();

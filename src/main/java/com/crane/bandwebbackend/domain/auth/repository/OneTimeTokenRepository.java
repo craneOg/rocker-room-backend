@@ -13,10 +13,26 @@ public interface OneTimeTokenRepository extends JpaRepository<OneTimeToken, Long
 
     // 0.5: 영향 행이 1개일 때만 사용에 성공한 것으로 본다(인스턴스 수와 무관하게 한 번만)
     @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query("update OneTimeToken t set t.usedAt = :now"
+    @Query("update OneTimeToken t set t.usedAt = :now, t.profileName = null, t.profileImageUrl = null"
             + " where t.tokenHash = :hash and t.purpose = :purpose and t.usedAt is null and t.expiresAt > :now")
     int consume(
             @Param("hash") byte[] hash, @Param("purpose") OneTimeTokenPurpose purpose, @Param("now") LocalDateTime now);
 
     Optional<OneTimeToken> findByTokenHash(byte[] tokenHash);
+
+    // 만료 후에도 남은 카카오 프로필 값을 지운다(소비되지 않은 토큰). 유효한 토큰은 건드리지 않는다
+    @Modifying(flushAutomatically = true)
+    @Query("update OneTimeToken t set t.profileName = null, t.profileImageUrl = null"
+            + " where t.expiresAt <= :now and (t.profileName is not null or t.profileImageUrl is not null)")
+    int clearExpiredProfiles(@Param("now") LocalDateTime now);
+
+    // §16: 만료 + 1일이 지난 행을 물리 삭제한다
+    @Modifying(flushAutomatically = true)
+    @Query("delete from OneTimeToken t where t.expiresAt < :cutoff")
+    int deleteExpiredBefore(@Param("cutoff") LocalDateTime cutoff);
+
+    // 탈퇴 계정을 파기하거나 "새로 시작"할 때 그 사용자의 미사용 토큰을 지운다(§16)
+    @Modifying(flushAutomatically = true)
+    @Query("delete from OneTimeToken t where t.user.id = :userId and t.usedAt is null")
+    int deleteUnusedByUser(@Param("userId") long userId);
 }
