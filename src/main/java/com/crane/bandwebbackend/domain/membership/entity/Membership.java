@@ -30,57 +30,60 @@ import lombok.NoArgsConstructor;
 @Getter
 @Entity
 @Table(
-		name = "membership",
-		uniqueConstraints = {
-			@UniqueConstraint(
-					name = "uk_membership_club_user",
-					columnNames = {"club_id", "user_id"}),
-			@UniqueConstraint(
-					name = "uk_membership_id_club",
-					columnNames = {"id", "club_id"})
-		})
+        name = "membership",
+        uniqueConstraints = {
+            @UniqueConstraint(
+                    name = "uk_membership_club_user",
+                    columnNames = {"club_id", "user_id"}),
+            @UniqueConstraint(
+                    name = "uk_membership_id_club",
+                    columnNames = {"id", "club_id"})
+        })
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Membership extends BaseTimeEntity {
 
-	@Id
-	@GeneratedValue(strategy = GenerationType.IDENTITY)
-	private Long id;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
-	@ManyToOne(fetch = FetchType.LAZY)
-	@JoinColumn(name = "club_id", nullable = false)
-	private Club club;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "club_id", nullable = false)
+    private Club club;
 
-	@ManyToOne(fetch = FetchType.LAZY)
-	@JoinColumn(name = "user_id", nullable = false)
-	private User user;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
 
-	// NULL이면 users.name 사용. 서비스 탈퇴 시 NULL
-	@Column(length = 50)
-	private String displayName;
+    // NULL이면 users.name 사용. 서비스 탈퇴 시 NULL
+    @Column(length = 50)
+    private String displayName;
 
-	@Enumerated(EnumType.STRING)
-	@Column(nullable = false, length = 20)
-	private MemberType memberType;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private MemberType memberType;
 
-	// 역할은 토큰이 아니라 요청마다 이 값으로 확인(G-07)
-	@Enumerated(EnumType.STRING)
-	@Column(nullable = false, length = 20)
-	private MembershipRole role;
+    // 역할은 토큰이 아니라 요청마다 이 값으로 확인(G-07)
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private MembershipRole role;
 
-	@Enumerated(EnumType.STRING)
-	@Column(nullable = false, length = 20)
-	private MembershipStatus status;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private MembershipStatus status;
 
-	@Enumerated(EnumType.STRING)
-	@Column(nullable = false, length = 20)
-	private JoinSource joinSource;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private JoinSource joinSource;
 
-	private LocalDateTime approvedAt;
+    private LocalDateTime approvedAt;
 
-	// 유효기간 1개월(만료 시각은 조회 시 계산)
-	private LocalDateTime invitedAt;
+    // 유효기간 1개월(만료 시각은 조회 시 계산)
+    private LocalDateTime invitedAt;
 
 	private LocalDateTime leftAt;
+
+    // 이 동아리 홈을 마지막으로 연 시각(HOME-002 최근 본 순). 갱신은 updated_at이 바뀌지 않도록 전용 쿼리로 처리
+    private LocalDateTime lastViewedAt;
 
 	/** 소속 신청한다 */
 	public static Membership apply(

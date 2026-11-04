@@ -1,6 +1,6 @@
 agent.md — AI 코딩 도구 작업 지침 (백엔드 저장소)
 
-이 파일은 이 저장소에서 작업하는 AI 코딩 도구(Claude Code, Copilot, Cursor 등)와 사람이 함께 지키는 규칙이다. 규칙과 실제 코드가 다르면 코드를 바꾸기 전에 사람에게 묻는다. 최종 수정: 2026-10-14 (초안)
+이 파일은 이 저장소에서 작업하는 AI 코딩 도구(Claude Code, Copilot, Cursor 등)와 사람이 함께 지키는 규칙이다. 규칙과 실제 코드가 다르면 코드를 바꾸기 전에 사람에게 묻는다. 최종 수정: 2026-10-30
 
 1. 프로젝트 한 줄 요약
 
@@ -10,7 +10,7 @@ agent.md — AI 코딩 도구 작업 지침 (백엔드 저장소)
 시간대: 서비스 기준 KST 고정, 저장은 UTC.
 2. 기준 문서 (충돌 시 위에 있는 것이 우선)
    서비스 검증 규칙 (docs/service_validation_rules_v1.md, 노션 「서비스 검증 규칙」과 동일) — 업무 규칙과 오류 코드의 기준. 규칙은 G-01, U-04, C-15처럼 ID로 부른다.
-   ERD v6 (docs/erd_v6.sql = Flyway V1__init.sql)
+   ERD v7.2 (docs/erd_v7_2.sql = Flyway V1__init.sql + V2__erd_v7_1.sql + V3__erd_v7_2.sql)
    API 명세 (노션 "API 명세", API-001~125) — URL·요청·응답·공통 응답 형식의 기준.
    화면 명세 (docs/화면명세_v1.0.0.md, Figma) — 문구와 흐름의 기준.
 
@@ -69,7 +69,10 @@ Boot가 관리하는 라이브러리는 build.gradle에 버전을 쓰지 않는�
    로그: 개인정보(이름, 카카오 식별자, 토큰, IP 전체) 로그 금지. 감사 기록 detail에는 ID와 변경 전·후 값만(U-09).
 7. API 규칙
    공통 응답·오류 본문 모양은 API 명세의 공통 규칙을 따른다. 명세에 없으면 묻는다.
-   오류 코드는 검증 규칙 0.2의 9종만 사용: VALIDATION_ERROR(400), UNAUTHENTICATED(401), FORBIDDEN(403), NOT_FOUND(404), STATE_CONFLICT(409), DUPLICATE(409), VERSION_CONFLICT(409), CONFIRMATION_REQUIRED(409), RULE_VIOLATION(422).
+   응답 봉투 {data, meta:{requestId}}(ApiResponse), 오류 봉투 {error:{code,message,details,requestId}}(경고 목록은 error.warnings). 요청 ID는 서버가 req-+랜덤 12자로 생성하고 X-Request-Id 헤더로도 반환.
+   DTO의 ID(Long) 필드에는 @IdString, 일시는 KstTime으로 +09:00 변환.
+   감사 기록은 AuditRecorder.record를 서비스 트랜잭션 안에서 호출. detail에 name, displayName, handle, email, providerUid, token*, ip 키 금지(예외 발생).
+   오류 코드는 검증 규칙 0.2의 9종만 사용: VALIDATION_ERROR(400), UNAUTHENTICATED(401), FORBIDDEN(403), NOT_FOUND(404), STATE_CONFLICT(409), DUPLICATE(409), VERSION_CONFLICT(409), CONFIRMATION_REQUIRED(409), RULE_VIOLATION(422). 415→400 VALIDATION_ERROR, 429→RULE_VIOLATION, 500은 code 없이 {error:{message,requestId}}.
    다른 동아리·다른 공연의 리소스는 404(존재 비노출, G-04).
    강도: "확인 필요" 규칙은 confirmed=true 없으면 409 + 경고 목록, "경고" 규칙은 성공 응답의 warnings.
    DB 제약 위반(1062, 1451, 1452, 3819)을 그대로 내보내지 않는다. 서비스에서 먼저 검사해 위 코드로 변환.
@@ -89,7 +92,9 @@ Boot가 관리하는 라이브러리는 build.gradle에 버전을 쓰지 않는�
    Access Token 15분, Refresh Token 30일, 둘 다 HttpOnly; Secure; SameSite=Lax 쿠키(Domain 생략).
    Refresh Token: DB가 원본(SHA-256 해시 저장), Caffeine은 캐시. 재발급마다 로테이션, 이미 교체된 토큰이 오면 같은 family_id 전부 폐기. 만료 = min(발급+30일, 최초 로그인+90일). 만료+7일 후 삭제.
    현재 기기 로그아웃은 jti 블랙리스트, 전체 무효화는 users.token_version + 1. token_version은 모든 요청에서 비교.
-   상태 변경 요청에 X-Requested-With 헤더가 없으면 403. CORS는 FE 출처 하나만.
+   상태 변경 요청에 X-Requested-With 헤더가 없거나 비어 있으면 403(값은 검사 안 함, 예외 없음). CORS는 FE 출처 하나만(환경 변수 APP_CORS_ORIGIN, 기본 http://localhost:5173).
+   JWT 서명 키는 환경 변수 JWT_SECRET(HS256, 32바이트 이상, 없으면 기동 실패). 쿠키는 CookieFactory로만 만든다: 운영·스테이징은 __Host-rr_at 등 접두사+Secure, local 프로필은 rr_at 등 접두사 없음+Secure=false.
+   springdoc(Swagger UI)은 local 프로필에서만 노출.
    역할은 토큰이 아니라 요청마다 membership.role로 확인(G-07).
    비밀값(카카오 키, JWT 서명 키, DB 비밀번호)은 절대 커밋 금지. application-local.yml(gitignore) 또는 환경 변수.
 10. 테스트
@@ -99,11 +104,11 @@ Boot가 관리하는 라이브러리는 build.gradle에 버전을 쓰지 않는�
     업무 규칙 테스트의 이름이나 @DisplayName에 규칙 ID를 넣는다(예: "C-15 공백·대소문자만 다른 동아리 이름은 409").
     새 기능 PR에는 최소한 성공 1건 + 해당 규칙 위반 1건 테스트.
 11. Git 작업 방식
-    브랜치: main(배포) / dev(통합, 기본 브랜치) / feat/#이슈번호(작업).
-    feat → dev는 PR + 승인 1명 + Squash merge. dev → main은 PR로만.
+    브랜치: main(배포) / develop(통합, 기본 브랜치) / feat/#이슈번호(작업).
+    feat → develop은 PR + 승인 1명 + Squash merge. develop → main은 PR로만.
     커밋 메시지 규칙: 미정(확정 전까지 타입: 내용 (#이슈) 형식 권장, 예: feat: 카카오 로그인 콜백 구현 (#12)).
     PR 설명에 관련 API ID, 검증 규칙 ID, 화면 ID를 적는다.
-    main·dev에 직접 push 하지 않는다. force push 금지.
+    main·develop에 직접 push 하지 않는다. force push 금지.
 12. AI 도구가 반드시 묻고 진행할 것
     기준 문서에 없는 동작, 문서끼리 충돌하는 동작
     새 라이브러리 추가, 버전 변경

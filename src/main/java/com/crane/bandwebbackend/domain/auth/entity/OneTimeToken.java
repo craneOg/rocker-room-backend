@@ -48,7 +48,7 @@ public class OneTimeToken extends BaseCreatedTimeEntity {
     @JoinColumn(name = "user_id")
     private User user;
 
-    // 로그인 후 돌아갈 FE 상대 경로(OAUTH_STATE일 때만)
+    // 로그인 후 돌아갈 FE 상대 경로(OAUTH_STATE, 로그인 교환 토큰에 복사. 그 외 용도는 NULL)
     @Column(length = 200)
     private String returnTo;
 
@@ -57,4 +57,15 @@ public class OneTimeToken extends BaseCreatedTimeEntity {
 
     // NULL이면 미사용. 소비는 조건부 UPDATE 영향 행 1개로 판정
     private LocalDateTime usedAt;
+
+    public static OneTimeToken create(
+            byte[] tokenHash, OneTimeTokenPurpose purpose, User user, String returnTo, LocalDateTime expiresAt) {
+        OneTimeToken token = new OneTimeToken();
+        token.tokenHash = tokenHash;
+        token.purpose = purpose;
+        token.user = user;
+        token.returnTo = returnTo;
+        token.expiresAt = expiresAt;
+        return token;
+    }
 }

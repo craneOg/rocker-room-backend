@@ -1,0 +1,24 @@
+-- PerformanceFlowTest 뒤 정리. 같은 컨테이너 DB를 쓰는 다른 테스트(SecurityChainTest의 DELETE FROM users 등)가 FK에 막히지 않도록
+SET FOREIGN_KEY_CHECKS = 0;
+DELETE FROM audit_log;
+DELETE FROM available_slot;
+DELETE FROM song_vote;
+DELETE FROM song_playability;
+DELETE FROM song_session_member;
+DELETE FROM song_part_requirement;
+DELETE FROM practice_schedule_song;
+DELETE FROM practice_schedule_team;
+DELETE FROM practice_schedule;
+DELETE FROM audition_entry;
+DELETE FROM song;
+DELETE FROM team_member;
+DELETE FROM team;
+DELETE FROM performance_member;
+DELETE FROM performance_policy;
+DELETE FROM performance;
+DELETE FROM membership_part;
+DELETE FROM part;
+DELETE FROM membership;
+DELETE FROM club;
+DELETE FROM users;
+SET FOREIGN_KEY_CHECKS = 1;

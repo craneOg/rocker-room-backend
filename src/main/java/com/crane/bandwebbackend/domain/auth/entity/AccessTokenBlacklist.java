@@ -34,4 +34,12 @@ public class AccessTokenBlacklist extends BaseCreatedTimeEntity {
 
     @Column(nullable = false)
     private LocalDateTime expiresAt;
+
+    public static AccessTokenBlacklist create(String jti, User user, LocalDateTime expiresAt) {
+        AccessTokenBlacklist entry = new AccessTokenBlacklist();
+        entry.jti = jti;
+        entry.user = user;
+        entry.expiresAt = expiresAt;
+        return entry;
+    }
 }

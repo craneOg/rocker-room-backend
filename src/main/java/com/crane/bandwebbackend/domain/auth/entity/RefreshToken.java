@@ -43,10 +43,10 @@ public class RefreshToken extends BaseCreatedTimeEntity {
     @Column(nullable = false, length = 36)
     private String familyId;
 
-    // SHA-256 16진수. 평문 저장 금지
-    @JdbcTypeCode(SqlTypes.CHAR)
-    @Column(nullable = false, length = 64)
-    private String tokenHash;
+    // SHA-256(32바이트 원시값, one_time_token과 동일 형식). 평문 저장 금지
+    @JdbcTypeCode(SqlTypes.BINARY)
+    @Column(nullable = false, length = 32)
+    private byte[] tokenHash;
 
     // min(발급 + 30일, familyExpiresAt)
     @Column(nullable = false)
@@ -72,4 +72,24 @@ public class RefreshToken extends BaseCreatedTimeEntity {
 
     @Column(length = 255)
     private String userAgent;
+
+    // 로그인 묶음의 첫 토큰. 만료는 min(발급 + 30일, 묶음 시작 + 90일)이지만 첫 발급은 항상 30일이 먼저다
+    public static RefreshToken issue(
+            User user,
+            String familyId,
+            byte[] tokenHash,
+            LocalDateTime expiresAt,
+            LocalDateTime familyExpiresAt,
+            String createdIp,
+            String userAgent) {
+        RefreshToken token = new RefreshToken();
+        token.user = user;
+        token.familyId = familyId;
+        token.tokenHash = tokenHash;
+        token.expiresAt = expiresAt;
+        token.familyExpiresAt = familyExpiresAt;
+        token.createdIp = createdIp;
+        token.userAgent = userAgent;
+        return token;
+    }
 }

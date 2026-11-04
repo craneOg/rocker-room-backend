@@ -4,6 +4,8 @@ import com.crane.bandwebbackend.domain.participant.entity.PerformanceMember;
 import com.crane.bandwebbackend.domain.performance.entity.Performance;
 import com.crane.bandwebbackend.domain.user.entity.User;
 import com.crane.bandwebbackend.global.entity.BaseTimeEntity;
+import com.crane.bandwebbackend.global.error.BusinessException;
+import com.crane.bandwebbackend.global.error.ErrorCode;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -18,6 +20,8 @@ import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import jakarta.persistence.Version;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.util.Objects;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -105,5 +109,118 @@ public class Team extends BaseTimeEntity {
             throw new IllegalArgumentException("같은 공연의 참여자만 팀장으로 지정할 수 있습니다.");
         }
         this.leader = leader;
+    }
+
+    // 임원이 만든 팀은 바로 APPROVED
+    public static Team createApproved(Performance performance, String name, TeamSource source, User createdBy) {
+        Team team = create(performance, name, source, createdBy);
+        team.status = TeamStatus.APPROVED;
+        team.decidedAt = now();
+        return team;
+    }
+
+    // 부원 팀 신청(T-02). 제출 전 DRAFT
+    public static Team createDraft(Performance performance, String name, User createdBy) {
+        Team team = create(performance, name, TeamSource.SELF, createdBy);
+        team.status = TeamStatus.DRAFT;
+        return team;
+    }
+
+    private static Team create(Performance performance, String name, TeamSource source, User createdBy) {
+        Team team = new Team();
+        team.performance = performance;
+        team.name = name;
+        team.source = source;
+        team.createdBy = createdBy;
+        return team;
+    }
+
+    public void submit() {
+        requireStatus(TeamStatus.DRAFT);
+        this.status = TeamStatus.SUBMITTED;
+        this.submittedAt = now();
+    }
+
+    // SUBMITTED → DRAFT(제출 취소)
+    public void unsubmit() {
+        requireStatus(TeamStatus.SUBMITTED);
+        this.status = TeamStatus.DRAFT;
+        this.submittedAt = null;
+    }
+
+    public void approve() {
+        requireStatus(TeamStatus.SUBMITTED);
+        this.status = TeamStatus.APPROVED;
+        this.decidedAt = now();
+    }
+
+    // T-05: 반려 사유는 팀원에게 보임
+    public void reject(String reason) {
+        requireStatus(TeamStatus.SUBMITTED);
+        this.status = TeamStatus.REJECTED;
+        this.rejectReason = reason;
+        this.decidedAt = now();
+    }
+
+    // DRAFT·SUBMITTED·APPROVED → WITHDRAWN
+    public void withdraw() {
+        if (status != TeamStatus.DRAFT && status != TeamStatus.SUBMITTED && status != TeamStatus.APPROVED) {
+            throw invalidTransition();
+        }
+        this.status = TeamStatus.WITHDRAWN;
+        this.decidedAt = now();
+    }
+
+    // REJECTED·WITHDRAWN → DRAFT(재개)
+    public void reopen() {
+        if (status != TeamStatus.REJECTED && status != TeamStatus.WITHDRAWN) {
+            throw invalidTransition();
+        }
+        this.status = TeamStatus.DRAFT;
+        this.rejectReason = null;
+        this.decidedAt = null;
+        this.submittedAt = null;
+    }
+
+    public void rename(String name) {
+        this.name = name;
+    }
+
+    // F-03: 공연당 1개. 교체는 서비스가 기존 해제 후 지정
+    public void markDefault(boolean isDefault) {
+        this.isDefault = isDefault;
+    }
+
+    // 팀원인지는 서비스 검증 + fk_team_leader_is_member. NULL = 공석
+    public void changeLeader(PerformanceMember leader) {
+        if (status == TeamStatus.WITHDRAWN) {
+            throw invalidTransition();
+        }
+        this.leader = leader;
+    }
+
+    public boolean isLeader(Long performanceMemberId) {
+        return leader != null && performanceMemberId != null && leader.getId().equals(performanceMemberId);
+    }
+
+    // 화면이 본 버전과 다르면 409(낙관적 락 대상). 실제 갱신 충돌은 @Version이 한 번 더 막음
+    public void verifyVersion(Long expected) {
+        if (!Objects.equals(version, expected)) {
+            throw new BusinessException(ErrorCode.VERSION_CONFLICT, "다른 사람이 먼저 수정했습니다. 새로고침 후 다시 시도해 주세요.");
+        }
+    }
+
+    private void requireStatus(TeamStatus expected) {
+        if (status != expected) {
+            throw invalidTransition();
+        }
+    }
+
+    private BusinessException invalidTransition() {
+        return new BusinessException(ErrorCode.STATE_CONFLICT, "INVALID_STATE", "현재 팀 상태(" + status + ")에서는 할 수 없습니다.");
+    }
+
+    private static LocalDateTime now() {
+        return LocalDateTime.now(ZoneOffset.UTC);
     }
 }

@@ -22,9 +22,10 @@ import lombok.NoArgsConstructor;
 @Entity
 @Table(
         name = "team_member",
-        uniqueConstraints = @UniqueConstraint(
-                name = "uk_team_member",
-                columnNames = {"team_id", "performance_member_id"}))
+        uniqueConstraints =
+                @UniqueConstraint(
+                        name = "uk_team_member",
+                        columnNames = {"team_id", "performance_member_id"}))
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class TeamMember extends BaseCreatedTimeEntity {
 
@@ -61,5 +62,18 @@ public class TeamMember extends BaseCreatedTimeEntity {
         member.performanceId = team.getPerformance().getId();
         member.performanceMember = performanceMember;
         return member;
+    }
+
+    public static TeamMember of(Team team, PerformanceMember performanceMember, Part part) {
+        TeamMember m = new TeamMember();
+        m.team = team;
+        m.performanceId = team.getPerformance().getId();
+        m.performanceMember = performanceMember;
+        m.part = part;
+        return m;
+    }
+
+    public void changePart(Part part) {
+        this.part = part;
     }
 }
