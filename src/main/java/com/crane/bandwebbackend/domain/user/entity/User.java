@@ -50,4 +50,17 @@ public class User extends BaseTimeEntity {
     private LocalDateTime lastActiveAt;
 
     private LocalDateTime withdrawnAt;
+
+    /** AUTH-08. 사용자 자신에게 허용된 프로필 필드만 변경한다. */
+    public void updateProfile(String name, String handle, boolean clearImage) {
+        if (name != null) {
+            this.name = name.trim();
+        }
+        if (handle != null) {
+            this.handle = handle;
+        }
+        if (clearImage) {
+            this.profileImageUrl = null;
+        }
+    }
 }

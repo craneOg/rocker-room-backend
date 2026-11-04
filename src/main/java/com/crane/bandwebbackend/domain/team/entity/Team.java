@@ -80,4 +80,30 @@ public class Team extends BaseTimeEntity {
     @Version
     @Column(nullable = false)
     private Long version;
+
+    /** BAND 공연에 사용할 승인된 기본 팀을 생성한다. */
+    public static Team createDefault(Performance performance, User creator, LocalDateTime now) {
+        if (performance == null || creator == null || now == null) {
+            throw new IllegalArgumentException("기본 팀 생성 값이 유효하지 않습니다.");
+        }
+        Team team = new Team();
+        team.performance = performance;
+        team.name = "기본 팀";
+        team.isDefault = true;
+        team.status = TeamStatus.APPROVED;
+        team.source = TeamSource.ADMIN;
+        team.createdBy = creator;
+        team.submittedAt = now;
+        team.decidedAt = now;
+        return team;
+    }
+
+    /** 기본 팀의 팀장을 이미 편성된 공연 참여자로 지정한다. */
+    public void assignLeader(PerformanceMember leader) {
+        if (leader == null || leader.getPerformance() == null
+                || !leader.getPerformance().getId().equals(performance.getId())) {
+            throw new IllegalArgumentException("같은 공연의 참여자만 팀장으로 지정할 수 있습니다.");
+        }
+        this.leader = leader;
+    }
 }

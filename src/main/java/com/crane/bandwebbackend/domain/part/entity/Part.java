@@ -44,4 +44,39 @@ public class Part extends BaseTimeEntity {
     // FALSE = 새 선택 목록에서 숨김(과거 기록은 유지)
     @Column(nullable = false)
     private boolean isActive;
+
+    public static Part create(Club club, String name, int displayOrder) {
+        if (club == null || name == null || name.trim().isEmpty()
+                || name.trim().length() > 50 || displayOrder < 0) {
+            throw new IllegalArgumentException("파트 생성 값이 유효하지 않습니다.");
+        }
+        Part part = new Part();
+        part.club = club;
+        part.name = name.trim();
+        part.displayOrder = displayOrder;
+        part.isActive = true;
+        return part;
+    }
+
+    public void changeDetails(String name, Integer displayOrder) {
+        if (name == null && displayOrder == null) {
+            throw new IllegalArgumentException("변경할 파트 정보가 없습니다.");
+        }
+        if (name != null) {
+            if (name.trim().isEmpty() || name.trim().length() > 50) {
+                throw new IllegalArgumentException("파트 이름이 유효하지 않습니다.");
+            }
+            this.name = name.trim();
+        }
+        if (displayOrder != null) {
+            if (displayOrder < 0) {
+                throw new IllegalArgumentException("파트 순서가 유효하지 않습니다.");
+            }
+            this.displayOrder = displayOrder;
+        }
+    }
+
+    public void changeActive(boolean active) {
+        this.isActive = active;
+    }
 }

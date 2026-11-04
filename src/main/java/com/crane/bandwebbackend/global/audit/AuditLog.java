@@ -43,4 +43,17 @@ public class AuditLog extends BaseCreatedTimeEntity {
     // ID와 변경 전·후 값만. 이름 등 개인정보·토큰 저장 금지(U-09)
     @JdbcTypeCode(SqlTypes.JSON)
     private String detail;
+
+    public static AuditLog record(Long clubId, Long actorUserId, String action,
+                                  String targetType, Long targetId, String reason, String detail) {
+        AuditLog log = new AuditLog();
+        log.clubId = clubId;
+        log.actorUserId = actorUserId;
+        log.action = action;
+        log.targetType = targetType;
+        log.targetId = targetId;
+        log.reason = reason;
+        log.detail = detail;
+        return log;
+    }
 }
