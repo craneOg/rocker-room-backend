@@ -29,7 +29,9 @@ public class UserProfileService {
     // U-02 handle, U-12 사진. 서비스 프로필은 카카오 프로필과 독립적으로 관리한다
     @Transactional
     public UserProfileResponse update(long userId, UpdateProfileRequest request) {
-        User user = load(userId);
+        rejectExplicitNulls(request);
+        // 같은 사용자의 동시 수정이 서로의 변경을 덮어쓰지 않도록 행을 잠그고 읽는다(User에는 버전 컬럼이 없다)
+        User user = loadForUpdate(userId);
         if (request.getName() != null) {
             String name = request.getName().strip();
             if (name.isEmpty() || name.length() > 50) {
@@ -80,10 +82,29 @@ public class UserProfileService {
                 ErrorCode.NOT_FOUND, "요청한 리소스를 찾을 수 없습니다.", List.of(ErrorDetail.of(null, "IMAGE_KEY_NOT_FOUND")));
     }
 
+    // 명세상 null 불가인 필드를 null로 보내면 400(보내지 않은 것과 구분한다)
+    private static void rejectExplicitNulls(UpdateProfileRequest request) {
+        if (request.isNameSpecified() && request.getName() == null) {
+            throw invalid("name");
+        }
+        if (request.isHandleSpecified() && request.getHandle() == null) {
+            throw invalid("handle");
+        }
+        if (request.isProfileImagePublicSpecified() && request.getProfileImagePublic() == null) {
+            throw invalid("profileImagePublic");
+        }
+    }
+
+    private User loadForUpdate(long userId) {
+        return userRepository.findByIdForUpdate(userId).orElseThrow(UserProfileService::unauthenticated);
+    }
+
     private User load(long userId) {
-        return userRepository
-                .findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHENTICATED, "인증이 필요하거나 인증 정보가 유효하지 않습니다."));
+        return userRepository.findById(userId).orElseThrow(UserProfileService::unauthenticated);
+    }
+
+    private static BusinessException unauthenticated() {
+        return new BusinessException(ErrorCode.UNAUTHENTICATED, "인증이 필요하거나 인증 정보가 유효하지 않습니다.");
     }
 
     private static BusinessException handleTaken() {

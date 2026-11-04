@@ -275,6 +275,56 @@ class UserProfileApiTest {
     }
 
     @Test
+    @DisplayName("API 8: name·handle·profileImagePublic에 명시적 null을 보내면 400이고 아무것도 바꾸지 않는다")
+    void explicitNullIsRejected() throws Exception {
+        long id = user("원래", "valid_one", "https://cdn.example/a.png", true);
+
+        for (String field : new String[] {"name", "handle", "profileImagePublic"}) {
+            mockMvc.perform(patchMe(id, "{\"" + field + "\":null}"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"))
+                    .andExpect(jsonPath("$.error.details[0].field").value(field))
+                    .andExpect(jsonPath("$.error.details[0].reason").value("INVALID_VALUE"));
+        }
+        // 다른 필드와 함께 보내도 전체가 거부된다
+        mockMvc.perform(patchMe(id, "{\"name\":\"바뀌면 안 됨\",\"handle\":null}")).andExpect(status().isBadRequest());
+        assertThat(column(id, "name")).isEqualTo("원래");
+        assertThat(column(id, "handle")).isEqualTo("valid_one");
+        assertThat(column(id, "profile_image_url")).isEqualTo("https://cdn.example/a.png");
+    }
+
+    @Test
+    @DisplayName("API 8: 같은 사용자의 서로 다른 필드를 동시에 수정해도 두 변경이 모두 남는다")
+    void concurrentUpdatesOfSameUserKeepBoth() throws Exception {
+        for (int round = 0; round < 5; round++) {
+            long id = user("이전", "round_" + round + "_user", null, true);
+            ExecutorService pool = Executors.newFixedThreadPool(2);
+            CountDownLatch start = new CountDownLatch(1);
+            Future<Integer> rename = pool.submit(() -> {
+                start.await();
+                return mockMvc.perform(patchMe(id, "{\"name\":\"새 이름\"}"))
+                        .andReturn()
+                        .getResponse()
+                        .getStatus();
+            });
+            Future<Integer> hide = pool.submit(() -> {
+                start.await();
+                return mockMvc.perform(patchMe(id, "{\"profileImagePublic\":false}"))
+                        .andReturn()
+                        .getResponse()
+                        .getStatus();
+            });
+            start.countDown();
+            assertThat(rename.get()).isEqualTo(200);
+            assertThat(hide.get()).isEqualTo(200);
+            pool.shutdown();
+
+            assertThat(column(id, "name")).isEqualTo("새 이름");
+            assertThat(column(id, "profile_image_public")).isIn("0", "false");
+        }
+    }
+
+    @Test
     @DisplayName("API 8: 사진은 null을 보내면 삭제되고, 키를 보내면 404 IMAGE_KEY_NOT_FOUND(업로드 API 전까지)")
     void profileImage() throws Exception {
         long id = user("사진", "photo_user", "https://cdn.example/old.png", true);
