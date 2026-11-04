@@ -1,5 +1,6 @@
 package com.crane.bandwebbackend.domain.user.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonSetter;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -25,6 +26,7 @@ public class UpdateProfileRequest {
 
     private Boolean profileImagePublic;
 
+    // 서버 내부 상태다. Jackson이 getter를 통해 입력 속성으로 추론하지 않도록 getter에 @JsonIgnore를 붙인다
     private boolean nameSpecified;
     private boolean handleSpecified;
     private boolean profileImageUrlSpecified;
@@ -54,18 +56,22 @@ public class UpdateProfileRequest {
         this.profileImagePublicSpecified = true;
     }
 
+    @JsonIgnore
     public boolean isNameSpecified() {
         return nameSpecified;
     }
 
+    @JsonIgnore
     public boolean isHandleSpecified() {
         return handleSpecified;
     }
 
+    @JsonIgnore
     public boolean isProfileImageUrlSpecified() {
         return profileImageUrlSpecified;
     }
 
+    @JsonIgnore
     public boolean isProfileImagePublicSpecified() {
         return profileImagePublicSpecified;
     }

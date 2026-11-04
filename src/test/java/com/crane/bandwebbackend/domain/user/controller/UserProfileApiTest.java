@@ -294,6 +294,26 @@ class UserProfileApiTest {
     }
 
     @Test
+    @DisplayName("API 8: 내부 추적 플래그(*Specified)를 JSON으로 보내도 무시한다(null 거부 우회·사진 삭제 불가)")
+    void internalFlagsCannotBeSetFromJson() throws Exception {
+        long id = user("원래", "flag_user", "https://cdn.example/keep.png", true);
+
+        // 명시적 null인데 플래그를 false로 덮어써 검사를 우회하려는 요청
+        mockMvc.perform(patchMe(id, "{\"name\":null,\"nameSpecified\":false}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.details[0].field").value("name"));
+        mockMvc.perform(patchMe(id, "{\"handle\":null,\"handleSpecified\":false}"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(patchMe(id, "{\"profileImagePublic\":null,\"profileImagePublicSpecified\":false}"))
+                .andExpect(status().isBadRequest());
+
+        // 사진을 보내지 않고 플래그만 true로 보내 기존 사진을 지우려는 요청
+        mockMvc.perform(patchMe(id, "{\"profileImageUrlSpecified\":true}")).andExpect(status().isOk());
+        assertThat(column(id, "profile_image_url")).isEqualTo("https://cdn.example/keep.png");
+        assertThat(column(id, "name")).isEqualTo("원래");
+    }
+
+    @Test
     @DisplayName("API 8: 같은 사용자의 서로 다른 필드를 동시에 수정해도 두 변경이 모두 남는다")
     void concurrentUpdatesOfSameUserKeepBoth() throws Exception {
         for (int round = 0; round < 5; round++) {
