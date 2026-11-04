@@ -7,6 +7,7 @@ import org.springframework.http.converter.HttpMessageConverter;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.http.server.ServerHttpRequest;
 import org.springframework.http.server.ServerHttpResponse;
+import org.springframework.http.server.ServletServerHttpResponse;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseBodyAdvice;
 
@@ -30,6 +31,16 @@ public class ApiResponseAdvice implements ResponseBodyAdvice<Object> {
         if (body instanceof ApiResponse<?> || body instanceof ErrorResponse) {
             return body;
         }
+        // 본문이 없는 204·리다이렉트(3xx)에는 {data: null}을 붙이지 않는다
+        if (body == null
+                && response instanceof ServletServerHttpResponse servletResponse
+                && isBodyless(servletResponse.getServletResponse().getStatus())) {
+            return null;
+        }
         return ApiResponse.ok(body);
+    }
+
+    private static boolean isBodyless(int status) {
+        return status == 204 || (status >= 300 && status < 400);
     }
 }

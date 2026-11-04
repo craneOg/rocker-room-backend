@@ -22,7 +22,8 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.filter.CorsFilter;
 
 // 0.5 / G-01: 무상태 쿠키 JWT. CSRF 토큰 대신 X-Requested-With 헤더 검사(RequestedWithFilter).
-// 필터 순서: RequestIdFilter(서블릿, Security보다 앞) -> CORS -> RequestedWithFilter -> JwtAuthenticationFilter.
+// 필터 순서: RequestIdFilter(서블릿, Security보다 앞) -> OriginFilter(교환·재발급 JSON 403) -> CORS -> RequestedWithFilter ->
+// JwtAuthenticationFilter.
 // 두 커스텀 필터는 @Bean/@Component로 등록하지 않는다(서블릿 컨테이너에 중복 등록되는 것을 막기 위해)
 @Configuration
 @EnableConfigurationProperties(AppProperties.class)
@@ -49,6 +50,8 @@ public class SecurityConfig {
             RestAccessDeniedHandler accessDeniedHandler)
             throws Exception {
         RequestedWithFilter requestedWithFilter = new RequestedWithFilter(objectMapper);
+        OriginFilter originFilter =
+                new OriginFilter(objectMapper, properties.cors().origin());
         JwtAuthenticationFilter jwtFilter =
                 new JwtAuthenticationFilter(jwtProvider, cookieFactory, blacklistRepository, userAuthQueryService);
 
@@ -89,6 +92,7 @@ public class SecurityConfig {
                         .permitAll()
                         .anyRequest()
                         .authenticated())
+                .addFilterBefore(originFilter, CorsFilter.class)
                 .addFilterAfter(requestedWithFilter, CorsFilter.class)
                 .addFilterAfter(jwtFilter, RequestedWithFilter.class);
         return http.build();
