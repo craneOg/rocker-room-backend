@@ -14,6 +14,8 @@ import java.time.Instant;
 import java.util.Date;
 import java.util.UUID;
 import javax.crypto.SecretKey;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 // Access Token 발급·검증(U8): HS256 단일 키. 키는 환경 변수 JWT_SECRET, 32바이트 미만이면 기동 실패
@@ -80,7 +82,23 @@ public class JwtProvider {
         }
     }
 
-    public record IssuedToken(String token, String jti, Instant expiresAt) {}
+    @Getter
+    @RequiredArgsConstructor
+    public static class IssuedToken {
 
-    public record AccessTokenClaims(long userId, String sid, String jti, int tokenVersion, Instant expiresAt) {}
+        private final String token;
+        private final String jti;
+        private final Instant expiresAt;
+    }
+
+    @Getter
+    @RequiredArgsConstructor
+    public static class AccessTokenClaims {
+
+        private final long userId;
+        private final String sid;
+        private final String jti;
+        private final int tokenVersion;
+        private final Instant expiresAt;
+    }
 }

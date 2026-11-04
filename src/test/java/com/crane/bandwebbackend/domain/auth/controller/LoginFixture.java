@@ -13,6 +13,8 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.HexFormat;
 import java.util.List;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -21,7 +23,13 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 // 통합 테스트용: 실제 authorize → callback → exchange를 거쳐 로그인하고 쿠키 원문을 돌려준다(카카오만 목)
 final class LoginFixture {
 
-    record Session(String accessToken, String refreshToken) {}
+    @Getter
+    @RequiredArgsConstructor
+    static class Session {
+
+        private final String accessToken;
+        private final String refreshToken;
+    }
 
     private final MockMvc mockMvc;
     private final CookieFactory cookies;

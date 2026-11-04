@@ -26,15 +26,15 @@ public class KakaoAccountService {
     @Transactional
     public User findOrRegister(KakaoProfile profile) {
         return identityRepository
-                .findWithUser(AuthProvider.KAKAO, profile.id())
+                .findWithUser(AuthProvider.KAKAO, profile.getId())
                 .map(AuthIdentity::getUser)
                 .orElseGet(() -> register(profile));
     }
 
     private User register(KakaoProfile profile) {
-        User user =
-                userRepository.save(User.createFromProvider(name(profile.nickname()), imageUrl(profile.imageUrl())));
-        identityRepository.save(AuthIdentity.create(user, AuthProvider.KAKAO, profile.id()));
+        User user = userRepository.save(
+                User.createFromProvider(name(profile.getNickname()), imageUrl(profile.getImageUrl())));
+        identityRepository.save(AuthIdentity.create(user, AuthProvider.KAKAO, profile.getId()));
         return user;
     }
 

@@ -6,7 +6,10 @@ import com.crane.bandwebbackend.domain.auth.repository.RefreshTokenRepository;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import lombok.ToString;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,7 +26,16 @@ public class AuthTokenCleanupService {
     private final AccessTokenBlacklistRepository blacklist;
     private final Clock clock;
 
-    public record Deleted(int oneTimeTokens, int refreshTokens, int blacklistEntries) {}
+    @Getter
+    @ToString
+    @EqualsAndHashCode
+    @RequiredArgsConstructor
+    public static class Deleted {
+
+        private final int oneTimeTokens;
+        private final int refreshTokens;
+        private final int blacklistEntries;
+    }
 
     // 소비되지 않은 만료 토큰에 남은 카카오 프로필 값(닉네임·이미지)을 만료 직후 지운다
     @Transactional

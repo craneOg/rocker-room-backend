@@ -96,7 +96,7 @@ class AuthSessionFlowTest {
     }
 
     private MockHttpServletRequestBuilder authed(MockHttpServletRequestBuilder request, Session session) {
-        return request.cookie(new Cookie(cookies.accessName(), session.accessToken()));
+        return request.cookie(new Cookie(cookies.accessName(), session.getAccessToken()));
     }
 
     private int protectedStatus(String accessToken) throws Exception {
@@ -130,8 +130,8 @@ class AuthSessionFlowTest {
         assertThat(result.getResponse().getStatus()).isEqualTo(200);
         String newRefresh = cookieValue(result, cookies.refreshName());
         String newAccess = cookieValue(result, cookies.accessName());
-        assertThat(newRefresh).isNotEqualTo(first.refreshToken());
-        assertThat(newAccess).isNotEqualTo(first.accessToken());
+        assertThat(newRefresh).isNotEqualTo(first.getRefreshToken());
+        assertThat(newAccess).isNotEqualTo(first.getAccessToken());
         assertThat(setCookie(result, cookies.accessName())).contains("HttpOnly", "Max-Age=900", "Path=/");
         assertThat(setCookie(result, cookies.refreshName()))
                 .contains("HttpOnly", "Max-Age=2592000", "Path=/api/v1/auth/refresh");
@@ -149,19 +149,19 @@ class AuthSessionFlowTest {
         assertThat(old.get("revoke_reason")).isEqualTo("ROTATED");
         assertThat(old.get("revoked_at")).isNotNull();
         assertThat(old.get("replaced_by_id")).isEqualTo(next.get("id"));
-        assertThat(old.get("h")).isEqualTo(sha256Hex(first.refreshToken()));
+        assertThat(old.get("h")).isEqualTo(sha256Hex(first.getRefreshToken()));
         assertThat(next.get("h")).isEqualTo(sha256Hex(newRefresh));
         assertThat(next.get("family_id")).isEqualTo(familyId).isEqualTo(old.get("family_id"));
         assertThat(next.get("revoked_at")).isNull();
         assertThat(next.get("family_expires_at")).isEqualTo(old.get("family_expires_at"));
 
         JwtProvider.AccessTokenClaims claims = jwtProvider.parse(newAccess);
-        assertThat(claims.sid()).isEqualTo(familyId);
+        assertThat(claims.getSid()).isEqualTo(familyId);
         assertThat(protectedStatus(newAccess)).isEqualTo(200);
     }
 
     private MvcResult fresh(Session session) throws Exception {
-        return refresh(session.refreshToken());
+        return refresh(session.getRefreshToken());
     }
 
     @Test
@@ -170,7 +170,7 @@ class AuthSessionFlowTest {
         Session session = fixture.login(kakao, ALICE);
         jdbc.update("UPDATE users SET handle = 'alice_01'");
 
-        mockMvc.perform(refreshRequest(session.refreshToken()))
+        mockMvc.perform(refreshRequest(session.getRefreshToken()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.user.name").value("앨리스"))
                 .andExpect(jsonPath("$.data.user.handle").value("alice_01"))
@@ -215,7 +215,7 @@ class AuthSessionFlowTest {
         String newRefresh = cookieValue(rotated, cookies.refreshName());
         String newAccess = cookieValue(rotated, cookies.accessName());
 
-        assertUnauthenticated(refresh(session.refreshToken()), "REUSE_DETECTED");
+        assertUnauthenticated(refresh(session.getRefreshToken()), "REUSE_DETECTED");
 
         assertThat(count("SELECT COUNT(*) FROM refresh_token WHERE revoked_at IS NULL"))
                 .isZero();
@@ -236,7 +236,7 @@ class AuthSessionFlowTest {
         Session laptop = fixture.login(kakao, ALICE);
         fresh(phone);
 
-        assertUnauthenticated(refresh(phone.refreshToken()), "REUSE_DETECTED");
+        assertUnauthenticated(refresh(phone.getRefreshToken()), "REUSE_DETECTED");
 
         assertThat(fresh(laptop).getResponse().getStatus()).isEqualTo(200);
     }
@@ -251,11 +251,11 @@ class AuthSessionFlowTest {
         assertUnauthenticated(refresh("x".repeat(101)), "REFRESH_INVALID");
 
         jdbc.update("UPDATE refresh_token SET expires_at = '2000-01-01 00:00:00'");
-        assertUnauthenticated(refresh(session.refreshToken()), "REFRESH_INVALID");
+        assertUnauthenticated(refresh(session.getRefreshToken()), "REFRESH_INVALID");
 
         jdbc.update("UPDATE refresh_token SET expires_at = DATE_ADD(UTC_TIMESTAMP(6), INTERVAL 1 DAY),"
                 + " family_expires_at = '2000-01-01 00:00:00'");
-        assertUnauthenticated(refresh(session.refreshToken()), "REFRESH_INVALID");
+        assertUnauthenticated(refresh(session.getRefreshToken()), "REFRESH_INVALID");
         assertThat(count("SELECT COUNT(*) FROM refresh_token")).isEqualTo(1);
     }
 
@@ -265,7 +265,7 @@ class AuthSessionFlowTest {
         Session session = fixture.login(kakao, ALICE);
         jdbc.update("UPDATE users SET status = 'WITHDRAWN', withdrawn_at = UTC_TIMESTAMP(6)");
 
-        assertUnauthenticated(refresh(session.refreshToken()), "SESSION_REVOKED");
+        assertUnauthenticated(refresh(session.getRefreshToken()), "SESSION_REVOKED");
     }
 
     @Test
@@ -279,7 +279,7 @@ class AuthSessionFlowTest {
         for (int i = 0; i < threads; i++) {
             results.add(pool.submit(() -> {
                 start.await();
-                return refresh(session.refreshToken()).getResponse().getStatus();
+                return refresh(session.getRefreshToken()).getResponse().getStatus();
             }));
         }
         start.countDown();
@@ -303,7 +303,7 @@ class AuthSessionFlowTest {
     @DisplayName("API 4: X-Requested-With 없음 403, JSON이 아닌 Content-Type 400, 다른 Origin 403")
     void requestGuards() throws Exception {
         Session session = fixture.login(kakao, ALICE);
-        Cookie refreshCookie = new Cookie(cookies.refreshName(), session.refreshToken());
+        Cookie refreshCookie = new Cookie(cookies.refreshName(), session.getRefreshToken());
 
         mockMvc.perform(post("/api/v1/auth/refresh")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -318,7 +318,7 @@ class AuthSessionFlowTest {
                         .cookie(refreshCookie))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.details[0].reason").value("UNSUPPORTED_MEDIA_TYPE"));
-        mockMvc.perform(refreshRequest(session.refreshToken()).header("Origin", "https://evil.example"))
+        mockMvc.perform(refreshRequest(session.getRefreshToken()).header("Origin", "https://evil.example"))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.error.details[0].reason").value("ORIGIN_NOT_ALLOWED"));
 
@@ -332,7 +332,7 @@ class AuthSessionFlowTest {
     @DisplayName("API 5: 현재 기기 로그아웃은 204, 쿠키 삭제, Access 블랙리스트, 같은 묶음 Refresh 폐기(LOGOUT)")
     void logout() throws Exception {
         Session session = fixture.login(kakao, ALICE);
-        String jti = jwtProvider.parse(session.accessToken()).jti();
+        String jti = jwtProvider.parse(session.getAccessToken()).getJti();
 
         MvcResult result = mockMvc.perform(authed(jsonPost("/api/v1/auth/logout"), session))
                 .andReturn();
@@ -351,8 +351,8 @@ class AuthSessionFlowTest {
                 .isEqualTo("LOGOUT");
 
         // 같은 Access는 즉시 거부, Refresh는 폐기됨
-        assertThat(protectedStatus(session.accessToken())).isEqualTo(401);
-        assertUnauthenticated(refresh(session.refreshToken()), "SESSION_REVOKED");
+        assertThat(protectedStatus(session.getAccessToken())).isEqualTo(401);
+        assertUnauthenticated(refresh(session.getRefreshToken()), "SESSION_REVOKED");
     }
 
     @Test
@@ -363,7 +363,7 @@ class AuthSessionFlowTest {
 
         mockMvc.perform(authed(jsonPost("/api/v1/auth/logout"), phone)).andExpect(status().isNoContent());
 
-        assertThat(protectedStatus(laptop.accessToken())).isEqualTo(200);
+        assertThat(protectedStatus(laptop.getAccessToken())).isEqualTo(200);
         assertThat(fresh(laptop).getResponse().getStatus()).isEqualTo(200);
         assertThat(count("SELECT COUNT(*) FROM refresh_token WHERE revoke_reason = 'LOGOUT'"))
                 .isEqualTo(1);
@@ -378,7 +378,7 @@ class AuthSessionFlowTest {
         mockMvc.perform(post("/api/v1/auth/logout")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}")
-                        .cookie(new Cookie(cookies.accessName(), session.accessToken())))
+                        .cookie(new Cookie(cookies.accessName(), session.getAccessToken())))
                 .andExpect(status().isForbidden());
         mockMvc.perform(authed(jsonPost("/api/v1/auth/logout"), session)).andExpect(status().isNoContent());
         mockMvc.perform(authed(jsonPost("/api/v1/auth/logout"), session)).andExpect(status().isUnauthorized());
@@ -403,14 +403,14 @@ class AuthSessionFlowTest {
                 .isEqualTo(before + 1);
         assertThat(count("SELECT COUNT(*) FROM refresh_token WHERE revoke_reason = 'LOGOUT_ALL'"))
                 .isEqualTo(2);
-        assertThat(protectedStatus(phone.accessToken())).isEqualTo(401);
-        assertThat(protectedStatus(laptop.accessToken())).isEqualTo(401);
-        assertUnauthenticated(refresh(laptop.refreshToken()), "SESSION_REVOKED");
+        assertThat(protectedStatus(phone.getAccessToken())).isEqualTo(401);
+        assertThat(protectedStatus(laptop.getAccessToken())).isEqualTo(401);
+        assertUnauthenticated(refresh(laptop.getRefreshToken()), "SESSION_REVOKED");
 
         // 다시 로그인하면 새 버전의 토큰으로 정상 동작한다
         Session again = fixture.login(kakao, ALICE);
-        assertThat(jwtProvider.parse(again.accessToken()).tokenVersion()).isEqualTo(before + 1);
-        assertThat(protectedStatus(again.accessToken())).isEqualTo(200);
+        assertThat(jwtProvider.parse(again.getAccessToken()).getTokenVersion()).isEqualTo(before + 1);
+        assertThat(protectedStatus(again.getAccessToken())).isEqualTo(200);
     }
 
     @Test
@@ -422,8 +422,8 @@ class AuthSessionFlowTest {
         mockMvc.perform(post("/api/v1/auth/logout-all")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}")
-                        .cookie(new Cookie(cookies.accessName(), session.accessToken())))
+                        .cookie(new Cookie(cookies.accessName(), session.getAccessToken())))
                 .andExpect(status().isForbidden());
-        assertThat(protectedStatus(session.accessToken())).isEqualTo(200);
+        assertThat(protectedStatus(session.getAccessToken())).isEqualTo(200);
     }
 }

@@ -10,6 +10,7 @@ import com.crane.bandwebbackend.global.error.BusinessException;
 import com.crane.bandwebbackend.global.error.ErrorCode;
 import com.crane.bandwebbackend.global.error.ErrorDetail;
 import java.time.Duration;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,7 +28,15 @@ public class AuthExchangeService {
     private final AuthSessionService sessions;
 
     // 쿠키 값은 항상 원문. accessToken·refreshToken·restorationToken 중 loginResult에 맞는 것만 채워진다
-    public record Result(ExchangeResponse body, String accessToken, String refreshToken, String restorationToken) {}
+    @Getter
+    @RequiredArgsConstructor
+    public static class Result {
+
+        private final ExchangeResponse body;
+        private final String accessToken;
+        private final String refreshToken;
+        private final String restorationToken;
+    }
 
     // 클라이언트 정보는 기록용이며 차단 기준이 아니다
     @Transactional
@@ -35,10 +44,10 @@ public class AuthExchangeService {
         OneTimeTokenService.Consumed consumed = oneTimeTokens
                 .consume(exchangeToken, OneTimeTokenPurpose.LOGIN_EXCHANGE)
                 .orElseThrow(AuthExchangeService::invalid);
-        if (consumed.userId() == null) {
+        if (consumed.getUserId() == null) {
             throw invalid();
         }
-        User user = userRepository.findById(consumed.userId()).orElseThrow(AuthExchangeService::invalid);
+        User user = userRepository.findById(consumed.getUserId()).orElseThrow(AuthExchangeService::invalid);
 
         // 탈퇴 후 90일 이내(파기 전) 계정: 로그인시키지 않고 복구 선택 쿠키만 발급한다(G-03 예외, U-10)
         if (user.getStatus() == UserStatus.WITHDRAWN) {
@@ -46,16 +55,16 @@ public class AuthExchangeService {
                     OneTimeTokenPurpose.ACCOUNT_RESTORATION,
                     user,
                     null,
-                    consumed.profileName(),
-                    consumed.profileImageUrl(),
+                    consumed.getProfileName(),
+                    consumed.getProfileImageUrl(),
                     RESTORATION_TTL);
-            return new Result(ExchangeResponse.restorationRequired(consumed.returnTo()), null, null, restoration);
+            return new Result(ExchangeResponse.restorationRequired(consumed.getReturnTo()), null, null, restoration);
         }
 
         AuthSessionService.Tokens tokens = sessions.start(user, ip, userAgent);
         LoginResult loginResult = user.getHandle() == null ? LoginResult.NEW_USER : LoginResult.EXISTING_USER;
-        ExchangeResponse body = ExchangeResponse.of(user, loginResult, consumed.returnTo());
-        return new Result(body, tokens.accessToken(), tokens.refreshToken(), null);
+        ExchangeResponse body = ExchangeResponse.of(user, loginResult, consumed.getReturnTo());
+        return new Result(body, tokens.getAccessToken(), tokens.getRefreshToken(), null);
     }
 
     private static BusinessException invalid() {

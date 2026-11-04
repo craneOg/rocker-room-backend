@@ -23,6 +23,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -45,7 +46,13 @@ public class AccountRestorationService {
     private final AuditRecorder auditRecorder;
     private final Clock clock;
 
-    public record Result(RestorationResult body, AuthSessionService.Tokens tokens) {}
+    @Getter
+    @RequiredArgsConstructor
+    public static class Result {
+
+        private final RestorationResult body;
+        private final AuthSessionService.Tokens tokens;
+    }
 
     // 쿠키를 소비하지 않는다. 사용자가 선택하기 전에 화면에서 여러 번 읽을 수 있다
     @Transactional(readOnly = true)
@@ -54,7 +61,7 @@ public class AccountRestorationService {
                 .peek(restorationToken, OneTimeTokenPurpose.ACCOUNT_RESTORATION)
                 .orElseThrow(AccountRestorationService::cookieInvalid);
         UserWithdrawalArchive archive =
-                archiveRepository.findById(token.userId()).orElseThrow(AccountRestorationService::cookieInvalid);
+                archiveRepository.findById(token.getUserId()).orElseThrow(AccountRestorationService::cookieInvalid);
         return new RestorationInfo(
                 archive.getName(),
                 archive.getProfileImageUrl(),
@@ -92,7 +99,7 @@ public class AccountRestorationService {
         OneTimeTokenService.Consumed token = oneTimeTokens
                 .consume(restorationToken, OneTimeTokenPurpose.ACCOUNT_RESTORATION)
                 .orElseThrow(AccountRestorationService::cookieInvalid);
-        User old = lockWithdrawnUser(token.userId());
+        User old = lockWithdrawnUser(token.getUserId());
         AuthIdentity identity = identityRepository
                 .findByUserIdAndProvider(old.getId(), AuthProvider.KAKAO)
                 .orElseThrow(AccountRestorationService::notRestorable);
@@ -104,7 +111,8 @@ public class AccountRestorationService {
         oneTimeTokenRepository.deleteUnusedByUser(old.getId());
 
         User fresh = userRepository.save(User.createFromProvider(
-                KakaoAccountService.name(token.profileName()), KakaoAccountService.imageUrl(token.profileImageUrl())));
+                KakaoAccountService.name(token.getProfileName()),
+                KakaoAccountService.imageUrl(token.getProfileImageUrl())));
         identityRepository.save(AuthIdentity.create(fresh, AuthProvider.KAKAO, providerUid));
         auditRecorder.record(
                 null, old.getId(), "ACCOUNT_PURGED", "USER", old.getId(), null, Map.of("newUserId", fresh.getId()));
@@ -117,7 +125,7 @@ public class AccountRestorationService {
         OneTimeTokenService.Consumed token = oneTimeTokens
                 .consume(restorationToken, OneTimeTokenPurpose.ACCOUNT_RESTORATION)
                 .orElseThrow(AccountRestorationService::cookieInvalid);
-        return lockWithdrawnUser(token.userId());
+        return lockWithdrawnUser(token.getUserId());
     }
 
     private User lockWithdrawnUser(Long userId) {

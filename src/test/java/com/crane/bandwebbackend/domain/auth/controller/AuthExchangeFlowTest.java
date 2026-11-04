@@ -198,9 +198,9 @@ class AuthExchangeFlowTest {
         assertThat(user.get("last_active_at")).isNotNull();
 
         JwtProvider.AccessTokenClaims claims = jwtProvider.parse(access);
-        assertThat(claims.userId()).isEqualTo(((Number) user.get("id")).longValue());
-        assertThat(claims.sid()).isEqualTo(row.get("family_id"));
-        assertThat(claims.tokenVersion()).isEqualTo(((Number) user.get("token_version")).intValue());
+        assertThat(claims.getUserId()).isEqualTo(((Number) user.get("id")).longValue());
+        assertThat(claims.getSid()).isEqualTo(row.get("family_id"));
+        assertThat(claims.getTokenVersion()).isEqualTo(((Number) user.get("token_version")).intValue());
     }
 
     @Test
@@ -217,7 +217,7 @@ class AuthExchangeFlowTest {
                 .andExpect(jsonPath("$.data.returnTo").doesNotExist());
         MvcResult result = actions.andReturn();
         JwtProvider.AccessTokenClaims claims = jwtProvider.parse(cookieValue(result, cookies.accessName()));
-        assertThat(claims.tokenVersion()).isEqualTo(3);
+        assertThat(claims.getTokenVersion()).isEqualTo(3);
     }
 
     @Test

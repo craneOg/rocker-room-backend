@@ -27,8 +27,8 @@ public class AuthTokenCleanupScheduler {
         AuthTokenCleanupService.Deleted deleted = cleanup.deleteExpired();
         log.info(
                 "만료 토큰 정리 oneTimeTokens={} refreshTokens={} blacklistEntries={}",
-                deleted.oneTimeTokens(),
-                deleted.refreshTokens(),
-                deleted.blacklistEntries());
+                deleted.getOneTimeTokens(),
+                deleted.getRefreshTokens(),
+                deleted.getBlacklistEntries());
     }
 }

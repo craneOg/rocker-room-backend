@@ -29,9 +29,9 @@ public class AuthLogoutService {
     @Transactional
     public void logout(AuthPrincipal principal, String accessToken) {
         JwtProvider.AccessTokenClaims claims = jwtProvider.parse(accessToken);
-        LocalDateTime expiresAt = LocalDateTime.ofInstant(claims.expiresAt(), ZoneOffset.UTC);
+        LocalDateTime expiresAt = LocalDateTime.ofInstant(claims.getExpiresAt(), ZoneOffset.UTC);
         blacklist.save(AccessTokenBlacklist.create(
-                claims.jti(), userRepository.getReferenceById(principal.userId()), expiresAt));
+                claims.getJti(), userRepository.getReferenceById(principal.userId()), expiresAt));
         refreshTokens.revokeFamily(principal.sid(), LocalDateTime.now(clock), RevokeReason.LOGOUT);
     }
 
