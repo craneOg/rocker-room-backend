@@ -99,14 +99,16 @@ class AdminClubApiTest {
     private long member(long clubId, long userId, String role, String status, String type, String source) {
         jdbc.update(
                 "INSERT INTO membership (club_id, user_id, role, status, member_type, join_source, approved_at,"
-                        + " invited_at) VALUES (?, ?, ?, ?, ?, ?, UTC_TIMESTAMP(6), ?)",
+                        + " invited_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                 clubId,
                 userId,
                 role,
                 status,
                 type,
                 source,
-                "INVITED".equals(status) ? ts(1) : null);
+                // 확정(ACTIVE)된 소속만 승인 시각을 가진다. 초대 경로는 상태와 무관하게 초대 시각을 남긴다
+                "ACTIVE".equals(status) ? ts(0) : null,
+                "ADMIN_ADDED".equals(source) ? ts(1) : null);
         return jdbc.queryForObject(
                 "SELECT id FROM membership WHERE club_id = ? AND user_id = ?", Long.class, clubId, userId);
     }
@@ -237,6 +239,20 @@ class AdminClubApiTest {
                         .cookie(access(admin)))
                 .andExpect(jsonPath("$.data.items", hasSize(1)))
                 .andExpect(jsonPath("$.data.items[0].id").value(String.valueOf(stale)));
+    }
+
+    @Test
+    @DisplayName("API 118: 아주 큰 page도 오프셋 오버플로 없이 빈 페이지로 응답한다")
+    void hugePage() throws Exception {
+        long creator = user("c", "huge_creator", false, "ACTIVE", ts(1));
+        club("Only Club", "CLUB", "ACTIVE", creator, null);
+        mockMvc.perform(get("/api/v1/admin/clubs")
+                        .param("page", String.valueOf(Integer.MAX_VALUE))
+                        .param("size", "100")
+                        .cookie(access(admin)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items", hasSize(0)))
+                .andExpect(jsonPath("$.data.totalElements").value(1));
     }
 
     @Test
@@ -378,6 +394,7 @@ class AdminClubApiTest {
         member(id, extraUser(ts(1)), "MEMBER", "ACTIVE", "REGULAR", "JOIN_CODE"); // 신청 + 승인
         member(id, extraUser(ts(1)), "MEMBER", "REJECTED", "REGULAR", "SEARCH"); // 신청 + 거절
         member(id, extraUser(ts(1)), "MEMBER", "INVITED", "REGULAR", "ADMIN_ADDED"); // 초대(미수락, 만료 전)
+        member(id, extraUser(ts(1)), "MEMBER", "ACTIVE", "REGULAR", "ADMIN_ADDED"); // 초대 + 수락
         // 초대 후 40일 지난 미수락 건: 유효기간(1개월)이 지난 만료
         long expiredUser = extraUser(ts(1));
         member(id, expiredUser, "MEMBER", "INVITED", "REGULAR", "ADMIN_ADDED");
@@ -387,9 +404,10 @@ class AdminClubApiTest {
 
         mockMvc.perform(get("/api/v1/admin/overview").param("periodDays", "90").cookie(access(admin)))
                 .andExpect(jsonPath("$.data.joinStatus.requested").value(2))
-                .andExpect(jsonPath("$.data.joinStatus.approved").value(2))
+                .andExpect(jsonPath("$.data.joinStatus.approved").value(1))
                 .andExpect(jsonPath("$.data.joinStatus.rejected").value(1))
-                .andExpect(jsonPath("$.data.joinStatus.invited").value(2))
+                .andExpect(jsonPath("$.data.joinStatus.invited").value(3))
+                .andExpect(jsonPath("$.data.joinStatus.invitationAccepted").value(1))
                 .andExpect(jsonPath("$.data.joinStatus.invitationExpired").value(1));
     }
 

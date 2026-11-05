@@ -70,12 +70,11 @@ public class AdminClubService {
                 .inactiveCutoff(inactiveCutoff())
                 .build();
         long total = clubs.count(filter);
-        List<AdminClubResponse> items =
-                clubs
-                        .search(filter, SORT_COLUMNS.get(sortParts[0]), "desc".equals(sortParts[1]), page * size, size)
-                        .stream()
-                        .map(AdminClubService::toResponse)
-                        .toList();
+        List<AdminClubResponse> items = clubs
+                .search(filter, SORT_COLUMNS.get(sortParts[0]), "desc".equals(sortParts[1]), (long) page * size, size)
+                .stream()
+                .map(AdminClubService::toResponse)
+                .toList();
         return PageResponse.from(new PageImpl<>(items, PageRequest.of(page, size), total));
     }
 

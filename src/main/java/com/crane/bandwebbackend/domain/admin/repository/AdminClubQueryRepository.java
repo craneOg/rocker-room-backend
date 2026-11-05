@@ -103,7 +103,7 @@ public class AdminClubQueryRepository {
             .build();
 
     // 필터는 모두 선택. sortColumn·desc는 서비스가 허용 목록에서 고른 값만 온다
-    public List<ClubRow> search(Filter f, String sortColumn, boolean desc, int offset, int size) {
+    public List<ClubRow> search(Filter f, String sortColumn, boolean desc, long offset, int size) {
         MapSqlParameterSource params = new MapSqlParameterSource();
         String where = where(f, params);
         params.addValue("offset", offset).addValue("size", size);
