@@ -22,6 +22,7 @@ import com.crane.bandwebbackend.global.error.ApiException;
 import com.crane.bandwebbackend.global.response.ApiIds;
 import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import java.time.DateTimeException;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
@@ -84,6 +85,7 @@ public class ScheduleEditService {
 		if (!version.equals(String.valueOf(schedule.getVersion()))) {
 			throw new ApiException(ApiErrorCode.VERSION_CONFLICT, "일정 버전이 달라졌습니다.");
 		}
+		entityManager.lock(schedule, LockModeType.OPTIMISTIC_FORCE_INCREMENT);
 
 		// PATCH에 전달된 값만 교체하고 생략된 필드는 기존 값을 유지한다.
 		ScheduleType type = body.has("eventType") ? enumValue(body.get("eventType")) : schedule.getScheduleType();
@@ -139,7 +141,7 @@ public class ScheduleEditService {
 					"SCHEDULE_TARGET_EMPTY");
 		}
 		// 충돌은 저장을 막지 않고 경고로 반환하며, 수정 사실은 감사 로그에 남긴다.
-		List<Object> warnings = warnings(schedule);
+		List<Object> warnings = warnings(schedule, true);
 		entityManager.persist(AuditLog.record(clubId, actorUserId, "SCHEDULE_UPDATED",
 				"PRACTICE_SCHEDULE", scheduleId, null, "{\"version\":\"" + version + "\"}"));
 		return new EditResult(schedule, warnings);
@@ -169,7 +171,8 @@ public class ScheduleEditService {
 			}
 		}
 		// 시간 충돌·시즌 경고와 곡별 파트 부족 경고를 하나의 목록으로 합친다.
-		List<Object> result = new ArrayList<>(warnings(schedule));
+		List<Object> result = new ArrayList<>(warnings(schedule,
+				actor.getRole() == MembershipRole.CLUB_ADMIN));
 		result.addAll(partShortages(scheduleId));
 		if (actor.getRole() == MembershipRole.CLUB_ADMIN) {
 			return result;
@@ -229,11 +232,11 @@ public class ScheduleEditService {
 	}
 
 	/** 수정 후보 일정에서 충돌과 파트 부족 경고를 계산한다. */
-	private List<Object> warnings(PracticeSchedule candidate) {
+	private List<Object> warnings(PracticeSchedule candidate, boolean includeTentative) {
 		// 저장된 일정의 시간과 실제 참석자를 후보 값으로 사용해 공통 경고 계산기로 넘긴다.
 		return warningsForCandidate(candidate.getPerformance().getClub().getId(),
 				candidate.getPerformance().getId(), candidate.getId(), candidate.getStartAt(),
-				candidate.getEndAt(), new HashSet<>(attendeeIds(candidate.getId())));
+				candidate.getEndAt(), new HashSet<>(attendeeIds(candidate.getId())), includeTentative);
 	}
 
 	/** API-106·109의 저장 전 검사도 이 순수 조회 경로를 사용한다. */
@@ -246,12 +249,25 @@ public class ScheduleEditService {
 		LocalDateTime endAt,
 		Set<Long> candidateMembers
 	) {
+		return warningsForCandidate(clubId, performanceId, excludeScheduleId, startAt, endAt,
+				candidateMembers, true);
+	}
+
+	private List<Object> warningsForCandidate(
+		Long clubId,
+		Long performanceId,
+		Long excludeScheduleId,
+		LocalDateTime startAt,
+		LocalDateTime endAt,
+		Set<Long> candidateMembers,
+		boolean includeTentative
+	) {
 		List<Object> result = new ArrayList<>();
 		// 공연 정책의 합주 시즌을 벗어나면 저장 차단 대신 경고를 추가한다.
 		policies.findById(performanceId).ifPresent(policy -> {
 			if (policy.getPracticeSeasonStart() != null && policy.getPracticeSeasonEnd() != null
-					&& (startAt.toLocalDate().isBefore(policy.getPracticeSeasonStart())
-					|| endAt.toLocalDate().isAfter(policy.getPracticeSeasonEnd()))) {
+					&& (kst(startAt).toLocalDate().isBefore(policy.getPracticeSeasonStart())
+					|| kst(endAt).toLocalDate().isAfter(policy.getPracticeSeasonEnd()))) {
 				result.add(Map.of("type", "OUT_OF_SEASON", "message", "합주 시즌 밖 일정입니다."));
 			}
 		});
@@ -262,7 +278,8 @@ public class ScheduleEditService {
 		// 같은 동아리의 겹치는 일정 중 공통 참석자가 있는 경우 상세 충돌을 만든다.
 		for (PracticeSchedule other : schedules.findByPerformance_Club_IdAndStartAtLessThanAndEndAtGreaterThan(
 				clubId, endAt, startAt)) {
-			if (other.getId().equals(excludeScheduleId) || other.getStatus() == ScheduleStatus.CANCELED) {
+			if (other.getId().equals(excludeScheduleId) || other.getStatus() == ScheduleStatus.CANCELED
+					|| (!includeTentative && other.getStatus() == ScheduleStatus.TENTATIVE)) {
 				continue;
 			}
 			Set<Long> common = new HashSet<>(candidateMembers);
