@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
@@ -73,6 +74,8 @@ public class MembershipBulkService {
 				String reason = exception.getCode() == ApiErrorCode.NOT_FOUND ? "NOT_FOUND"
 						: exception.getReason() == null ? exception.getCode().name() : exception.getReason();
 				failed.add(new MembershipBulkResponse.Failure(id.toString(), reason));
+			} catch (DataIntegrityViolationException exception) {
+				failed.add(new MembershipBulkResponse.Failure(id.toString(), "CONFLICT"));
 			}
 		}
 		int skipped = (int) succeeded.stream().filter(MembershipBulkResponse.Success::skipped).count();

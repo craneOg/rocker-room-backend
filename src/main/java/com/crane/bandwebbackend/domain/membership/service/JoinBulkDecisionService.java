@@ -10,6 +10,9 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
@@ -17,6 +20,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 /** API-143: 각 항목을 독립 트랜잭션으로 처리한다. 부분 실패를 위해 바깥 트랜잭션은 열지 않는다. */
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class JoinBulkDecisionService {
 	private final MembershipService memberships;
@@ -62,6 +66,11 @@ public class JoinBulkDecisionService {
 						: exception.getCode() == ApiErrorCode.STATE_CONFLICT ? "NOT_PENDING"
 						: exception.getReason() == null ? exception.getCode().name() : exception.getReason();
 				failed.add(new JoinBulkDecisionResponse.Failure(id.toString(), reason));
+			} catch (DataIntegrityViolationException | OptimisticLockingFailureException exception) {
+				failed.add(new JoinBulkDecisionResponse.Failure(id.toString(), "CONFLICT"));
+			} catch (RuntimeException exception) {
+				log.error("Failed to process join bulk decision membershipId={}", id, exception);
+				failed.add(new JoinBulkDecisionResponse.Failure(id.toString(), "PROCESSING_FAILED"));
 			}
 		}
 		return new JoinBulkDecisionResponse(succeeded, failed,
