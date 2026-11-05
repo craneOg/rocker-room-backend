@@ -41,10 +41,9 @@ public class MembershipStatusService {
 		MembershipStatus target,
 		String reason
 	) {
-		// 관리자 권한과 활성 동아리를 확인하고 동시 관리자 변경을 직렬화한다.
-		membershipService.requireAdmin(clubId, actorUserId);
-		// C-09: 임원 수 검사는 같은 club 행을 잠근 상태에서 한다.
+		// C-09: 관리자 권한과 임원 수 검사는 같은 club 행을 잠근 상태에서 한다.
 		lockClub(clubId);
+		membershipService.requireAdmin(clubId, actorUserId);
 		Membership member = membershipService.require(clubId, membershipId);
 		// 활동·휴학·졸업 사이에서만 허용되는 상태 전이를 계산한다.
 		boolean allowed = switch (target) {
@@ -89,9 +88,9 @@ public class MembershipStatusService {
 		MemberType target,
 		String reason
 	) {
-		// 관리자 권한과 동아리 잠금을 확보한 뒤 대상 소속을 조회한다.
-		membershipService.requireAdmin(clubId, actorUserId);
+		// 동아리를 잠근 뒤 관리자 권한과 대상 소속을 조회한다.
 		lockClub(clubId);
+		membershipService.requireAdmin(clubId, actorUserId);
 		Membership member = membershipService.require(clubId, membershipId);
 		if (target == null) {
 			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "memberType이 필요합니다.");
