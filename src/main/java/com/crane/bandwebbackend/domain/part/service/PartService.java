@@ -58,8 +58,10 @@ public class PartService {
         }
         // 애플리케이션 검사 이후의 동시 삽입 충돌도 DB 예외를 동일한 중복 오류로 변환한다.
         try {
-            return repository.saveAndFlush(Part.create(actor.getClub(), normalized,
+            Part part = repository.saveAndFlush(Part.create(actor.getClub(), normalized,
                     displayOrder == null ? 0 : displayOrder));
+            entityManager.refresh(part);
+            return part;
         } catch (DataIntegrityViolationException exception) {
             throw new ApiException(ApiErrorCode.DUPLICATE, "같은 이름의 파트가 있습니다.");
         }
@@ -91,6 +93,7 @@ public class PartService {
         } catch (DataIntegrityViolationException exception) {
             throw new ApiException(ApiErrorCode.DUPLICATE, "같은 이름의 파트가 있습니다.");
         }
+        entityManager.refresh(part);
         return part;
     }
 
@@ -106,6 +109,7 @@ public class PartService {
             part.changeActive(active);
             repository.flush();
         }
+        entityManager.refresh(part);
         return part;
     }
 

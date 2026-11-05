@@ -2,6 +2,8 @@ package com.crane.bandwebbackend.domain.part.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verify;
@@ -16,6 +18,7 @@ import com.crane.bandwebbackend.domain.part.repository.PartRepository;
 import com.crane.bandwebbackend.domain.participant.service.ParticipationLookup;
 import com.crane.bandwebbackend.global.error.ApiErrorCode;
 import com.crane.bandwebbackend.global.error.ApiException;
+import com.crane.bandwebbackend.global.response.RevisionTag;
 import jakarta.persistence.EntityManager;
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -43,6 +46,60 @@ class PartServiceTest {
         assertThatThrownBy(() -> service.update(1L, 2L, 7L, "old-revision", "베이스", null))
                 .isInstanceOfSatisfying(ApiException.class,
                         exception -> assertThat(exception.getCode()).isEqualTo(ApiErrorCode.VERSION_CONFLICT));
+    }
+
+    @Test
+    void part02RefreshesCreatedPartAfterSaving() {
+        Membership actor = mock(Membership.class);
+        Club club = mock(Club.class);
+        when(membershipService.requireAdmin(1L, 7L)).thenReturn(actor);
+        when(actor.getClub()).thenReturn(club);
+        when(repository.saveAndFlush(any(Part.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.create(1L, 7L, "베이스", null);
+
+        var order = inOrder(repository, entityManager);
+        order.verify(repository).saveAndFlush(any(Part.class));
+        order.verify(entityManager).refresh(any(Part.class));
+    }
+
+    @Test
+    void part03RefreshesUpdatedPartAfterFlushing() {
+        Membership actor = mock(Membership.class);
+        Club club = mock(Club.class);
+        Part part = mock(Part.class);
+        LocalDateTime updatedAt = LocalDateTime.of(2026, 11, 1, 0, 0);
+        when(membershipService.requireAdmin(1L, 7L)).thenReturn(actor);
+        when(actor.getClub()).thenReturn(club);
+        when(repository.findWithLockByIdAndClub_Id(2L, 1L)).thenReturn(Optional.of(part));
+        when(part.getId()).thenReturn(2L);
+        when(part.getUpdatedAt()).thenReturn(updatedAt);
+        when(part.getName()).thenReturn("기타");
+
+        service.update(1L, 2L, 7L, RevisionTag.from("part", 2L, updatedAt), "베이스", null);
+
+        var order = inOrder(repository, entityManager);
+        order.verify(repository).flush();
+        order.verify(entityManager).refresh(part);
+    }
+
+    @Test
+    void part04RefreshesChangedStatusAfterFlushing() {
+        Membership actor = mock(Membership.class);
+        Club club = mock(Club.class);
+        Part part = mock(Part.class);
+        LocalDateTime updatedAt = LocalDateTime.of(2026, 11, 1, 0, 0);
+        when(membershipService.requireAdmin(1L, 7L)).thenReturn(actor);
+        when(actor.getClub()).thenReturn(club);
+        when(repository.findWithLockByIdAndClub_Id(2L, 1L)).thenReturn(Optional.of(part));
+        when(part.getId()).thenReturn(2L);
+        when(part.getUpdatedAt()).thenReturn(updatedAt);
+
+        service.setActive(1L, 2L, 7L, RevisionTag.from("part", 2L, updatedAt), true);
+
+        var order = inOrder(repository, entityManager);
+        order.verify(repository).flush();
+        order.verify(entityManager).refresh(part);
     }
 
     @Test
