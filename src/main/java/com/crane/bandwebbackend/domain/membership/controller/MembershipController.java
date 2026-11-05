@@ -166,7 +166,8 @@ public class MembershipController {
 		@RequestHeader("X-Requested-With") String requestedWith,
 		HttpServletRequest request
 	) {
-		return ResponseEntity.ok(decide(clubId, membershipId, MembershipStatus.PENDING, MembershipStatus.ACTIVE, null, request));
+		return ResponseEntity.ok(decide(clubId, membershipId, MembershipStatus.PENDING, MembershipStatus.ACTIVE,
+				body == null ? null : body.reason(), request));
 	}
 
 	/** 소속 거절한다 */
