@@ -167,8 +167,9 @@ public class CalendarReader {
 								LocalDateTime from, LocalDateTime to, boolean include) {
 		// 공연일의 KST 자정을 저장 기준인 UTC 시각으로 환산해 조회 범위와 비교한다.
 		if (include && performance.getPerformDate() != null) {
-			LocalDateTime day = performance.getPerformDate().atStartOfDay().minusHours(9);
-			if (!day.isBefore(from) && day.isBefore(to)) {
+			LocalDateTime dayStart = performance.getPerformDate().atStartOfDay().minusHours(9);
+			LocalDateTime dayEnd = dayStart.plusDays(1);
+			if (dayStart.isBefore(to) && dayEnd.isAfter(from)) {
 				events.add(CalendarEvent.performance(performance));
 			}
 		}

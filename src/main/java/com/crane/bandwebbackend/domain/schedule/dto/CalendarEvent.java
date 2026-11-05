@@ -21,7 +21,7 @@ public record CalendarEvent(String id, String title, OffsetDateTime startAt, Off
 
 	/** 일정 연결된 공연을 조회한다 */
 	public static CalendarEvent performance(Performance performance) {
-		return new CalendarEvent(performance.getId().toString(), performance.getTitle(),
+		return new CalendarEvent("performance-" + performance.getId(), performance.getTitle(),
 				performance.getPerformDate().atTime(LocalTime.MIDNIGHT).atOffset(ZoneOffset.ofHours(9)),
 				performance.getPerformDate().atTime(23, 59).atOffset(ZoneOffset.ofHours(9)),
 				"PERFORMANCE", true, null, performance.getClub().getId().toString(),
