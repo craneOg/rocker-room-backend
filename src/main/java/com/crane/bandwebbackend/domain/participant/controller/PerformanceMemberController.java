@@ -176,7 +176,7 @@ public class PerformanceMemberController {
 		@PathVariable String clubId,
 		@PathVariable String performanceId,
 		@PathVariable String performanceMemberId,
-		@Valid @RequestBody(required = false) ParticipantRemovalRequest body,
+		@RequestBody(required = false) ParticipantRemovalRequest body,
 		@RequestHeader("X-Requested-With") String requestedWith,
 		HttpServletRequest request
 	) {
