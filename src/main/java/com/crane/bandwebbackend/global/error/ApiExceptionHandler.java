@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -117,6 +118,15 @@ public class ApiExceptionHandler {
 			}
 		}
 		return 0;
+	}
+
+	/** 낙관적 잠금 충돌을 버전 충돌 응답으로 변환한다. */
+	@ExceptionHandler(OptimisticLockingFailureException.class)
+	public ResponseEntity<Map<String, Object>> handleOptimisticLock(
+		OptimisticLockingFailureException exception, HttpServletRequest request) {
+		log.warn("API optimistic lock conflict");
+		return problem(ApiErrorCode.VERSION_CONFLICT,
+				"다른 사람이 먼저 수정했습니다. 새로고침 후 다시 시도해 주세요.", List.of(), request);
 	}
 
 	/** 예상하지 못한 오류는 내부 메시지와 코드 없이 공통 500 본문으로 숨긴다. */
