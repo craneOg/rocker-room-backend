@@ -82,6 +82,8 @@ public class ParticipantBulkDecisionService {
 						: exception.getCode() == ApiErrorCode.STATE_CONFLICT ? "NOT_APPLIED"
 						: exception.getReason() == null ? exception.getCode().name() : exception.getReason();
 				failed.add(new ParticipantBulkDecisionResponse.Failure(id.toString(), reason));
+			} catch (RuntimeException exception) {
+				failed.add(new ParticipantBulkDecisionResponse.Failure(id.toString(), "INTERNAL_ERROR"));
 			}
 		}
 		return new ParticipantBulkDecisionResponse(succeeded, failed,
