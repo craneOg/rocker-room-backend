@@ -14,7 +14,6 @@ import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -26,8 +25,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class AdminAuditLogService {
-
-    private static final Pattern POSITIVE_ID = Pattern.compile("^[1-9][0-9]*$");
 
     private final AuditLogRepository auditLogRepository;
     private final ObjectMapper objectMapper;
@@ -95,10 +92,7 @@ public class AdminAuditLogService {
         if (value == null || value.isBlank()) {
             return null;
         }
-        if (!POSITIVE_ID.matcher(value.strip()).matches()) {
-            throw invalid(field);
-        }
-        return Long.valueOf(value.strip());
+        return AdminUserService.parseId(value, field);
     }
 
     private static BusinessException invalid(String field) {

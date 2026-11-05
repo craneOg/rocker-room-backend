@@ -49,10 +49,7 @@ public class AdminUserService {
         }
         Optional<User> found;
         if (hasUserId) {
-            if (!POSITIVE_ID.matcher(userId.strip()).matches()) {
-                throw invalid("userId");
-            }
-            found = users.findById(Long.parseLong(userId.strip()));
+            found = users.findById(parseId(userId, "userId"));
         } else {
             if (!HANDLE.matcher(handle.strip()).matches()) {
                 throw invalid("handle");
@@ -116,6 +113,18 @@ public class AdminUserService {
                         .updatedAt(KstTime.toKst(user.getUpdatedAt()))
                         .build())
                 .toList();
+    }
+
+    // 숫자 형식이어도 Long 범위를 넘으면 500이 아니라 400으로 처리한다
+    public static long parseId(String value, String field) {
+        if (!POSITIVE_ID.matcher(value.strip()).matches()) {
+            throw invalid(field);
+        }
+        try {
+            return Long.parseLong(value.strip());
+        } catch (NumberFormatException e) {
+            throw invalid(field);
+        }
     }
 
     private static BusinessException invalid(String field) {

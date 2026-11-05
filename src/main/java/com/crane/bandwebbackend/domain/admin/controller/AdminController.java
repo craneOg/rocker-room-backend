@@ -52,7 +52,8 @@ public class AdminController {
             @AuthenticationPrincipal AuthPrincipal principal,
             @PathVariable @Pattern(regexp = "^[1-9][0-9]*$") String userId,
             @Valid @RequestBody ForceLogoutRequest request) {
-        return adminUserService.forceLogout(principal.userId(), Long.parseLong(userId), request.getReason());
+        return adminUserService.forceLogout(
+                principal.userId(), AdminUserService.parseId(userId, "userId"), request.getReason());
     }
 
     // API 125: 최근 기록부터. action은 쉼표로 여러 값을 보낼 수 있다

@@ -137,6 +137,20 @@ class AdminApiTest {
         mockMvc.perform(get("/api/v1/admin/audit-logs").cookie(access(admin))).andExpect(status().isOk());
     }
 
+    @Test
+    @DisplayName("Long 범위를 넘는 ID는 500이 아니라 400 VALIDATION_ERROR")
+    void idOverflowIs400() throws Exception {
+        String over = "9223372036854775808";
+        mockMvc.perform(get("/api/v1/admin/users").param("userId", over).cookie(access(admin)))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(forceLogout(admin, over, "{\"reason\":\"x\"}")).andExpect(status().isBadRequest());
+        for (String f : new String[] {"clubId", "targetId", "actorUserId"}) {
+            mockMvc.perform(get("/api/v1/admin/audit-logs").param(f, over).cookie(access(admin)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+        }
+    }
+
     // ---- API 123 ----
 
     @Test
