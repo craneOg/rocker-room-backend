@@ -35,15 +35,19 @@ public record ScheduleResponse(
 		List<String> teamIds,
 		List<String> songIds
 	) {
-		if (schedule.getTitle() == null || schedule.getTitle().isBlank()) {
-			throw new IllegalStateException("제목 없는 일정은 API 응답 계약을 만족하지 않습니다.");
-		}
+		String title = schedule.getTitle() == null || schedule.getTitle().isBlank()
+				? switch (schedule.getScheduleType()) {
+					case PRACTICE -> "합주";
+					case REHEARSAL -> "리허설";
+					case AUDITION -> "오디션";
+					case ETC -> "일정";
+				} : schedule.getTitle();
 		return ScheduleResponse.builder()
 				.id(schedule.getId().toString())
 				.performanceId(schedule.getPerformance().getId().toString())
 				.eventType(schedule.getScheduleType())
 				.status(schedule.getStatus())
-				.title(schedule.getTitle())
+				.title(title)
 				.startAt(kst(schedule.getStartAt()))
 				.endAt(kst(schedule.getEndAt()))
 				.location(schedule.getLocation())
