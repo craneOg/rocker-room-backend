@@ -5,6 +5,8 @@ import com.crane.bandwebbackend.domain.club.entity.ClubType;
 import com.crane.bandwebbackend.domain.membership.entity.Membership;
 import com.crane.bandwebbackend.domain.membership.entity.MembershipStatus;
 import com.crane.bandwebbackend.domain.participant.entity.PerformanceMember;
+import com.crane.bandwebbackend.domain.participant.entity.PerformanceMemberSource;
+import com.crane.bandwebbackend.domain.participant.entity.PerformanceMemberStatus;
 import com.crane.bandwebbackend.domain.participant.repository.PerformanceMemberRepository;
 import com.crane.bandwebbackend.domain.performance.entity.PerformanceStatus;
 import com.crane.bandwebbackend.domain.performance.repository.PerformanceRepository;
@@ -83,9 +85,13 @@ public class MembershipDecisionService {
 							|| performance.getStatus() == PerformanceStatus.ACTIVE
 							|| performance.getStatus() == PerformanceStatus.LOCKED)
 					.forEach(performance -> {
-						if (participants.findByPerformance_IdAndMembership_Id(performance.getId(), membershipId)
-								.isEmpty()) {
+						PerformanceMember existing = participants.findByPerformance_IdAndMembership_Id(
+								performance.getId(), membershipId).orElse(null);
+						if (existing == null) {
 							participants.save(PerformanceMember.addByAdmin(performance, member, now));
+						} else if (existing.getStatus() == PerformanceMemberStatus.REJECTED
+								|| existing.getStatus() == PerformanceMemberStatus.WITHDRAWN) {
+							existing.reapply(PerformanceMemberSource.ADMIN, now);
 						}
 					});
 		}
