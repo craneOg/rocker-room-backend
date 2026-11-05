@@ -106,7 +106,9 @@ public class ParticipantListReader {
 		Map<String, Long> counts = new java.util.LinkedHashMap<>();
 		for (PerformanceMemberStatus status : PerformanceMemberStatus.values()) {
 			if (admin || status == PerformanceMemberStatus.APPROVED) {
-				counts.put(status.name(), all.stream().filter(member -> member.getStatus() == status).count());
+				counts.put(status.name(), all.stream()
+						.filter(member -> guestVisible == null || guestVisible.contains(member.getId()))
+						.filter(member -> member.getStatus() == status).count());
 			}
 		}
 		return new ParticipantListResponse(items, counts, page, size, filtered.size(),
