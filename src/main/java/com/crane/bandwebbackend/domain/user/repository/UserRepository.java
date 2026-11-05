@@ -12,6 +12,9 @@ import org.springframework.data.repository.query.Param;
 
 public interface UserRepository extends JpaRepository<User, Long> {
 
+    // handle은 소문자만 저장한다(CHECK). 컬럼 정렬 규칙이 대소문자를 구분하지 않아 중복도 대소문자 무시로 비교된다
+    Optional<User> findByHandle(String handle);
+
     // 복구·새로 시작처럼 같은 계정을 동시에 바꾸는 요청을 직렬화한다
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select u from User u where u.id = :id")

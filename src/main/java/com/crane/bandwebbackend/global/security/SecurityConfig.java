@@ -90,6 +90,9 @@ public class SecurityConfig {
                         .permitAll()
                         .requestMatchers(docsEnabled ? DOCS_PATHS : new String[0])
                         .permitAll()
+                        // 서비스 운영(백오피스) API는 Super Admin만. 일반 사용자는 403
+                        .requestMatchers("/api/v1/admin/**")
+                        .hasRole("SUPER_ADMIN")
                         .anyRequest()
                         .authenticated())
                 .addFilterBefore(originFilter, CorsFilter.class)
