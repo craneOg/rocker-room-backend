@@ -5,6 +5,7 @@ import com.crane.bandwebbackend.domain.audition.dto.AuditionItemResponse;
 import com.crane.bandwebbackend.domain.audition.dto.AuditionListResponse;
 import com.crane.bandwebbackend.domain.audition.dto.AuditionReviewRequest;
 import com.crane.bandwebbackend.domain.audition.dto.AuditionCreateRequest;
+import com.crane.bandwebbackend.domain.audition.dto.AuditionCreatedItem;
 import com.crane.bandwebbackend.domain.audition.dto.MyAuditionItem;
 import com.crane.bandwebbackend.domain.audition.dto.MyAuditionsResponse;
 import com.crane.bandwebbackend.domain.part.entity.Part;
@@ -91,7 +92,7 @@ public class AuditionService {
 
 	/** API-148: 곡 행을 잠그고 중복·자격을 전수 확인한 뒤 일괄 생성한다. */
 	@Transactional
-	public List<AuditionEntry> create(
+	public List<AuditionCreatedItem> create(
 		Long clubId,
 		Long performanceId,
 		Long actorUserId,
@@ -207,7 +208,7 @@ public class AuditionService {
 					"AUDITION", entry.getId(), null,
 					"{\"songId\":" + songId + "}"));
 		}
-		return created;
+		return created.stream().map(AuditionCreatedItem::from).toList();
 	}
 
 	/** 오디션 심사 결과를 입력하거나 정정한다 */

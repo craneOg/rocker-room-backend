@@ -5,7 +5,6 @@ import com.crane.bandwebbackend.domain.audition.dto.AuditionReviewRequest;
 import com.crane.bandwebbackend.domain.audition.dto.AuditionReviewResponse;
 import com.crane.bandwebbackend.domain.audition.dto.AuditionCreateRequest;
 import com.crane.bandwebbackend.domain.audition.dto.AuditionCreateResponse;
-import com.crane.bandwebbackend.domain.audition.dto.AuditionCreatedItem;
 import com.crane.bandwebbackend.domain.audition.service.AuditionService;
 import com.crane.bandwebbackend.global.response.ApiIds;
 import com.crane.bandwebbackend.global.response.ApiResponse;
@@ -68,10 +67,10 @@ public class AuditionController {
 		@RequestHeader("X-Requested-With") String requestedWith,
 		HttpServletRequest request
 	) {
-		var entries = service.create(ApiIds.positive(clubId, "clubId"),
+		var items = service.create(ApiIds.positive(clubId, "clubId"),
 				ApiIds.positive(performanceId, "performanceId"), currentActor.requireUserId(), body);
 		return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.of(AuditionCreateResponse.builder()
-				.items(entries.stream().map(AuditionCreatedItem::from).toList()).build(),
+				.items(items).build(),
 				RequestIdFilter.require(request)));
 	}
 
