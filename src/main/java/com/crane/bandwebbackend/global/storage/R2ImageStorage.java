@@ -17,8 +17,8 @@ import software.amazon.awssdk.services.s3.model.CopyObjectRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
-import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.model.S3Exception;
 
 // Cloudflare R2 구현. R2는 리전이 auto이고 경로 방식 주소를 쓰며, 체크섬은 필요한 경우에만 계산한다(R2 권장 설정)
 public class R2ImageStorage implements ImageStorage, AutoCloseable {
@@ -60,8 +60,12 @@ public class R2ImageStorage implements ImageStorage, AutoCloseable {
             return Optional.of(s3.headObject(
                             HeadObjectRequest.builder().bucket(bucket).key(key).build())
                     .lastModified());
-        } catch (NoSuchKeyException e) {
-            return Optional.empty();
+        } catch (S3Exception e) {
+            // HeadObject의 404는 본문이 없어 R2에서는 NoSuchKeyException이 아닌 일반 S3Exception으로 올 수 있다
+            if (e.statusCode() == 404) {
+                return Optional.empty();
+            }
+            throw e;
         }
     }
 

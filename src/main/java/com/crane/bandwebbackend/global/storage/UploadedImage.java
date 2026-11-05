@@ -22,8 +22,9 @@ public class UploadedImage {
 
     public static final int MAX_BYTES = 2 * 1024 * 1024;
     // 디코딩 폭탄 방지: 한 변과 전체 픽셀 수의 상한
-    private static final int MAX_SIDE = 10_000;
-    private static final long MAX_PIXELS = 40_000_000L;
+    // 프로필 사진 용도에 맞춰 낮게 잡는다(전체 디코딩 시 픽셀당 4바이트 안팎의 메모리를 쓴다)
+    private static final int MAX_SIDE = 4_096;
+    private static final long MAX_PIXELS = 4_096L * 4_096L;
 
     private final String extension;
     private final String contentType;

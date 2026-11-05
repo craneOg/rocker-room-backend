@@ -90,10 +90,10 @@ class ProfileImageCleanupServiceTest {
     @Test
     @DisplayName("영구 객체는 프로필·탈퇴 보관 어디에도 없고 유예(1시간)가 지난 것만 지운다")
     void orphans() {
-        String current = object("users/" + userId + "/current.png", 600);
-        String archived = object("users/" + userId + "/archived.png", 600);
-        String orphan = object("users/" + userId + "/orphan.png", 600);
-        String justCopied = object("users/" + userId + "/just-copied.png", 5);
+        String current = object("users/" + userId + "/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa.png", 600);
+        String archived = object("users/" + userId + "/bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb.png", 600);
+        String orphan = object("users/" + userId + "/cccccccc-cccc-cccc-cccc-cccccccccccc.png", 600);
+        String justCopied = object("users/" + userId + "/dddddddd-dddd-dddd-dddd-dddddddddddd.png", 5);
         profileUses(current);
         archiveUses(archived);
 
@@ -108,9 +108,32 @@ class ProfileImageCleanupServiceTest {
     }
 
     @Test
+    @DisplayName("공개 주소를 바꿔도(저장된 주소의 도메인이 달라도) 같은 키의 사진은 참조 중으로 본다")
+    void publicBaseChangeDoesNotOrphan() {
+        String current = object("users/" + userId + "/11111111-1111-1111-1111-111111111111.png", 600);
+        String archived = object("users/" + userId + "/22222222-2222-2222-2222-222222222222.png", 600);
+        object("users/" + userId + "/33333333-3333-3333-3333-333333333333.png", 600);
+        jdbc.update(
+                "UPDATE users SET profile_image_url = ? WHERE id = ?", "https://old.cdn.example/" + current, userId);
+        jdbc.update(
+                "INSERT INTO user_withdrawal_archive (user_id, name, profile_image_url, withdrawn_at) VALUES (?, 'n', ?,"
+                        + " UTC_TIMESTAMP(6))",
+                userId,
+                "https://old.cdn.example/" + archived);
+
+        ProfileImageCleanupService.Result result = cleanup.cleanup();
+
+        assertThat(result.getOrphansDeleted()).isEqualTo(1);
+        assertThat(storage.exists(current)).isTrue();
+        assertThat(storage.exists(archived)).isTrue();
+        assertThat(storage.exists("users/" + userId + "/33333333-3333-3333-3333-333333333333.png"))
+                .isFalse();
+    }
+
+    @Test
     @DisplayName("관리 대상이 아닌 접두사(clubs/ 등)는 건드리지 않는다")
     void otherPrefixesUntouched() {
-        String current = object("users/" + userId + "/current.png", 600);
+        String current = object("users/" + userId + "/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa.png", 600);
         profileUses(current);
         object("clubs/1/logo.png", 6000);
         object("misc/x.png", 6000);
@@ -138,7 +161,7 @@ class ProfileImageCleanupServiceTest {
     @Test
     @DisplayName("한 번 실행에 지우는 수를 제한하고 남은 것은 다음 실행에서 지우며, 다시 실행해도 안전하다")
     void deleteCapAndIdempotent() {
-        String keep = object("users/" + userId + "/keep.png", 600);
+        String keep = object("users/" + userId + "/eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee.png", 600);
         profileUses(keep);
         int total = ProfileImageCleanupService.MAX_DELETES_PER_RUN + 10;
         for (int i = 0; i < total; i++) {

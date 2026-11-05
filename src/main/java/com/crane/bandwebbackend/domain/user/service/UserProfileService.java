@@ -86,6 +86,9 @@ public class UserProfileService {
             @Override
             public void afterCommit() {
                 profileImages.deletePrevious(userId, previousUrl);
+                if (key != null) {
+                    profileImages.deleteTmp(key);
+                }
             }
         });
     }

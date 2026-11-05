@@ -11,6 +11,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.crane.bandwebbackend.TestcontainersConfiguration;
+import com.crane.bandwebbackend.domain.user.service.ProfileImageService;
 import com.crane.bandwebbackend.global.error.GlobalExceptionHandler;
 import com.crane.bandwebbackend.global.security.CookieFactory;
 import com.crane.bandwebbackend.global.security.JwtProvider;
@@ -64,6 +65,9 @@ class ProfileImageApiTest {
 
     @Autowired
     GlobalExceptionHandler exceptionHandler;
+
+    @Autowired
+    ProfileImageService profileImages;
 
     long me;
     long other;
@@ -208,7 +212,7 @@ class ProfileImageApiTest {
         mockMvc.perform(upload(me, new byte[0], "image/png", null))
                 .andExpect(jsonPath("$.error.details[0].reason").value("INVALID_IMAGE"));
         mockMvc.perform(upload(me, webp(1, 1), "image/webp", null)).andExpect(status().isCreated());
-        mockMvc.perform(upload(me, webp(10_001, 10), "image/webp", null))
+        mockMvc.perform(upload(me, webp(4_097, 10), "image/webp", null))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.details[0].reason").value("INVALID_IMAGE"));
         assertThat(storage.size()).isEqualTo(stored + 1); // 실패한 요청은 저장하지 않는다
@@ -323,5 +327,25 @@ class ProfileImageApiTest {
         assertThat(response.getBody().getError().getDetails().get(0).getReason())
                 .isEqualTo("FILE_TOO_LARGE");
         assertThat(response.getBody().getError().getDetails().get(0).getField()).isEqualTo("file");
+    }
+
+    @Test
+    @DisplayName("복사만 하고 임시 객체는 남긴다(롤백돼도 같은 키로 재시도할 수 있게 지우기는 커밋 뒤). 이전 주소의 공개 도메인이 달라도 키로 지운다")
+    void promoteKeepsTmpAndPreviousDeletedByKey() throws Exception {
+        String key = uploadKey(me, null);
+        String url = profileImages.promote(me, key);
+        assertThat(storage.exists(key)).isTrue();
+        String permanent = "users/" + me + "/" + key.substring(key.lastIndexOf('/') + 1);
+        assertThat(url).isEqualTo(CDN + "/" + permanent);
+        assertThat(storage.exists(permanent)).isTrue();
+
+        profileImages.deletePrevious(me, "https://old-domain.example/" + permanent);
+        assertThat(storage.exists(permanent)).isFalse();
+        // 다른 사용자의 키나 외부 주소는 지우지 않는다
+        String others = "users/" + other + "/" + key.substring(key.lastIndexOf('/') + 1);
+        storage.put(others, new byte[] {1}, "image/png");
+        profileImages.deletePrevious(me, "https://old-domain.example/" + others);
+        profileImages.deletePrevious(me, "https://k.kakaocdn.net/p.jpg");
+        assertThat(storage.exists(others)).isTrue();
     }
 }

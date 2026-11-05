@@ -16,6 +16,7 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,6 +31,8 @@ import org.springframework.web.multipart.MultipartFile;
 public class ProfileImageService {
 
     private static final String PERMANENT_PREFIX = "users/";
+    private static final Pattern PERMANENT_KEY = Pattern.compile(
+            "(users/[0-9]+/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\.(?:jpg|png|webp))$");
     private static final String TMP_KEY_FORMAT =
             "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\.(jpg|png|webp)";
 
@@ -80,19 +83,29 @@ public class ProfileImageService {
         }
         String permanentKey = PERMANENT_PREFIX + userId + "/" + key.substring(prefix.length());
         storage.copy(key, permanentKey);
-        deleteQuietly(key);
         return storage.publicUrl(permanentKey);
+    }
+
+    // 임시 객체는 DB 커밋 뒤에 지운다. 커밋 전에 지우면 롤백된 요청이 같은 키로 재시도할 수 없다
+    public void deleteTmp(String key) {
+        deleteQuietly(key);
+    }
+
+    // 저장된 사진 주소에서 영구 객체 키(users/{id}/{uuid}.ext)를 뽑는다. 공개 주소가 바뀌어도 같은 키를 얻는다.
+    // 이 저장소의 사진이 아니면(카카오 프로필 등) 빈 값
+    public static Optional<String> permanentKeyOf(String url) {
+        if (url == null) {
+            return Optional.empty();
+        }
+        Matcher m = PERMANENT_KEY.matcher(url);
+        return m.find() ? Optional.of(m.group(1)) : Optional.empty();
     }
 
     // 이전 사진이 이 저장소의 본인 영구 위치에 있을 때만 지운다(카카오 프로필 같은 외부 주소는 건드리지 않는다)
     public void deletePrevious(long userId, String previousUrl) {
-        if (previousUrl == null) {
-            return;
-        }
-        String base = storage.publicUrl(PERMANENT_PREFIX + userId + "/");
-        if (previousUrl.startsWith(base) && previousUrl.length() > base.length()) {
-            deleteQuietly(PERMANENT_PREFIX + userId + "/" + previousUrl.substring(base.length()));
-        }
+        permanentKeyOf(previousUrl)
+                .filter(key -> key.startsWith(PERMANENT_PREFIX + userId + "/"))
+                .ifPresent(this::deleteQuietly);
     }
 
     private void deleteQuietly(String key) {

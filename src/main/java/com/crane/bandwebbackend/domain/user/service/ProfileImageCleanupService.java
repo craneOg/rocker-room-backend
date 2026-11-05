@@ -34,9 +34,8 @@ public class ProfileImageCleanupService {
     static final Duration ORPHAN_GRACE = Duration.ofHours(1);
     // 한 번 실행에 지우는 최대 수. 남은 것은 다음 실행에서 지운다
     static final int MAX_DELETES_PER_RUN = 500;
-    // 후보가 이 수 이상인데 참조가 하나도 없으면 공개 주소 설정 불일치로 보고 영구 객체 삭제를 중단한다
+    // 후보가 이 수 이상인데 참조되는 것이 하나도 없으면 설정이 어긋난 것으로 보고 영구 객체 삭제를 중단한다
     static final int MISCONFIG_GUARD_MIN_CANDIDATES = 20;
-    private static final int LOOKUP_BATCH = 500;
 
     private final ImageStorage storage;
     private final ProfileImageReferenceRepository references;
@@ -98,22 +97,19 @@ public class ProfileImageCleanupService {
                 candidates.add(o.getKey());
             }
         }
+        // 주소가 아니라 객체 키로 비교한다. 공개 주소를 바꿔도 이미 저장된 주소에서 같은 키를 얻는다
         Set<String> referenced = new HashSet<>();
-        for (int i = 0; i < candidates.size(); i += LOOKUP_BATCH) {
-            List<String> urls = candidates.subList(i, Math.min(candidates.size(), i + LOOKUP_BATCH)).stream()
-                    .map(storage::publicUrl)
-                    .toList();
-            referenced.addAll(references.findReferenced(urls));
-        }
-        if (candidates.size() >= MISCONFIG_GUARD_MIN_CANDIDATES && referenced.isEmpty()) {
+        references
+                .findStoredPhotoUrls()
+                .forEach(url -> ProfileImageService.permanentKeyOf(url).ifPresent(referenced::add));
+        boolean anyReferenced = candidates.stream().anyMatch(referenced::contains);
+        if (candidates.size() >= MISCONFIG_GUARD_MIN_CANDIDATES && !anyReferenced) {
             log.error(
                     "사진 {}건 중 참조되는 것이 하나도 없어 정리를 중단합니다. 공개 주소(app.storage.public-base-url) 설정을 확인하세요",
                     candidates.size());
             return null;
         }
-        return candidates.stream()
-                .filter(key -> !referenced.contains(storage.publicUrl(key)))
-                .toList();
+        return candidates.stream().filter(key -> !referenced.contains(key)).toList();
     }
 
     private boolean deleteQuietly(String key) {
