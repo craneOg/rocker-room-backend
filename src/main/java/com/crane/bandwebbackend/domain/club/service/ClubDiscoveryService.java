@@ -32,7 +32,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class ClubDiscoveryService {
 
     private static final Pattern JOIN_CODE = Pattern.compile("^[A-Z2-9]{10}$");
-    private static final Pattern WHITESPACE = Pattern.compile("\\s+");
+    private static final Pattern WHITESPACE = Pattern.compile("\\s+", Pattern.UNICODE_CHARACTER_CLASS);
     // C-06: 이 상태의 소속 행은 재신청으로 되살릴 수 있다. 그 밖의 상태는 이미 소속이 있어 신청할 수 없다
     private static final Set<MembershipStatus> REAPPLICABLE =
             Set.of(MembershipStatus.WITHDRAWN, MembershipStatus.REJECTED, MembershipStatus.DECLINED);

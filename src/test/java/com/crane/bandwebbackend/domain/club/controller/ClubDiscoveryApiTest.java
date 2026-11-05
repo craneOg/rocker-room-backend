@@ -308,7 +308,9 @@ class ClubDiscoveryApiTest {
         long id = club("Crane Band", "ACTIVE", null, true);
         club("Closed Club", "INACTIVE", null, false);
 
-        for (String taken : new String[] {"Crane Band", "crane band", "  CRANE   BAND ", "CraneBand", "closed club"}) {
+        for (String taken : new String[] {
+            "Crane Band", "crane band", "  CRANE   BAND ", "CraneBand", "closed club", "Crane\u3000Band"
+        }) {
             mockMvc.perform(get("/api/v1/clubs/name-availability")
                             .param("name", taken)
                             .cookie(access()))
