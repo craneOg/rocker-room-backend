@@ -1,6 +1,7 @@
 package com.crane.bandwebbackend.global.storage;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -48,6 +49,14 @@ public class InMemoryImageStorage implements ImageStorage {
     @Override
     public void delete(String key) {
         objects.remove(key);
+    }
+
+    @Override
+    public List<StoredObject> list(String prefix) {
+        return objects.entrySet().stream()
+                .filter(e -> e.getKey().startsWith(prefix))
+                .map(e -> new StoredObject(e.getKey(), e.getValue().modifiedAt))
+                .toList();
     }
 
     @Override

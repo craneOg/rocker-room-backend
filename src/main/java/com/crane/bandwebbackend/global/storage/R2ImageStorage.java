@@ -2,6 +2,8 @@ package com.crane.bandwebbackend.global.storage;
 
 import java.net.URI;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
@@ -14,6 +16,7 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CopyObjectRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
@@ -75,6 +78,18 @@ public class R2ImageStorage implements ImageStorage, AutoCloseable {
     @Override
     public void delete(String key) {
         s3.deleteObject(DeleteObjectRequest.builder().bucket(bucket).key(key).build());
+    }
+
+    @Override
+    public List<StoredObject> list(String prefix) {
+        List<StoredObject> out = new ArrayList<>();
+        s3.listObjectsV2Paginator(ListObjectsV2Request.builder()
+                        .bucket(bucket)
+                        .prefix(prefix)
+                        .build())
+                .contents()
+                .forEach(o -> out.add(new StoredObject(o.key(), o.lastModified())));
+        return out;
     }
 
     @Override

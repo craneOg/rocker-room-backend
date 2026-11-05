@@ -43,14 +43,15 @@ class AuthTokenCleanupSchedulerTest {
         ScheduledAnnotationBeanPostProcessor processor;
 
         @Test
-        @DisplayName("켜면 프로필 삭제(5분 주기)와 만료 행 삭제(매일 03:30 KST) 두 작업이 등록된다")
-        void registersBothTasks() {
+        @DisplayName("켜면 프로필 삭제(5분 주기)·만료 행 삭제(매일 03:30 KST)·사진 고아 객체 정리(매시) 세 작업이 등록된다")
+        void registersAllTasks() {
             List<String> tasks =
                     processor.getScheduledTasks().stream().map(Object::toString).toList();
 
-            assertThat(tasks).hasSize(2);
+            assertThat(tasks).hasSize(3);
             assertThat(tasks).anyMatch(t -> t.contains("clearExpiredProfiles"));
             assertThat(tasks).anyMatch(t -> t.contains("deleteExpired"));
+            assertThat(tasks).anyMatch(t -> t.contains("cleanOrphans"));
         }
     }
 }
