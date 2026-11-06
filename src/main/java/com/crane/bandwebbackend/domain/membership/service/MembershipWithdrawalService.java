@@ -16,8 +16,8 @@ import com.crane.bandwebbackend.domain.participant.service.ParticipationLookup;
 import com.crane.bandwebbackend.domain.schedule.service.ScheduleLookup;
 import com.crane.bandwebbackend.domain.performance.entity.PerformanceStatus;
 import com.crane.bandwebbackend.global.audit.AuditRecorder;
-import com.crane.bandwebbackend.global.error.ApiErrorCode;
-import com.crane.bandwebbackend.global.error.ApiException;
+import com.crane.bandwebbackend.global.error.ErrorCode;
+import com.crane.bandwebbackend.global.error.BusinessException;
 import com.crane.bandwebbackend.global.response.ApiIds;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
@@ -57,10 +57,10 @@ public class MembershipWithdrawalService {
 		// 마지막 관리자 판단이 동시에 실행되지 않도록 다른 소속 조회보다 먼저 동아리를 잠근다.
 		Club club = entityManager.find(Club.class, clubId, LockModeType.PESSIMISTIC_WRITE);
 		if (club == null) {
-			throw new ApiException(ApiErrorCode.NOT_FOUND, "동아리를 찾을 수 없습니다.");
+			throw BusinessException.of(ErrorCode.NOT_FOUND, "동아리를 찾을 수 없습니다.");
 		}
 		if (club.getStatus() != ClubStatus.ACTIVE) {
-			throw new ApiException(ApiErrorCode.STATE_CONFLICT, "비활성 동아리에서는 내보낼 수 없습니다.",
+			throw BusinessException.of(ErrorCode.STATE_CONFLICT, "비활성 동아리에서는 내보낼 수 없습니다.",
 					"CLUB_INACTIVE");
 		}
 		// 잠금 안에서 대상과 요청자 권한을 다시 읽어 본인 탈퇴와 관리자 내보내기를 구분한다.
@@ -75,7 +75,7 @@ public class MembershipWithdrawalService {
 		if (target.getStatus() != MembershipStatus.ACTIVE
 				&& target.getStatus() != MembershipStatus.ON_LEAVE
 				&& target.getStatus() != MembershipStatus.GRADUATED) {
-			throw new ApiException(ApiErrorCode.STATE_CONFLICT, "내보낼 수 없는 소속 상태입니다.",
+			throw BusinessException.of(ErrorCode.STATE_CONFLICT, "내보낼 수 없는 소속 상태입니다.",
 					"INVALID_MEMBERSHIP_STATUS");
 		}
 		// 본문 생략을 빈 요청으로 정규화하고 사유·후임 목록의 형식을 검증한다.
@@ -83,21 +83,21 @@ public class MembershipWithdrawalService {
 			request = new MembershipWithdrawalRequest(null, null, List.of());
 		}
 		if (request.reason() != null && request.reason().length() > 500) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "reason은 500자 이하여야 합니다.");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "reason은 500자 이하여야 합니다.");
 		}
 		Map<Long, Long> specified = new HashMap<>();
 		if (request.teamLeaderSuccessors() != null && request.teamLeaderSuccessors().size() > 100) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "팀장 후임은 최대 100건입니다.");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "팀장 후임은 최대 100건입니다.");
 		}
 		if (request.teamLeaderSuccessors() != null) {
 			for (var item : request.teamLeaderSuccessors()) {
 				if (item == null) {
-					throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "팀장 후임 항목이 비어 있습니다.");
+					throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "팀장 후임 항목이 비어 있습니다.");
 				}
 				Long team = ApiIds.positive(item.teamId(), "teamLeaderSuccessors.teamId");
 				Long candidate = ApiIds.positive(item.membershipId(), "teamLeaderSuccessors.membershipId");
 				if (specified.put(team, candidate) != null) {
-					throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "중복 팀장 후임입니다.");
+					throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "중복 팀장 후임입니다.");
 				}
 			}
 		}
@@ -123,18 +123,16 @@ public class MembershipWithdrawalService {
 		}
 		// 사용되지 않은 후임 요청은 대상이 팀장이 아닌 팀을 지정한 것으로 판단한다.
 		if (!specified.isEmpty()) {
-			throw new ApiException(ApiErrorCode.RULE_VIOLATION, "팀장 후임의 팀이 대상과 연결되지 않았습니다.",
+			throw BusinessException.of(ErrorCode.RULE_VIOLATION, "팀장 후임의 팀이 대상과 연결되지 않았습니다.",
 					"SUCCESSOR_NOT_ELIGIBLE");
 		}
 		boolean requiresSuccession = false;
 		Long successorId = null;
 		// 마지막 관리자라면 지정 후임 또는 가장 이른 활성 정회원을 관리자로 승계한다.
 		if (target.getRole() == MembershipRole.CLUB_ADMIN) {
-			boolean otherAdmin = repository.findByClub_Id(clubId).stream()
-					.anyMatch(member -> !member.getId().equals(membershipId)
-							&& member.getRole() == MembershipRole.CLUB_ADMIN
-							&& (member.getStatus() == MembershipStatus.ACTIVE
-							|| member.getStatus() == MembershipStatus.ON_LEAVE));
+			boolean otherAdmin = repository.existsByClub_IdAndIdNotAndRoleAndStatusIn(clubId,
+					membershipId, MembershipRole.CLUB_ADMIN,
+					List.of(MembershipStatus.ACTIVE, MembershipStatus.ON_LEAVE));
 			if (!otherAdmin) {
 				requiresSuccession = true;
 				Membership successor = chooseSuccessor(clubId, membershipId,
@@ -179,7 +177,7 @@ public class MembershipWithdrawalService {
 		}
 		Long wanted = ApiIds.positive(desired, "successorMembershipId");
 		return candidates.stream().filter(member -> member.getId().equals(wanted)).findFirst()
-				.orElseThrow(() -> new ApiException(ApiErrorCode.RULE_VIOLATION,
+				.orElseThrow(() -> BusinessException.of(ErrorCode.RULE_VIOLATION,
 						"동아리 임원 후임으로 지정할 수 없습니다.", "SUCCESSOR_NOT_ELIGIBLE"));
 	}
 
@@ -207,10 +205,10 @@ public class MembershipWithdrawalService {
 			Object[] chosen = desired == null
 					? (candidates.isEmpty() ? null : candidates.get(0))
 					: candidates.stream().filter(row -> ((Number) row[1]).longValue() == desired)
-							.findFirst().orElseThrow(() -> new ApiException(ApiErrorCode.RULE_VIOLATION,
+							.findFirst().orElseThrow(() -> BusinessException.of(ErrorCode.RULE_VIOLATION,
 									"팀장 후임으로 지정할 수 없습니다.", "SUCCESSOR_NOT_ELIGIBLE"));
 			if (chosen == null && desired != null) {
-				throw new ApiException(ApiErrorCode.RULE_VIOLATION, "팀장 후임이 없습니다.",
+				throw BusinessException.of(ErrorCode.RULE_VIOLATION, "팀장 후임이 없습니다.",
 						"SUCCESSOR_NOT_ELIGIBLE");
 			}
 			entityManager.createNativeQuery("""

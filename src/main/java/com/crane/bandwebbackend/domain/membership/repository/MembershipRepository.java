@@ -22,4 +22,8 @@ public interface MembershipRepository extends JpaRepository<Membership, Long> {
 	boolean existsByClub_IdAndRoleAndStatusIn(Long clubId,
 			com.crane.bandwebbackend.domain.membership.entity.MembershipRole role,
 			java.util.Collection<com.crane.bandwebbackend.domain.membership.entity.MembershipStatus> statuses);
+
+	boolean existsByClub_IdAndIdNotAndRoleAndStatusIn(Long clubId, Long excludedId,
+			com.crane.bandwebbackend.domain.membership.entity.MembershipRole role,
+			java.util.Collection<com.crane.bandwebbackend.domain.membership.entity.MembershipStatus> statuses);
 }

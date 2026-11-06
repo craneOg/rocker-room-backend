@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.crane.bandwebbackend.domain.club.entity.Club;
@@ -13,8 +14,8 @@ import com.crane.bandwebbackend.domain.membership.entity.MembershipRole;
 import com.crane.bandwebbackend.domain.membership.entity.MembershipStatus;
 import com.crane.bandwebbackend.domain.membership.repository.MembershipRepository;
 import com.crane.bandwebbackend.domain.participant.service.ParticipationLookup;
-import com.crane.bandwebbackend.global.error.ApiErrorCode;
-import com.crane.bandwebbackend.global.error.ApiException;
+import com.crane.bandwebbackend.global.error.ErrorCode;
+import com.crane.bandwebbackend.global.error.BusinessException;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
 import java.util.List;
@@ -39,12 +40,11 @@ class MembershipStatusServiceTest {
         when(member.getStatus()).thenReturn(MembershipStatus.ACTIVE);
         when(member.getRole()).thenReturn(MembershipRole.CLUB_ADMIN);
         when(member.getId()).thenReturn(2L);
-        when(repository.findByClub_Id(1L)).thenReturn(List.of(member));
 
         assertThatThrownBy(() -> service.transition(1L, 2L, 7L,
                 MembershipStatus.GRADUATED, "졸업"))
-                .isInstanceOfSatisfying(ApiException.class, error -> {
-                    assertThat(error.getCode()).isEqualTo(ApiErrorCode.RULE_VIOLATION);
+                .isInstanceOfSatisfying(BusinessException.class, error -> {
+                    assertThat(error.getCode()).isEqualTo(ErrorCode.RULE_VIOLATION);
                     assertThat(error.getReason()).isEqualTo("LAST_ADMIN");
                 });
 
@@ -52,6 +52,8 @@ class MembershipStatusServiceTest {
         order.verify(entityManager).find(Club.class, 1L, LockModeType.PESSIMISTIC_WRITE);
         order.verify(members).requireAdmin(1L, 7L);
         order.verify(members).require(1L, 2L);
+		verify(repository).existsByClub_IdAndIdNotAndRoleAndStatusIn(1L, 2L,
+				MembershipRole.CLUB_ADMIN, List.of(MembershipStatus.ACTIVE, MembershipStatus.ON_LEAVE));
     }
 
     @Test
@@ -63,8 +65,8 @@ class MembershipStatusServiceTest {
         when(members.require(1L, 2L)).thenReturn(member);
 
         assertThatThrownBy(() -> service.changeType(1L, 2L, 7L, null, null))
-                .isInstanceOfSatisfying(ApiException.class,
-                        error -> assertThat(error.getCode()).isEqualTo(ApiErrorCode.VALIDATION_ERROR));
+                .isInstanceOfSatisfying(BusinessException.class,
+                        error -> assertThat(error.getCode()).isEqualTo(ErrorCode.VALIDATION_ERROR));
 
         var order = inOrder(entityManager, members);
         order.verify(entityManager).find(Club.class, 1L, LockModeType.PESSIMISTIC_WRITE);
