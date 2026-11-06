@@ -168,6 +168,15 @@ public class AdminClubQueryRepository {
                 .findFirst();
     }
 
+    // 상태 전환 전에 행을 잠근다. 잠금 읽기는 스냅샷을 만들지 않아, 동시 요청이 기다린 뒤 최신 상태를 읽는다
+    public boolean lockClub(long clubId) {
+        return !jdbc.queryForList(
+                        "SELECT id FROM club WHERE id = :id FOR UPDATE",
+                        new MapSqlParameterSource("id", clubId),
+                        Long.class)
+                .isEmpty();
+    }
+
     // 이미 같은 상태면 0행이다. updated_at은 DB의 ON UPDATE가 갱신한다
     public int updateStatus(long clubId, String status) {
         return jdbc.update(

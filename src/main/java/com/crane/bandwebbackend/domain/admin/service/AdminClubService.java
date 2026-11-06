@@ -142,9 +142,12 @@ public class AdminClubService {
         return changeStatus(actorUserId, clubId, ClubStatus.ACTIVE, "CLUB_REACTIVATED", reason);
     }
 
-    // 조건부 UPDATE라 두 운영자가 동시에 같은 전환을 해도 한 번만 바뀌고 감사 기록도 한 건만 남는다
+    // 행을 잠근 뒤 처리하므로 두 운영자가 동시에 같은 전환을 해도 한 번만 바뀌고, 나중 요청도 최신 상태를 돌려받는다
     private AdminClubDetailResponse.ClubInfo changeStatus(
             long actorUserId, long clubId, ClubStatus target, String action, String reason) {
+        if (!clubs.lockClub(clubId)) {
+            throw notFound();
+        }
         ClubRow before = clubs.findClub(clubId).orElseThrow(AdminClubService::notFound);
         if (!target.name().equals(before.getStatus()) && clubs.updateStatus(clubId, target.name()) == 1) {
             auditRecorder.record(
