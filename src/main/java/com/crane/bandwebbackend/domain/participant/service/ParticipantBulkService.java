@@ -3,10 +3,11 @@ package com.crane.bandwebbackend.domain.participant.service;
 import com.crane.bandwebbackend.domain.membership.service.MembershipService;
 import com.crane.bandwebbackend.domain.participant.entity.PerformanceMember;
 import com.crane.bandwebbackend.domain.participant.entity.PerformanceMemberSource;
-import com.crane.bandwebbackend.global.audit.AuditLog;
+import com.crane.bandwebbackend.global.audit.AuditRecorder;
 import com.crane.bandwebbackend.global.error.ApiErrorCode;
 import com.crane.bandwebbackend.global.error.ApiException;
 import com.crane.bandwebbackend.global.response.ApiIds;
+import java.util.Map;
 import jakarta.persistence.EntityManager;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -22,6 +23,7 @@ public class ParticipantBulkService {
 	private final MembershipService memberships;
 	private final PerformanceMemberService performanceMembers;
 	private final EntityManager entityManager;
+	private final AuditRecorder auditRecorder;
 
 	/** 공연 참여 추가한다 */
 	@Transactional
@@ -51,8 +53,7 @@ public class ParticipantBulkService {
 			PerformanceMember member = performanceMembers.register(clubId, performanceId, actorUserId,
 					PerformanceMemberSource.ADMIN, id);
 			result.add(member);
-			entityManager.persist(AuditLog.record(clubId, actorUserId, "PERFORMANCE_MEMBER_ADDED",
-					"PERFORMANCE_MEMBER", member.getId(), reason, "{\"membershipId\":\"" + id + "\"}"));
+			auditRecorder.record(clubId, actorUserId, "PERFORMANCE_MEMBER_ADDED", "PERFORMANCE_MEMBER", member.getId(), reason, Map.of("membershipId", id));
 		}
 		return result;
 	}

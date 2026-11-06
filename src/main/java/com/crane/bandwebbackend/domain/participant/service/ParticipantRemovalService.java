@@ -9,8 +9,8 @@ import com.crane.bandwebbackend.domain.participant.dto.ParticipantResponse;
 import com.crane.bandwebbackend.domain.participant.entity.PerformanceMember;
 import com.crane.bandwebbackend.domain.participant.entity.PerformanceMemberStatus;
 import com.crane.bandwebbackend.domain.performance.entity.PerformanceStatus;
-import com.crane.bandwebbackend.domain.performance.repository.PerformanceRepository;
-import com.crane.bandwebbackend.global.audit.AuditLog;
+import com.crane.bandwebbackend.domain.performance.service.PerformanceService;
+import com.crane.bandwebbackend.global.audit.AuditRecorder;
 import com.crane.bandwebbackend.global.error.ApiErrorCode;
 import com.crane.bandwebbackend.global.error.ApiException;
 import com.crane.bandwebbackend.global.response.ApiIds;
@@ -32,9 +32,10 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class ParticipantRemovalService {
 	private final MembershipService memberships;
-	private final PerformanceRepository performances;
+	private final PerformanceService performances;
 	private final ParticipantImpactService impact;
 	private final EntityManager entityManager;
+	private final AuditRecorder auditRecorder;
 
 	/** 공연 참여 제외한다 */
 	@Transactional
@@ -51,8 +52,7 @@ public class ParticipantRemovalService {
 			request = new ParticipantRemovalRequest(null, null, List.of());
 		}
 		final ParticipantRemovalRequest body = request;
-		var performance = performances.findWithLockByIdAndClub_Id(performanceId, clubId)
-				.orElseThrow(() -> new ApiException(ApiErrorCode.NOT_FOUND, "공연을 찾을 수 없습니다."));
+		var performance = performances.requireLocked(clubId, performanceId);
 		if (performance.getClub().getStatus() != ClubStatus.ACTIVE) {
 			throw new ApiException(ApiErrorCode.STATE_CONFLICT, "비활성 동아리에서는 변경할 수 없습니다.",
 					"CLUB_INACTIVE");
@@ -123,13 +123,9 @@ public class ParticipantRemovalService {
 		reassignLeaders(performanceId, participantId, body.teamLeaderSuccessors());
 		member.transitionTo(reject ? PerformanceMemberStatus.REJECTED : PerformanceMemberStatus.WITHDRAWN,
 				LocalDateTime.now(ZoneOffset.UTC));
-		entityManager.persist(AuditLog.record(clubId, actorUserId,
-				reject ? "PERFORMANCE_MEMBER_REJECTED" : "PERFORMANCE_MEMBER_WITHDRAWN",
-				"PERFORMANCE_MEMBER", participantId, body.reason(),
-				"{\"status\":\"" + member.getStatus() + "\"}"));
+		auditRecorder.record(clubId, actorUserId, reject ? "PERFORMANCE_MEMBER_REJECTED" : "PERFORMANCE_MEMBER_WITHDRAWN", "PERFORMANCE_MEMBER", participantId, body.reason(), Map.of("status", member.getStatus()));
 		if (status == PerformanceStatus.LOCKED) {
-			entityManager.persist(AuditLog.record(clubId, actorUserId, "LOCKED_EXCEPTION_EDIT",
-					"PERFORMANCE_MEMBER", participantId, body.reason(), "{}"));
+			auditRecorder.record(clubId, actorUserId, "LOCKED_EXCEPTION_EDIT", "PERFORMANCE_MEMBER", participantId, body.reason(), Map.of());
 		}
 		entityManager.flush();
 		return new ParticipantMutationResult(ParticipantResponse.from(member),

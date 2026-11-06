@@ -6,10 +6,11 @@ import com.crane.bandwebbackend.domain.participant.entity.PerformanceMemberStatu
 import com.crane.bandwebbackend.domain.participant.repository.PerformanceMemberRepository;
 import com.crane.bandwebbackend.domain.performance.entity.Performance;
 import com.crane.bandwebbackend.domain.performance.entity.PerformanceStatus;
-import com.crane.bandwebbackend.domain.performance.repository.PerformanceRepository;
-import com.crane.bandwebbackend.global.audit.AuditLog;
+import com.crane.bandwebbackend.domain.performance.service.PerformanceService;
+import com.crane.bandwebbackend.global.audit.AuditRecorder;
 import com.crane.bandwebbackend.global.error.ApiErrorCode;
 import com.crane.bandwebbackend.global.error.ApiException;
+import java.util.Map;
 import jakarta.persistence.EntityManager;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -23,9 +24,10 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class ParticipantDecisionService {
 	private final MembershipService memberships;
-	private final PerformanceRepository performances;
+	private final PerformanceService performances;
 	private final PerformanceMemberRepository participants;
 	private final EntityManager entityManager;
+	private final AuditRecorder auditRecorder;
 
 	/** 공연 참여 승인한다 */
 	@Transactional
@@ -39,8 +41,7 @@ public class ParticipantDecisionService {
 	) {
 		// 관리자 권한을 확인하고 공연 행을 잠가 버전 검사를 원자적으로 수행한다.
 		memberships.requireAdmin(clubId, actorUserId);
-		Performance performance = performances.findWithLockByIdAndClub_Id(performanceId, clubId)
-				.orElseThrow(() -> new ApiException(ApiErrorCode.NOT_FOUND, "공연을 찾을 수 없습니다."));
+		Performance performance = performances.requireLocked(clubId, performanceId);
 		if (!String.valueOf(performance.getVersion()).equals(performanceVersion)) {
 			throw new ApiException(ApiErrorCode.VERSION_CONFLICT, "공연 버전이 달라졌습니다.");
 		}
@@ -62,14 +63,10 @@ public class ParticipantDecisionService {
 		}
 		// 상태 전이와 일반 감사 로그를 같은 트랜잭션에 기록한다.
 		participant.transitionTo(PerformanceMemberStatus.APPROVED, LocalDateTime.now(ZoneOffset.UTC));
-		entityManager.persist(AuditLog.record(clubId, actorUserId, "PERFORMANCE_MEMBER_APPROVED",
-				"PERFORMANCE_MEMBER", participantId, reason,
-				"{\"from\":\"APPLIED\",\"to\":\"APPROVED\"}"));
+		auditRecorder.record(clubId, actorUserId, "PERFORMANCE_MEMBER_APPROVED", "PERFORMANCE_MEMBER", participantId, reason, Map.of("from", "APPLIED", "to", "APPROVED"));
 		// 확정 공연 예외 수정은 별도 감사 이벤트도 추가한다.
 		if (performance.getStatus() == PerformanceStatus.LOCKED) {
-			entityManager.persist(AuditLog.record(clubId, actorUserId, "LOCKED_EXCEPTION_EDIT",
-					"PERFORMANCE_MEMBER", participantId, reason,
-					"{\"from\":\"APPLIED\",\"to\":\"APPROVED\"}"));
+			auditRecorder.record(clubId, actorUserId, "LOCKED_EXCEPTION_EDIT", "PERFORMANCE_MEMBER", participantId, reason, Map.of("from", "APPLIED", "to", "APPROVED"));
 		}
 		return participant;
 	}

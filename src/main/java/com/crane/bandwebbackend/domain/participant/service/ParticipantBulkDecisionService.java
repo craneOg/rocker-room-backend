@@ -5,7 +5,7 @@ import com.crane.bandwebbackend.domain.participant.dto.ParticipantBulkDecisionRe
 import com.crane.bandwebbackend.domain.participant.dto.ParticipantBulkDecisionResponse;
 import com.crane.bandwebbackend.domain.participant.dto.ParticipantRemovalRequest;
 import com.crane.bandwebbackend.domain.performance.entity.PerformanceStatus;
-import com.crane.bandwebbackend.domain.performance.repository.PerformanceRepository;
+import com.crane.bandwebbackend.domain.performance.service.PerformanceService;
 import com.crane.bandwebbackend.global.error.ApiErrorCode;
 import com.crane.bandwebbackend.global.error.ApiException;
 import com.crane.bandwebbackend.global.response.ApiIds;
@@ -23,7 +23,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 @RequiredArgsConstructor
 public class ParticipantBulkDecisionService {
 	private final MembershipService memberships;
-	private final PerformanceRepository performances;
+	private final PerformanceService performances;
 	private final ParticipantDecisionService approvals;
 	private final ParticipantRemovalService removals;
 	private final PlatformTransactionManager transactionManager;
@@ -37,8 +37,7 @@ public class ParticipantBulkDecisionService {
 	) {
 		// 관리자 권한과 공연 상태를 확인해 잠긴 공연의 대량 변경을 차단한다.
 		memberships.requireAdmin(clubId, actorUserId);
-		var performance = performances.findByIdAndClub_Id(performanceId, clubId)
-				.orElseThrow(() -> new ApiException(ApiErrorCode.NOT_FOUND, "공연을 찾을 수 없습니다."));
+		var performance = performances.require(clubId, performanceId);
 		if (performance.getStatus() != PerformanceStatus.DRAFT
 				&& performance.getStatus() != PerformanceStatus.ACTIVE) {
 			throw new ApiException(ApiErrorCode.STATE_CONFLICT, "일괄 결정이 가능한 공연 상태가 아닙니다.",
@@ -65,8 +64,7 @@ public class ParticipantBulkDecisionService {
 		for (Long id : ids) {
 			try {
 				tx.executeWithoutResult(status -> {
-					var current = performances.findByIdAndClub_Id(performanceId, clubId)
-							.orElseThrow(() -> new ApiException(ApiErrorCode.NOT_FOUND, "공연을 찾을 수 없습니다."));
+					var current = performances.require(clubId, performanceId);
 					if (request.decision() == ParticipantBulkDecisionRequest.Decision.APPROVE) {
 						approvals.approve(clubId, performanceId, id, actorUserId,
 								current.getVersion().toString(), request.reason());

@@ -1,6 +1,11 @@
 package com.crane.bandwebbackend.domain.participant.service;
 
 import com.crane.bandwebbackend.domain.participant.entity.PerformanceMemberStatus;
+import com.crane.bandwebbackend.domain.participant.entity.PerformanceMember;
+import com.crane.bandwebbackend.domain.participant.entity.PerformanceMemberSource;
+import com.crane.bandwebbackend.domain.membership.entity.Membership;
+import com.crane.bandwebbackend.domain.performance.entity.Performance;
+import java.time.LocalDateTime;
 import com.crane.bandwebbackend.domain.participant.repository.PerformanceMemberRepository;
 import lombok.RequiredArgsConstructor;
 import java.util.List;
@@ -13,6 +18,38 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class ParticipationLookup {
 	private final PerformanceMemberRepository repository;
+
+	@Transactional(readOnly = true)
+	public Optional<PerformanceMember> member(Long clubId, Long performanceId, Long memberId) {
+		return repository.findByIdAndPerformance_IdAndClubId(memberId, performanceId, clubId);
+	}
+
+	@Transactional(readOnly = true)
+	public Optional<PerformanceMember> memberOfMembership(Long performanceId, Long membershipId) {
+		return repository.findByPerformance_IdAndMembership_Id(performanceId, membershipId);
+	}
+
+	public void ensureAdminParticipation(Performance performance, Membership membership, LocalDateTime now) {
+		PerformanceMember existing = repository.findByPerformance_IdAndMembership_Id(
+				performance.getId(), membership.getId()).orElse(null);
+		if (existing == null) {
+			repository.save(PerformanceMember.addByAdmin(performance, membership, now));
+		} else if (existing.getStatus() == PerformanceMemberStatus.REJECTED
+				|| existing.getStatus() == PerformanceMemberStatus.WITHDRAWN) {
+			existing.reapply(PerformanceMemberSource.ADMIN, now);
+		}
+	}
+
+	@Transactional(readOnly = true)
+	public List<PerformanceMember> membersOfMembership(Long membershipId) {
+		return repository.findByMembership_Id(membershipId);
+	}
+
+	@Transactional(readOnly = true)
+	public Optional<PerformanceMemberStatus> status(Long performanceId, Long membershipId) {
+		return repository.findByPerformance_IdAndMembership_Id(performanceId, membershipId)
+				.map(member -> member.getStatus());
+	}
 
 	/** 공연 참여 객원에게 공개할 수 있는지 확인한다 */
 	@Transactional(readOnly = true)

@@ -19,7 +19,7 @@ import com.crane.bandwebbackend.domain.participant.service.ParticipantListReader
 import com.crane.bandwebbackend.domain.participant.service.ParticipantRemovalService;
 import com.crane.bandwebbackend.domain.participant.service.PerformanceMemberService;
 import com.crane.bandwebbackend.global.error.ApiExceptionHandler;
-import com.crane.bandwebbackend.global.response.RequestIdFilter;
+import com.crane.bandwebbackend.global.config.RequestIdFilter;
 import com.crane.bandwebbackend.global.security.CurrentActor;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -49,7 +49,8 @@ class PerformanceMemberControllerTest {
 	@Test
 	void withdrawAcceptsReasonWithoutPerformanceVersion() throws Exception {
 		when(actor.requireUserId()).thenReturn(7L);
-		when(removal.remove(1L, 2L, 3L, 7L, org.mockito.ArgumentMatchers.any(),
+		when(removal.remove(org.mockito.ArgumentMatchers.eq(1L), org.mockito.ArgumentMatchers.eq(2L),
+				org.mockito.ArgumentMatchers.eq(3L), org.mockito.ArgumentMatchers.eq(7L), org.mockito.ArgumentMatchers.any(),
 				org.mockito.ArgumentMatchers.eq(false)))
 				.thenReturn(new ParticipantMutationResult(null, List.of(),
 						new ParticipantMutationResult.Effects(List.of(), List.of(), List.of())));
@@ -61,7 +62,9 @@ class PerformanceMemberControllerTest {
 				.andExpect(status().isOk());
 
 		ArgumentCaptor<ParticipantRemovalRequest> body = ArgumentCaptor.forClass(ParticipantRemovalRequest.class);
-		verify(removal).remove(1L, 2L, 3L, 7L, body.capture(), false);
+		verify(removal).remove(org.mockito.ArgumentMatchers.eq(1L), org.mockito.ArgumentMatchers.eq(2L),
+				org.mockito.ArgumentMatchers.eq(3L), org.mockito.ArgumentMatchers.eq(7L), body.capture(),
+				org.mockito.ArgumentMatchers.eq(false));
 		assertThat(body.getValue().performanceVersion()).isNull();
 		assertThat(body.getValue().reason()).isEqualTo("자진 철회");
 	}

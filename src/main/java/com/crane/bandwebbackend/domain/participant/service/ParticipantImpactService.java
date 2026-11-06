@@ -4,7 +4,7 @@ import com.crane.bandwebbackend.domain.membership.service.MembershipService;
 import com.crane.bandwebbackend.domain.participant.dto.ParticipantImpactResponse;
 import com.crane.bandwebbackend.domain.participant.entity.PerformanceMember;
 import com.crane.bandwebbackend.domain.participant.repository.PerformanceMemberRepository;
-import com.crane.bandwebbackend.domain.schedule.repository.PracticeScheduleRepository;
+import com.crane.bandwebbackend.domain.schedule.service.ScheduleLookup;
 import com.crane.bandwebbackend.global.error.ApiErrorCode;
 import com.crane.bandwebbackend.global.error.ApiException;
 import jakarta.persistence.EntityManager;
@@ -21,7 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class ParticipantImpactService {
 	private final MembershipService memberships;
 	private final PerformanceMemberRepository participants;
-	private final PracticeScheduleRepository schedules;
+	private final ScheduleLookup schedules;
 	private final EntityManager entityManager;
 
 	/** 공연 참여 정보를 조회한다 */
@@ -41,7 +41,7 @@ public class ParticipantImpactService {
 		List<String> teams = ids("SELECT team_id FROM team_member WHERE performance_member_id = :id", participantId);
 		List<String> songs = ids("SELECT DISTINCT song_id FROM song_session_member WHERE performance_member_id = :id",
 				participantId);
-		List<String> scheduleIds = schedules.findAttendedScheduleIds(performanceId, participantId).stream()
+		List<String> scheduleIds = schedules.attendedScheduleIds(performanceId, participantId).stream()
 				.map(String::valueOf).toList();
 		List<ParticipantImpactResponse.Warning> warnings = new ArrayList<>();
 		// 각 곡에 다른 승인 연주자가 남는지 확인해 빈 곡 경고를 생성한다.

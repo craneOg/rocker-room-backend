@@ -22,7 +22,6 @@ import com.crane.bandwebbackend.domain.participant.service.ParticipantListReader
 import com.crane.bandwebbackend.domain.participant.service.MyParticipationReader;
 import com.crane.bandwebbackend.global.response.ApiIds;
 import com.crane.bandwebbackend.global.response.ApiResponse;
-import com.crane.bandwebbackend.global.response.RequestIdFilter;
 import com.crane.bandwebbackend.global.security.CurrentActor;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -68,9 +67,8 @@ public class PerformanceMemberController {
 		@PathVariable String performanceId,
 		HttpServletRequest request
 	) {
-		return ResponseEntity.ok(ApiResponse.of(myReader.read(ApiIds.positive(clubId, "clubId"),
-				ApiIds.positive(performanceId, "performanceId"), currentActor.requireUserId()),
-				RequestIdFilter.require(request)));
+		return ResponseEntity.ok(ApiResponse.ok(myReader.read(ApiIds.positive(clubId, "clubId"),
+				ApiIds.positive(performanceId, "performanceId"), currentActor.requireUserId())));
 	}
 
 	/** 공연 참여 목록을 조회한다 */
@@ -85,9 +83,9 @@ public class PerformanceMemberController {
 		@RequestParam(defaultValue = "20") int size,
 		HttpServletRequest request
 	) {
-		return ResponseEntity.ok(ApiResponse.of(listReader.read(ApiIds.positive(clubId, "clubId"),
+		return ResponseEntity.ok(ApiResponse.ok(listReader.read(ApiIds.positive(clubId, "clubId"),
 				ApiIds.positive(performanceId, "performanceId"), currentActor.requireUserId(),
-				status, q, partId, page, size), RequestIdFilter.require(request)));
+				status, q, partId, page, size)));
 	}
 
 	/** 공연 참여 등록한다 */
@@ -107,7 +105,7 @@ public class PerformanceMemberController {
 		PerformanceMember member = service.register(ApiIds.positive(clubId, "clubId"),
 				ApiIds.positive(performanceId, "performanceId"), currentActor.requireUserId(),
 				PerformanceMemberSource.APPLICATION, null);
-		return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.of(ParticipantResponse.from(member), RequestIdFilter.require(request)));
+		return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(ParticipantResponse.from(member)));
 	}
 
 	/** 공연 참여 임원 권한으로 추가한다 */
@@ -122,8 +120,7 @@ public class PerformanceMemberController {
 		var members = bulk.add(ApiIds.positive(clubId, "clubId"),
 				ApiIds.positive(performanceId, "performanceId"), currentActor.requireUserId(),
 				body.membershipIds(), body.reason());
-		return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.of(Map.of("items", members.stream().map(ParticipantResponse::from).toList()),
-				RequestIdFilter.require(request)));
+		return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(Map.of("items", members.stream().map(ParticipantResponse::from).toList())));
 	}
 
 	/** 공연 참여 승인한다 */
@@ -140,7 +137,7 @@ public class PerformanceMemberController {
 				ApiIds.positive(performanceId, "performanceId"),
 				ApiIds.positive(performanceMemberId, "performanceMemberId"),
 				currentActor.requireUserId(), body.performanceVersion(), body.reason());
-		return ResponseEntity.ok(ApiResponse.of(ParticipantResponse.from(member), RequestIdFilter.require(request)));
+		return ResponseEntity.ok(ApiResponse.ok(ParticipantResponse.from(member)));
 	}
 
 	/** 공연 참여 변경 영향을 조회한다 */
@@ -151,10 +148,9 @@ public class PerformanceMemberController {
 		@PathVariable String performanceMemberId,
 		HttpServletRequest request
 	) {
-		return ResponseEntity.ok(ApiResponse.of(impact.read(ApiIds.positive(clubId, "clubId"),
+		return ResponseEntity.ok(ApiResponse.ok(impact.read(ApiIds.positive(clubId, "clubId"),
 				ApiIds.positive(performanceId, "performanceId"),
-				ApiIds.positive(performanceMemberId, "performanceMemberId"), currentActor.requireUserId()),
-				RequestIdFilter.require(request)));
+				ApiIds.positive(performanceMemberId, "performanceMemberId"), currentActor.requireUserId())));
 	}
 
 	/** 공연 참여 거절한다 */
@@ -186,9 +182,9 @@ public class PerformanceMemberController {
 	/** 참여 거절과 철회 요청을 공통 제거 서비스로 전달한다. */
 	private ApiResponse<ParticipantMutationResult> remove(String clubId, String performanceId,
 			String memberId, ParticipantRemovalRequest body, boolean reject, HttpServletRequest request) {
-		return ApiResponse.of(removal.remove(ApiIds.positive(clubId, "clubId"),
+		return ApiResponse.ok(removal.remove(ApiIds.positive(clubId, "clubId"),
 				ApiIds.positive(performanceId, "performanceId"), ApiIds.positive(memberId, "performanceMemberId"),
-				currentActor.requireUserId(), body, reject), RequestIdFilter.require(request));
+				currentActor.requireUserId(), body, reject));
 	}
 
 	/** 공연 참여 여러 신청을 일괄 처리한다 */
@@ -200,8 +196,7 @@ public class PerformanceMemberController {
 		@RequestHeader("X-Requested-With") String requestedWith,
 		HttpServletRequest request
 	) {
-		return ResponseEntity.ok(ApiResponse.of(bulkDecisions.decide(ApiIds.positive(clubId, "clubId"),
-				ApiIds.positive(performanceId, "performanceId"), currentActor.requireUserId(), body),
-				RequestIdFilter.require(request)));
+		return ResponseEntity.ok(ApiResponse.ok(bulkDecisions.decide(ApiIds.positive(clubId, "clubId"),
+				ApiIds.positive(performanceId, "performanceId"), currentActor.requireUserId(), body)));
 	}
 }
