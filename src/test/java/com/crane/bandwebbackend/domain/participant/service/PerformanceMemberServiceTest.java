@@ -21,8 +21,8 @@ import com.crane.bandwebbackend.domain.performance.entity.Performance;
 import com.crane.bandwebbackend.domain.performance.entity.PerformancePolicy;
 import com.crane.bandwebbackend.domain.performance.entity.PerformanceStatus;
 import com.crane.bandwebbackend.domain.performance.service.PerformanceService;
-import com.crane.bandwebbackend.global.error.ApiErrorCode;
-import com.crane.bandwebbackend.global.error.ApiException;
+import com.crane.bandwebbackend.global.error.ErrorCode;
+import com.crane.bandwebbackend.global.error.BusinessException;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.Optional;
@@ -56,8 +56,8 @@ class PerformanceMemberServiceTest {
         when(policy.getApplicationDeadline()).thenReturn(LocalDateTime.now(ZoneOffset.UTC).minusMinutes(1));
 
         assertThatThrownBy(() -> service.register(1L, 2L, 7L, PerformanceMemberSource.APPLICATION, null))
-                .isInstanceOfSatisfying(ApiException.class,
-                        exception -> assertThat(exception.getCode()).isEqualTo(ApiErrorCode.STATE_CONFLICT));
+                .isInstanceOfSatisfying(BusinessException.class,
+                        exception -> assertThat(exception.getCode()).isEqualTo(ErrorCode.STATE_CONFLICT));
     }
 
     @Test
@@ -65,8 +65,8 @@ class PerformanceMemberServiceTest {
         when(actor.getMemberType()).thenReturn(MemberType.GUEST);
 
         assertThatThrownBy(() -> service.register(1L, 2L, 7L, PerformanceMemberSource.APPLICATION, null))
-                .isInstanceOfSatisfying(ApiException.class,
-                        exception -> assertThat(exception.getCode()).isEqualTo(ApiErrorCode.FORBIDDEN));
+                .isInstanceOfSatisfying(BusinessException.class,
+                        exception -> assertThat(exception.getCode()).isEqualTo(ErrorCode.FORBIDDEN));
     }
 
     @Test
@@ -75,8 +75,8 @@ class PerformanceMemberServiceTest {
         when(repository.findByPerformance_IdAndMembership_Id(2L, 3L)).thenReturn(Optional.of(existing));
 
         assertThatThrownBy(() -> service.register(1L, 2L, 7L, PerformanceMemberSource.APPLICATION, null))
-                .isInstanceOfSatisfying(ApiException.class,
-                        exception -> assertThat(exception.getCode()).isEqualTo(ApiErrorCode.DUPLICATE));
+                .isInstanceOfSatisfying(BusinessException.class,
+                        exception -> assertThat(exception.getCode()).isEqualTo(ErrorCode.DUPLICATE));
         verify(repository).findByPerformance_IdAndMembership_Id(2L, 3L);
     }
 

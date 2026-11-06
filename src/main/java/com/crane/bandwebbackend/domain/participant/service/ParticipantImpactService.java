@@ -5,8 +5,8 @@ import com.crane.bandwebbackend.domain.participant.dto.ParticipantImpactResponse
 import com.crane.bandwebbackend.domain.participant.entity.PerformanceMember;
 import com.crane.bandwebbackend.domain.participant.repository.PerformanceMemberRepository;
 import com.crane.bandwebbackend.domain.schedule.service.ScheduleLookup;
-import com.crane.bandwebbackend.global.error.ApiErrorCode;
-import com.crane.bandwebbackend.global.error.ApiException;
+import com.crane.bandwebbackend.global.error.ErrorCode;
+import com.crane.bandwebbackend.global.error.BusinessException;
 import jakarta.persistence.EntityManager;
 import java.util.ArrayList;
 import java.util.List;
@@ -72,7 +72,7 @@ public class ParticipantImpactService {
 	) {
 		// 동아리와 공연 경계를 쿼리에 포함해 다른 공연의 참여자 접근을 숨긴다.
 		return participants.findByIdAndPerformance_IdAndClubId(participantId, performanceId, clubId)
-				.orElseThrow(() -> new ApiException(ApiErrorCode.NOT_FOUND, "참여자를 찾을 수 없습니다."));
+				.orElseThrow(() -> BusinessException.of(ErrorCode.NOT_FOUND, "참여자를 찾을 수 없습니다."));
 	}
 
 	/** 참여자 영향 쿼리 결과의 식별자를 문자열 목록으로 변환한다. */

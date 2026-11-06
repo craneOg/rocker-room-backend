@@ -4,8 +4,8 @@ import com.crane.bandwebbackend.domain.membership.service.MembershipService;
 import com.crane.bandwebbackend.domain.participant.entity.PerformanceMember;
 import com.crane.bandwebbackend.domain.participant.entity.PerformanceMemberSource;
 import com.crane.bandwebbackend.global.audit.AuditRecorder;
-import com.crane.bandwebbackend.global.error.ApiErrorCode;
-import com.crane.bandwebbackend.global.error.ApiException;
+import com.crane.bandwebbackend.global.error.ErrorCode;
+import com.crane.bandwebbackend.global.error.BusinessException;
 import com.crane.bandwebbackend.global.response.ApiIds;
 import java.util.Map;
 import jakarta.persistence.EntityManager;
@@ -37,14 +37,14 @@ public class ParticipantBulkService {
 		// 관리자 권한과 목록 크기·사유·중복을 전체 저장 전에 검증한다.
 		memberships.requireAdmin(clubId, actorUserId);
 		if (membershipIds == null || membershipIds.isEmpty() || membershipIds.size() > 100) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "membershipIds는 1~100개여야 합니다.");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "membershipIds는 1~100개여야 합니다.");
 		}
 		if (reason != null && reason.length() > 500) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "reason은 500자 이하여야 합니다.");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "reason은 500자 이하여야 합니다.");
 		}
 		List<Long> ids = membershipIds.stream().map(id -> ApiIds.positive(id, "membershipIds")).toList();
 		if (new HashSet<>(ids).size() != ids.size()) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "membershipIds에 중복 값이 있습니다.");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "membershipIds에 중복 값이 있습니다.");
 		}
 		// 모든 대상자를 같은 트랜잭션에서 추가해 하나라도 실패하면 전체를 롤백한다.
 		List<PerformanceMember> result = new ArrayList<>();

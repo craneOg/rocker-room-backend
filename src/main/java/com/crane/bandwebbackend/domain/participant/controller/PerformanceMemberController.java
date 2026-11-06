@@ -98,8 +98,8 @@ public class PerformanceMemberController {
 		HttpServletRequest request
 	) {
 		if (body != null && !body.isEmpty()) {
-			throw new com.crane.bandwebbackend.global.error.ApiException(
-					com.crane.bandwebbackend.global.error.ApiErrorCode.VALIDATION_ERROR,
+			throw new com.crane.bandwebbackend.global.error.BusinessException(
+					com.crane.bandwebbackend.global.error.ErrorCode.VALIDATION_ERROR,
 					"참여 신청 본문은 빈 객체여야 합니다.");
 		}
 		PerformanceMember member = service.register(ApiIds.positive(clubId, "clubId"),

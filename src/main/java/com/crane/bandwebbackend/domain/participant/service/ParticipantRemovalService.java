@@ -11,8 +11,8 @@ import com.crane.bandwebbackend.domain.participant.entity.PerformanceMemberStatu
 import com.crane.bandwebbackend.domain.performance.entity.PerformanceStatus;
 import com.crane.bandwebbackend.domain.performance.service.PerformanceService;
 import com.crane.bandwebbackend.global.audit.AuditRecorder;
-import com.crane.bandwebbackend.global.error.ApiErrorCode;
-import com.crane.bandwebbackend.global.error.ApiException;
+import com.crane.bandwebbackend.global.error.ErrorCode;
+import com.crane.bandwebbackend.global.error.BusinessException;
 import com.crane.bandwebbackend.global.response.ApiIds;
 import jakarta.persistence.EntityManager;
 import java.time.LocalDateTime;
@@ -54,7 +54,7 @@ public class ParticipantRemovalService {
 		final ParticipantRemovalRequest body = request;
 		var performance = performances.requireLocked(clubId, performanceId);
 		if (performance.getClub().getStatus() != ClubStatus.ACTIVE) {
-			throw new ApiException(ApiErrorCode.STATE_CONFLICT, "비활성 동아리에서는 변경할 수 없습니다.",
+			throw BusinessException.of(ErrorCode.STATE_CONFLICT, "비활성 동아리에서는 변경할 수 없습니다.",
 					"CLUB_INACTIVE");
 		}
 		// 거절·타인 제거는 관리자에게, 본인 철회는 해당 소속에게 권한을 부여한다.
@@ -68,36 +68,36 @@ public class ParticipantRemovalService {
 		// 거절은 신청 대기와 공연 버전을 요구하고 철회는 유효 참여 상태를 요구한다.
 		if (reject) {
 			if (body.performanceVersion() == null || !body.performanceVersion().matches("[0-9]+")) {
-				throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "performanceVersion이 필요합니다.");
+				throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "performanceVersion이 필요합니다.");
 			}
 			if (!body.performanceVersion().equals(performance.getVersion().toString())) {
-				throw new ApiException(ApiErrorCode.VERSION_CONFLICT, "공연 버전이 달라졌습니다.");
+				throw BusinessException.of(ErrorCode.VERSION_CONFLICT, "공연 버전이 달라졌습니다.");
 			}
 			if (member.getStatus() != PerformanceMemberStatus.APPLIED) {
-				throw new ApiException(ApiErrorCode.STATE_CONFLICT, "신청 대기 참여자만 거절할 수 있습니다.",
+				throw BusinessException.of(ErrorCode.STATE_CONFLICT, "신청 대기 참여자만 거절할 수 있습니다.",
 						"INVALID_STATE");
 			}
 		} else if (member.getStatus() != PerformanceMemberStatus.APPLIED
 				&& member.getStatus() != PerformanceMemberStatus.APPROVED) {
-			throw new ApiException(ApiErrorCode.STATE_CONFLICT, "철회할 수 없는 참여 상태입니다.",
+			throw BusinessException.of(ErrorCode.STATE_CONFLICT, "철회할 수 없는 참여 상태입니다.",
 					"INVALID_STATE");
 		}
 		// 공연 상태와 확정 공연의 필수 사유를 검증한다.
 		PerformanceStatus status = performance.getStatus();
 		if (status != PerformanceStatus.DRAFT && status != PerformanceStatus.ACTIVE
 				&& status != PerformanceStatus.LOCKED) {
-			throw new ApiException(ApiErrorCode.STATE_CONFLICT, "공연 상태가 변경을 허용하지 않습니다.",
+			throw BusinessException.of(ErrorCode.STATE_CONFLICT, "공연 상태가 변경을 허용하지 않습니다.",
 					"INVALID_STATE");
 		}
 		if (status == PerformanceStatus.DRAFT && !reject && self) {
-			throw new ApiException(ApiErrorCode.FORBIDDEN, "초안 공연에서는 임원만 참여자를 뺄 수 있습니다.");
+			throw BusinessException.of(ErrorCode.FORBIDDEN, "초안 공연에서는 임원만 참여자를 뺄 수 있습니다.");
 		}
 		if (status == PerformanceStatus.LOCKED && (body.reason() == null || body.reason().isBlank())) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "확정 공연 변경에는 사유가 필요합니다.",
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "확정 공연 변경에는 사유가 필요합니다.",
 					"REASON_REQUIRED");
 		}
 		if (body.reason() != null && body.reason().length() > 500) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "사유는 500자 이하여야 합니다.");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "사유는 500자 이하여야 합니다.");
 		}
 		// 변경 전에 팀·곡·일정 영향을 계산해 응답과 안전 검증에 사용한다.
 		ParticipantImpactResponse affected = impact.read(clubId, performanceId, participantId, actorUserId);
@@ -115,7 +115,7 @@ public class ParticipantRemovalService {
 					""").setParameter("memberId", participantId)
 					.setParameter("performanceId", performanceId).getResultList();
 			if (!emptySongs.isEmpty()) {
-				throw new ApiException(ApiErrorCode.RULE_VIOLATION,
+				throw BusinessException.of(ErrorCode.RULE_VIOLATION,
 						"참여 해제 후 선정곡에 활동 연주자가 없습니다.", "SONG_WITHOUT_PLAYER");
 			}
 		}
@@ -200,8 +200,8 @@ public class ParticipantRemovalService {
 	}
 
 	/** 팀장 후임 지정 오류를 일관된 API 예외로 생성한다. */
-	private static ApiException successorError() {
-		return new ApiException(ApiErrorCode.VALIDATION_ERROR, "팀장 후임 지정이 유효하지 않습니다.",
+	private static BusinessException successorError() {
+		return BusinessException.of(ErrorCode.VALIDATION_ERROR, "팀장 후임 지정이 유효하지 않습니다.",
 				"teamLeaderSuccessors", "SUCCESSOR_REQUIRED");
 	}
 }

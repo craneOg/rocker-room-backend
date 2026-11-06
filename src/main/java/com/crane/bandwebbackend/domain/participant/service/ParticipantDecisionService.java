@@ -8,8 +8,8 @@ import com.crane.bandwebbackend.domain.performance.entity.Performance;
 import com.crane.bandwebbackend.domain.performance.entity.PerformanceStatus;
 import com.crane.bandwebbackend.domain.performance.service.PerformanceService;
 import com.crane.bandwebbackend.global.audit.AuditRecorder;
-import com.crane.bandwebbackend.global.error.ApiErrorCode;
-import com.crane.bandwebbackend.global.error.ApiException;
+import com.crane.bandwebbackend.global.error.ErrorCode;
+import com.crane.bandwebbackend.global.error.BusinessException;
 import java.util.Map;
 import jakarta.persistence.EntityManager;
 import java.time.LocalDateTime;
@@ -43,23 +43,23 @@ public class ParticipantDecisionService {
 		memberships.requireAdmin(clubId, actorUserId);
 		Performance performance = performances.requireLocked(clubId, performanceId);
 		if (!String.valueOf(performance.getVersion()).equals(performanceVersion)) {
-			throw new ApiException(ApiErrorCode.VERSION_CONFLICT, "공연 버전이 달라졌습니다.");
+			throw BusinessException.of(ErrorCode.VERSION_CONFLICT, "공연 버전이 달라졌습니다.");
 		}
 		if (performance.getStatus() != PerformanceStatus.DRAFT
 				&& performance.getStatus() != PerformanceStatus.ACTIVE
 				&& performance.getStatus() != PerformanceStatus.LOCKED) {
-			throw new ApiException(ApiErrorCode.STATE_CONFLICT, "참여 승인 가능 상태가 아닙니다.",
+			throw BusinessException.of(ErrorCode.STATE_CONFLICT, "참여 승인 가능 상태가 아닙니다.",
 					"INVALID_STATE");
 		}
 		if (performance.getStatus() == PerformanceStatus.LOCKED && (reason == null || reason.isBlank())) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "사유가 필요합니다.", "REASON_REQUIRED");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "사유가 필요합니다.", "REASON_REQUIRED");
 		}
 		// 같은 동아리·공연의 신청 대기 참여자만 승인한다.
 		PerformanceMember participant = participants.findByIdAndPerformance_IdAndClubId(
 						participantId, performanceId, clubId)
-				.orElseThrow(() -> new ApiException(ApiErrorCode.NOT_FOUND, "참여자를 찾을 수 없습니다."));
+				.orElseThrow(() -> BusinessException.of(ErrorCode.NOT_FOUND, "참여자를 찾을 수 없습니다."));
 		if (participant.getStatus() != PerformanceMemberStatus.APPLIED) {
-			throw new ApiException(ApiErrorCode.STATE_CONFLICT, "승인 대기 상태가 아닙니다.", "INVALID_STATE");
+			throw BusinessException.of(ErrorCode.STATE_CONFLICT, "승인 대기 상태가 아닙니다.", "INVALID_STATE");
 		}
 		// 상태 전이와 일반 감사 로그를 같은 트랜잭션에 기록한다.
 		participant.transitionTo(PerformanceMemberStatus.APPROVED, LocalDateTime.now(ZoneOffset.UTC));

@@ -11,8 +11,8 @@ import com.crane.bandwebbackend.domain.participant.entity.PerformanceMember;
 import com.crane.bandwebbackend.domain.participant.entity.PerformanceMemberStatus;
 import com.crane.bandwebbackend.domain.participant.repository.PerformanceMemberRepository;
 import com.crane.bandwebbackend.domain.performance.service.PerformanceService;
-import com.crane.bandwebbackend.global.error.ApiErrorCode;
-import com.crane.bandwebbackend.global.error.ApiException;
+import com.crane.bandwebbackend.global.error.ErrorCode;
+import com.crane.bandwebbackend.global.error.BusinessException;
 import com.crane.bandwebbackend.global.response.ApiIds;
 import jakarta.persistence.EntityManager;
 import java.time.ZoneId;
@@ -54,7 +54,7 @@ public class ParticipantListReader {
 	) {
 		// 페이지·검색어 범위를 먼저 검증하고 요청자의 공연 열람 권한을 확인한다.
 		if (page < 0 || size < 1 || size > 100 || (q != null && (q.isBlank() || q.length() > 100))) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "목록 필터가 유효하지 않습니다.");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "목록 필터가 유효하지 않습니다.");
 		}
 		var actor = memberships.requireMember(clubId, actorUserId);
 		performances.detail(clubId, performanceId, actorUserId);
@@ -174,7 +174,7 @@ public class ParticipantListReader {
 			}
 			return set;
 		} catch (IllegalArgumentException exception) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "status가 유효하지 않습니다.");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "status가 유효하지 않습니다.");
 		}
 	}
 }

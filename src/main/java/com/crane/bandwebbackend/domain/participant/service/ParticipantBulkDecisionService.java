@@ -6,8 +6,8 @@ import com.crane.bandwebbackend.domain.participant.dto.ParticipantBulkDecisionRe
 import com.crane.bandwebbackend.domain.participant.dto.ParticipantRemovalRequest;
 import com.crane.bandwebbackend.domain.performance.entity.PerformanceStatus;
 import com.crane.bandwebbackend.domain.performance.service.PerformanceService;
-import com.crane.bandwebbackend.global.error.ApiErrorCode;
-import com.crane.bandwebbackend.global.error.ApiException;
+import com.crane.bandwebbackend.global.error.ErrorCode;
+import com.crane.bandwebbackend.global.error.BusinessException;
 import com.crane.bandwebbackend.global.response.ApiIds;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -40,20 +40,20 @@ public class ParticipantBulkDecisionService {
 		var performance = performances.require(clubId, performanceId);
 		if (performance.getStatus() != PerformanceStatus.DRAFT
 				&& performance.getStatus() != PerformanceStatus.ACTIVE) {
-			throw new ApiException(ApiErrorCode.STATE_CONFLICT, "일괄 결정이 가능한 공연 상태가 아닙니다.",
+			throw BusinessException.of(ErrorCode.STATE_CONFLICT, "일괄 결정이 가능한 공연 상태가 아닙니다.",
 					"INVALID_STATE");
 		}
 		if (request == null || request.decision() == null || request.performanceMemberIds() == null
 				|| request.performanceMemberIds().isEmpty() || request.performanceMemberIds().size() > 100) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "일괄 결정 요청이 유효하지 않습니다.");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "일괄 결정 요청이 유효하지 않습니다.");
 		}
 		if (request.reason() != null && request.reason().length() > 500) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "사유는 500자 이하여야 합니다.");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "사유는 500자 이하여야 합니다.");
 		}
 		List<Long> ids = request.performanceMemberIds().stream()
 				.map(value -> ApiIds.positive(value, "performanceMemberIds")).toList();
 		if (new HashSet<>(ids).size() != ids.size()) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "performanceMemberIds에 중복 값이 있습니다.");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "performanceMemberIds에 중복 값이 있습니다.");
 		}
 		// 각 참여자를 새 트랜잭션에서 처리해 일부 실패 결과를 반환한다.
 		TransactionTemplate tx = new TransactionTemplate(transactionManager);
@@ -75,9 +75,9 @@ public class ParticipantBulkDecisionService {
 					}
 				});
 				succeeded.add(new ParticipantBulkDecisionResponse.Success(id.toString()));
-			} catch (ApiException exception) {
-				String reason = exception.getCode() == ApiErrorCode.NOT_FOUND ? "NOT_FOUND"
-						: exception.getCode() == ApiErrorCode.STATE_CONFLICT ? "NOT_APPLIED"
+			} catch (BusinessException exception) {
+				String reason = exception.getCode() == ErrorCode.NOT_FOUND ? "NOT_FOUND"
+						: exception.getCode() == ErrorCode.STATE_CONFLICT ? "NOT_APPLIED"
 						: exception.getReason() == null ? exception.getCode().name() : exception.getReason();
 				failed.add(new ParticipantBulkDecisionResponse.Failure(id.toString(), reason));
 			} catch (RuntimeException exception) {
