@@ -9,7 +9,7 @@ import com.crane.bandwebbackend.domain.performance.entity.Performance;
 import com.crane.bandwebbackend.domain.performance.entity.PerformanceStatus;
 import com.crane.bandwebbackend.domain.performance.repository.PerformancePolicyRepository;
 import com.crane.bandwebbackend.domain.performance.repository.PerformanceRepository;
-import com.crane.bandwebbackend.global.audit.AuditLog;
+import com.crane.bandwebbackend.global.audit.AuditRecorder;
 import com.crane.bandwebbackend.global.error.ApiErrorCode;
 import com.crane.bandwebbackend.global.error.ApiException;
 import com.crane.bandwebbackend.global.error.ConfirmationRequiredException;
@@ -30,6 +30,7 @@ public class VoteMethodChangeService {
 	private final PerformanceRepository performances;
 	private final PerformancePolicyRepository policies;
 	private final EntityManager entityManager;
+	private final AuditRecorder auditRecorder;
 
 	/** 공연 입력과 상태를 검증한다 */
 	@Transactional(readOnly = true)
@@ -69,9 +70,7 @@ public class VoteMethodChangeService {
 					.setParameter("id", performanceId).executeUpdate();
 			state.policy().changeVoteMethod(body.voteMethod());
 			entityManager.lock(state.performance(), LockModeType.OPTIMISTIC_FORCE_INCREMENT);
-			entityManager.persist(AuditLog.record(clubId, actorUserId, "VOTE_METHOD_CHANGED",
-					"PERFORMANCE", performanceId, body.reason(),
-					"{\"removedVoteCount\":" + removed + "}"));
+			auditRecorder.record(clubId, actorUserId, "VOTE_METHOD_CHANGED", "PERFORMANCE", performanceId, body.reason(), Map.of("removedVoteCount", removed));
 		}
 		entityManager.flush();
 		return new ChangeResult(PerformancePolicyResponse.from(state.policy()), removed);

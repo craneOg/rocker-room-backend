@@ -4,7 +4,7 @@ import com.crane.bandwebbackend.domain.performance.dto.PerformanceDetailResponse
 import com.crane.bandwebbackend.domain.performance.dto.PerformancePolicyResponse;
 import com.crane.bandwebbackend.domain.performance.dto.PerformanceResponse;
 import com.crane.bandwebbackend.domain.schedule.entity.ScheduleStatus;
-import com.crane.bandwebbackend.domain.schedule.repository.PracticeScheduleRepository;
+import com.crane.bandwebbackend.domain.schedule.service.ScheduleLookup;
 import jakarta.persistence.EntityManager;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -20,7 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class PerformanceDetailReader {
 	private final PerformanceService performances;
 	private final EntityManager entityManager;
-	private final PracticeScheduleRepository schedules;
+	private final ScheduleLookup schedules;
 
 	/** 공연 정보를 조회한다 */
 	@Transactional(readOnly = true)
@@ -41,7 +41,7 @@ public class PerformanceDetailReader {
 						performanceId));
 		LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
 		// 현재 이후의 가장 이른 확정 일정을 한국 시각 응답으로 변환한다.
-		var next = schedules.findByPerformance_IdAndPerformance_Club_Id(performanceId, clubId).stream()
+		var next = schedules.schedulesOfPerformance(clubId, performanceId).stream()
 				.filter(schedule -> schedule.getStatus() == ScheduleStatus.CONFIRMED
 						&& !schedule.getStartAt().isBefore(now))
 				.min(Comparator.comparing(com.crane.bandwebbackend.domain.schedule.entity.PracticeSchedule::getStartAt))

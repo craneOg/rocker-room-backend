@@ -9,7 +9,7 @@ import com.crane.bandwebbackend.domain.performance.dto.PerformanceResponse;
 import com.crane.bandwebbackend.domain.performance.entity.Performance;
 import com.crane.bandwebbackend.domain.performance.entity.PerformanceStatus;
 import com.crane.bandwebbackend.domain.performance.repository.PerformanceRepository;
-import com.crane.bandwebbackend.global.audit.AuditLog;
+import com.crane.bandwebbackend.global.audit.AuditRecorder;
 import com.crane.bandwebbackend.global.error.ApiErrorCode;
 import com.crane.bandwebbackend.global.error.ApiException;
 import com.crane.bandwebbackend.global.error.ConfirmationRequiredException;
@@ -28,6 +28,7 @@ public class PerformanceLockService {
 	private final PerformanceRepository performances;
 	private final LockReadinessReader readiness;
 	private final EntityManager entityManager;
+	private final AuditRecorder auditRecorder;
 
 	/** 공연 확정 점검 항목을 조회한다 */
 	@Transactional(readOnly = true)
@@ -105,9 +106,7 @@ public class PerformanceLockService {
 		}
 		// 셋리스트 반영 후 공연 상태와 감사 로그를 함께 확정한다.
 		performance.transitionTo(PerformanceStatus.LOCKED);
-		entityManager.persist(AuditLog.record(clubId, actorUserId, "SETLIST_CONFIRMED",
-				"PERFORMANCE", performanceId, null,
-				"{\"confirmedSongCount\":" + evaluation.normalizedSetlist().size() + "}"));
+		auditRecorder.record(clubId, actorUserId, "SETLIST_CONFIRMED", "PERFORMANCE", performanceId, null, Map.of("confirmedSongCount", evaluation.normalizedSetlist().size()));
 		entityManager.flush();
 		return new LockMutationResponse(PerformanceResponse.from(performance), evaluation.warnings(),
 				LockMutationResponse.Effects.none());

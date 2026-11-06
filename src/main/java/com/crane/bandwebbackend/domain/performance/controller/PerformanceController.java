@@ -21,7 +21,6 @@ import com.crane.bandwebbackend.global.error.ApiException;
 import com.crane.bandwebbackend.global.response.ApiIds;
 import com.crane.bandwebbackend.global.response.ApiResponse;
 import com.crane.bandwebbackend.global.response.PageResponse;
-import com.crane.bandwebbackend.global.response.RequestIdFilter;
 import com.crane.bandwebbackend.global.security.CurrentActor;
 import jakarta.validation.Valid;
 import jakarta.servlet.http.HttpServletRequest;
@@ -80,7 +79,7 @@ public class PerformanceController {
 		}
 		Page<PerformanceListItem> result = listReader.page(ApiIds.positive(clubId, "clubId"),
 				currentActor.requireUserId(), status, preset, fromDate, toDate, sort, PageRequest.of(page, size));
-		return ResponseEntity.ok(ApiResponse.of(PageResponse.from(result), RequestIdFilter.require(request)));
+		return ResponseEntity.ok(ApiResponse.ok(PageResponse.from(result)));
 	}
 
 	/** 공연 생성한다 */
@@ -91,8 +90,8 @@ public class PerformanceController {
 		@RequestHeader("X-Requested-With") String requestedWith,
 		HttpServletRequest request
 	) {
-		return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.of(createService.create(ApiIds.positive(clubId, "clubId"),
-				currentActor.requireUserId(), body), RequestIdFilter.require(request)));
+		return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(createService.create(ApiIds.positive(clubId, "clubId"),
+				currentActor.requireUserId(), body)));
 	}
 
 	/** 공연 상세 정보를 조회한다 */
@@ -102,9 +101,8 @@ public class PerformanceController {
 		@PathVariable String performanceId,
 		HttpServletRequest request
 	) {
-		return ResponseEntity.ok(ApiResponse.of(detailReader.read(ApiIds.positive(clubId, "clubId"),
-				ApiIds.positive(performanceId, "performanceId"), currentActor.requireUserId()),
-				RequestIdFilter.require(request)));
+		return ResponseEntity.ok(ApiResponse.ok(detailReader.read(ApiIds.positive(clubId, "clubId"),
+				ApiIds.positive(performanceId, "performanceId"), currentActor.requireUserId())));
 	}
 
 	/** 공연 운영 정책을 조회한다 */
@@ -114,9 +112,8 @@ public class PerformanceController {
 		@PathVariable String performanceId,
 		HttpServletRequest request
 	) {
-		return ResponseEntity.ok(ApiResponse.of(PerformancePolicyResponse.from(service.policy(ApiIds.positive(clubId, "clubId"),
-				ApiIds.positive(performanceId, "performanceId"), currentActor.requireUserId())),
-				RequestIdFilter.require(request)));
+		return ResponseEntity.ok(ApiResponse.ok(PerformancePolicyResponse.from(service.policy(ApiIds.positive(clubId, "clubId"),
+				ApiIds.positive(performanceId, "performanceId"), currentActor.requireUserId()))));
 	}
 
 	/** 공연 수정한다 */
@@ -128,9 +125,8 @@ public class PerformanceController {
 		@RequestHeader("X-Requested-With") String requestedWith,
 		HttpServletRequest request
 	) {
-		return ResponseEntity.ok(ApiResponse.of(editService.update(ApiIds.positive(clubId, "clubId"),
-				ApiIds.positive(performanceId, "performanceId"), currentActor.requireUserId(), body),
-				RequestIdFilter.require(request)));
+		return ResponseEntity.ok(ApiResponse.ok(editService.update(ApiIds.positive(clubId, "clubId"),
+				ApiIds.positive(performanceId, "performanceId"), currentActor.requireUserId(), body)));
 	}
 
 	/** 공연 운영 정책을 수정한다 */
@@ -142,9 +138,8 @@ public class PerformanceController {
 		@RequestHeader("X-Requested-With") String requestedWith,
 		HttpServletRequest request
 	) {
-		return ResponseEntity.ok(ApiResponse.of(policyEditService.update(ApiIds.positive(clubId, "clubId"),
-				ApiIds.positive(performanceId, "performanceId"), currentActor.requireUserId(), body),
-				RequestIdFilter.require(request)));
+		return ResponseEntity.ok(ApiResponse.ok(policyEditService.update(ApiIds.positive(clubId, "clubId"),
+				ApiIds.positive(performanceId, "performanceId"), currentActor.requireUserId(), body)));
 	}
 
 	/** 공연 투표 방식 변경을 검증한다 */
@@ -156,9 +151,8 @@ public class PerformanceController {
 		@RequestHeader("X-Requested-With") String requestedWith,
 		HttpServletRequest request
 	) {
-		return ResponseEntity.ok(ApiResponse.of(voteMethodChangeService.validate(ApiIds.positive(clubId, "clubId"),
-				ApiIds.positive(performanceId, "performanceId"), currentActor.requireUserId(), body),
-				RequestIdFilter.require(request)));
+		return ResponseEntity.ok(ApiResponse.ok(voteMethodChangeService.validate(ApiIds.positive(clubId, "clubId"),
+				ApiIds.positive(performanceId, "performanceId"), currentActor.requireUserId(), body)));
 	}
 
 	/** 공연 투표 방식을 변경한다 */
@@ -170,8 +164,7 @@ public class PerformanceController {
 		@RequestHeader("X-Requested-With") String requestedWith,
 		HttpServletRequest request
 	) {
-		return ResponseEntity.ok(ApiResponse.of(voteMethodChangeService.change(ApiIds.positive(clubId, "clubId"),
-				ApiIds.positive(performanceId, "performanceId"), currentActor.requireUserId(), body),
-				RequestIdFilter.require(request)));
+		return ResponseEntity.ok(ApiResponse.ok(voteMethodChangeService.change(ApiIds.positive(clubId, "clubId"),
+				ApiIds.positive(performanceId, "performanceId"), currentActor.requireUserId(), body)));
 	}
 }

@@ -34,7 +34,8 @@ class PerformanceLockServiceTest {
     private final LockReadinessReader readiness = mock(LockReadinessReader.class);
     private final EntityManager entityManager = mock(EntityManager.class);
     private final PerformanceLockService service =
-            new PerformanceLockService(memberships, performances, readiness, entityManager);
+            new PerformanceLockService(memberships, performances, readiness, entityManager,
+                    mock(com.crane.bandwebbackend.global.audit.AuditRecorder.class));
 
     @Test
     void confirmationWarningDoesNotChangePerformanceOrSong() {

@@ -10,11 +10,12 @@ import com.crane.bandwebbackend.domain.performance.entity.PerformancePreset;
 import com.crane.bandwebbackend.domain.performance.entity.VoteMethod;
 import com.crane.bandwebbackend.domain.performance.repository.PerformancePolicyRepository;
 import com.crane.bandwebbackend.domain.performance.repository.PerformanceRepository;
-import com.crane.bandwebbackend.global.audit.AuditLog;
+import com.crane.bandwebbackend.global.audit.AuditRecorder;
 import com.crane.bandwebbackend.global.error.ApiErrorCode;
 import com.crane.bandwebbackend.global.error.ApiException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import java.util.Map;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -31,6 +32,7 @@ public class PerformanceCreateService {
 	private final PerformancePolicyEditService policyEdit;
 	private final BandPerformanceInitializationService bandInitializer;
 	private final EntityManager entityManager;
+	private final AuditRecorder auditRecorder;
 
 	/** 공연 생성한다 */
 	@Transactional
@@ -93,8 +95,7 @@ public class PerformanceCreateService {
 			bandInitializer.initialize(performance, actorUserId);
 		}
 		// 생성 이벤트를 기록하고 모든 제약조건을 즉시 확인한 뒤 응답으로 변환한다.
-		entityManager.persist(AuditLog.record(clubId, actorUserId, "PERFORMANCE_CREATED",
-				"PERFORMANCE", performance.getId(), null, "{\"preset\":\"" + preset + "\"}"));
+		auditRecorder.record(clubId, actorUserId, "PERFORMANCE_CREATED", "PERFORMANCE", performance.getId(), null, Map.of("preset", preset));
 		entityManager.flush();
 		return PerformanceResponse.from(performance);
 	}

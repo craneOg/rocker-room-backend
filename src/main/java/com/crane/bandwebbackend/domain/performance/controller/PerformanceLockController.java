@@ -8,7 +8,6 @@ import com.crane.bandwebbackend.domain.performance.dto.LockValidationResponse;
 import com.crane.bandwebbackend.domain.performance.service.PerformanceLockService;
 import com.crane.bandwebbackend.global.response.ApiIds;
 import com.crane.bandwebbackend.global.response.ApiResponse;
-import com.crane.bandwebbackend.global.response.RequestIdFilter;
 import com.crane.bandwebbackend.global.security.CurrentActor;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -41,8 +40,8 @@ public class PerformanceLockController {
 		@RequestHeader("X-Requested-With") String requestedWith,
 		HttpServletRequest request
 	) {
-		return ResponseEntity.ok(ApiResponse.of(service.validate(id(clubId), id(performanceId), actor.requireUserId(),
-				body.version()), RequestIdFilter.require(request)));
+		return ResponseEntity.ok(ApiResponse.ok(service.validate(id(clubId), id(performanceId), actor.requireUserId(),
+				body.version())));
 	}
 
 	/** 공연 최종 확정한다 */
@@ -54,8 +53,8 @@ public class PerformanceLockController {
 		@RequestHeader("X-Requested-With") String requestedWith,
 		HttpServletRequest request
 	) {
-		return ResponseEntity.ok(ApiResponse.of(service.lock(id(clubId), id(performanceId), actor.requireUserId(),
-				body.version(), Boolean.TRUE.equals(body.confirmed())), RequestIdFilter.require(request)));
+		return ResponseEntity.ok(ApiResponse.ok(service.lock(id(clubId), id(performanceId), actor.requireUserId(),
+				body.version(), Boolean.TRUE.equals(body.confirmed()))));
 	}
 
 	/** 공연 확정 점검 항목을 조회한다 */
@@ -65,8 +64,7 @@ public class PerformanceLockController {
 		@PathVariable String performanceId,
 		HttpServletRequest request
 	) {
-		return ResponseEntity.ok(ApiResponse.of(service.checklist(id(clubId), id(performanceId), actor.requireUserId()),
-				RequestIdFilter.require(request)));
+		return ResponseEntity.ok(ApiResponse.ok(service.checklist(id(clubId), id(performanceId), actor.requireUserId())));
 	}
 
 	/** 경로 식별자를 양의 정수로 검증해 변환한다. */

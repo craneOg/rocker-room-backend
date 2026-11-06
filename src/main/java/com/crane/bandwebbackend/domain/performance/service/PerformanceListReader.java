@@ -1,7 +1,7 @@
 package com.crane.bandwebbackend.domain.performance.service;
 
 import com.crane.bandwebbackend.domain.membership.service.MembershipService;
-import com.crane.bandwebbackend.domain.participant.repository.PerformanceMemberRepository;
+import com.crane.bandwebbackend.domain.participant.service.ParticipationLookup;
 import com.crane.bandwebbackend.domain.performance.dto.PerformanceListItem;
 import com.crane.bandwebbackend.domain.performance.entity.Performance;
 import com.crane.bandwebbackend.domain.performance.entity.PerformancePreset;
@@ -29,7 +29,7 @@ public class PerformanceListReader {
 	private final PerformanceService performances;
 	private final MembershipService memberships;
 	private final PerformancePolicyRepository policies;
-	private final PerformanceMemberRepository participants;
+	private final ParticipationLookup participants;
 
 	/** 공연 페이지를 조회한다 */
 	@Transactional(readOnly = true)
@@ -73,8 +73,7 @@ public class PerformanceListReader {
 		List<PerformanceListItem> items = selected.subList(start, end).stream().map(performance -> {
 			var policy = policies.findById(performance.getId())
 					.orElseThrow(() -> new ApiException(ApiErrorCode.NOT_FOUND, "공연 정책을 찾을 수 없습니다."));
-			var participation = participants.findByPerformance_IdAndMembership_Id(
-					performance.getId(), membershipId).map(member -> member.getStatus()).orElse(null);
+			var participation = participants.status(performance.getId(), membershipId).orElse(null);
 			return PerformanceListItem.from(performance, policy, participation);
 		}).toList();
 		return new PageImpl<>(items, pageable, selected.size());

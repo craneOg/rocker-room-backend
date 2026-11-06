@@ -8,10 +8,11 @@ import com.crane.bandwebbackend.domain.performance.entity.Performance;
 import com.crane.bandwebbackend.domain.performance.entity.PerformanceStatus;
 import com.crane.bandwebbackend.domain.performance.repository.PerformancePolicyRepository;
 import com.crane.bandwebbackend.domain.performance.repository.PerformanceRepository;
-import com.crane.bandwebbackend.global.audit.AuditLog;
+import com.crane.bandwebbackend.global.audit.AuditRecorder;
 import com.crane.bandwebbackend.global.error.ApiErrorCode;
 import com.crane.bandwebbackend.global.error.ApiException;
 import com.fasterxml.jackson.databind.JsonNode;
+import java.util.Map;
 import jakarta.persistence.EntityManager;
 import java.time.DateTimeException;
 import java.time.LocalDate;
@@ -29,6 +30,7 @@ public class PerformanceBasicEditService {
 	private final PerformanceRepository performances;
 	private final PerformancePolicyRepository policies;
 	private final EntityManager entityManager;
+	private final AuditRecorder auditRecorder;
 
 	/** 공연 수정한다 */
 	@Transactional
@@ -78,11 +80,9 @@ public class PerformanceBasicEditService {
 			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, exception.getMessage());
 		}
 		// 일반 수정과 확정 공연 예외 수정을 각각 감사 로그에 기록한다.
-		entityManager.persist(AuditLog.record(clubId, actorUserId, "PERFORMANCE_UPDATED",
-				"PERFORMANCE", performanceId, reason, "{\"version\":\"" + version + "\"}"));
+		auditRecorder.record(clubId, actorUserId, "PERFORMANCE_UPDATED", "PERFORMANCE", performanceId, reason, Map.of("version", version));
 		if (performance.getStatus() == PerformanceStatus.LOCKED) {
-			entityManager.persist(AuditLog.record(clubId, actorUserId, "LOCKED_EXCEPTION_EDIT",
-					"PERFORMANCE", performanceId, reason, "{\"version\":\"" + version + "\"}"));
+			auditRecorder.record(clubId, actorUserId, "LOCKED_EXCEPTION_EDIT", "PERFORMANCE", performanceId, reason, Map.of("version", version));
 		}
 		entityManager.flush();
 		// 변경된 공연일과 합주 시즌의 불일치는 차단하지 않고 경고로 반환한다.

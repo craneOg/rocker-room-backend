@@ -10,10 +10,11 @@ import com.crane.bandwebbackend.domain.performance.entity.PerformancePolicy;
 import com.crane.bandwebbackend.domain.performance.entity.PerformanceStatus;
 import com.crane.bandwebbackend.domain.performance.repository.PerformancePolicyRepository;
 import com.crane.bandwebbackend.domain.performance.repository.PerformanceRepository;
-import com.crane.bandwebbackend.global.audit.AuditLog;
+import com.crane.bandwebbackend.global.audit.AuditRecorder;
 import com.crane.bandwebbackend.global.error.ApiErrorCode;
 import com.crane.bandwebbackend.global.error.ApiException;
 import com.fasterxml.jackson.databind.JsonNode;
+import java.util.Map;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
 import java.time.DateTimeException;
@@ -36,6 +37,7 @@ public class PerformancePolicyEditService {
 	private final PerformanceRepository performances;
 	private final PerformancePolicyRepository policies;
 	private final EntityManager entityManager;
+	private final AuditRecorder auditRecorder;
 
 	/** 공연 수정한다 */
 	@Transactional
@@ -123,8 +125,7 @@ public class PerformancePolicyEditService {
 		}
 		// 정책 변경도 공연 revision에 반영하고 감사 로그와 함께 즉시 저장한다.
 		entityManager.lock(performance, LockModeType.OPTIMISTIC_FORCE_INCREMENT);
-		entityManager.persist(AuditLog.record(clubId, actorUserId, "PERFORMANCE_POLICY_UPDATED",
-				"PERFORMANCE", performanceId, null, "{\"version\":\"" + version + "\"}"));
+		auditRecorder.record(clubId, actorUserId, "PERFORMANCE_POLICY_UPDATED", "PERFORMANCE", performanceId, null, Map.of("version", version));
 		entityManager.flush();
 		// 기존 입력은 삭제하지 않으므로 축소된 기간·한도 영향을 경고로 알려 준다.
 		List<PolicyUpdateResponse.Warning> warnings = new ArrayList<>();

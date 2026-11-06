@@ -14,6 +14,7 @@ import com.crane.bandwebbackend.domain.performance.repository.PerformanceReposit
 import com.crane.bandwebbackend.global.error.ApiErrorCode;
 import com.crane.bandwebbackend.global.error.ApiException;
 import java.util.List;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.data.domain.Page;
@@ -39,6 +40,18 @@ public class PerformanceService {
 		// 동아리 ID를 조회 조건에 포함해 다른 동아리의 공연 ID를 숨긴다.
 		return repository.findByIdAndClub_Id(performanceId, clubId)
 				.orElseThrow(() -> new ApiException(ApiErrorCode.NOT_FOUND, "공연을 찾을 수 없습니다."));
+	}
+
+	/** 변경 트랜잭션에서 공연 행을 잠근 채 동아리 경계를 확인한다. */
+	public Performance requireLocked(Long clubId, Long performanceId) {
+		return repository.findWithLockByIdAndClub_Id(performanceId, clubId)
+				.orElseThrow(() -> new ApiException(ApiErrorCode.NOT_FOUND, "공연을 찾을 수 없습니다."));
+	}
+
+	@Transactional(readOnly = true)
+	public Optional<PerformancePolicy> policyIfExists(Long clubId, Long performanceId) {
+		require(clubId, performanceId);
+		return policyRepository.findById(performanceId);
 	}
 
 	/** 공연 목록을 조회한다 */

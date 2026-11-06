@@ -8,7 +8,6 @@ import com.crane.bandwebbackend.domain.performance.entity.PerformanceStatus;
 import com.crane.bandwebbackend.domain.performance.service.PerformanceTransitionService;
 import com.crane.bandwebbackend.global.response.ApiIds;
 import com.crane.bandwebbackend.global.response.ApiResponse;
-import com.crane.bandwebbackend.global.response.RequestIdFilter;
 import com.crane.bandwebbackend.global.security.CurrentActor;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -100,10 +99,9 @@ public class PerformanceStatusController {
 		@RequestHeader("X-Requested-With") String requestedWith,
 		HttpServletRequest request
 	) {
-		return ResponseEntity.ok(ApiResponse.of(PerformanceResponse.from(service.change(id(clubId), id(performanceId),
+		return ResponseEntity.ok(ApiResponse.ok(PerformanceResponse.from(service.change(id(clubId), id(performanceId),
 				actor.requireUserId(), PerformanceStatus.FINISHED, PerformanceStatus.LOCKED,
-				null, body.reason())),
-				RequestIdFilter.require(request)));
+				null, body.reason()))));
 	}
 
 	/** 공연 준비 상태로 되돌린다 */
@@ -115,17 +113,16 @@ public class PerformanceStatusController {
 		@RequestHeader("X-Requested-With") String requestedWith,
 		HttpServletRequest request
 	) {
-		return ResponseEntity.ok(ApiResponse.of(PerformanceResponse.from(service.revertToDraft(id(clubId), id(performanceId),
-				actor.requireUserId(), body == null ? null : body.reason())), RequestIdFilter.require(request)));
+		return ResponseEntity.ok(ApiResponse.ok(PerformanceResponse.from(service.revertToDraft(id(clubId), id(performanceId),
+				actor.requireUserId(), body == null ? null : body.reason()))));
 	}
 
 	/** 공연 상태 변경 엔드포인트의 공통 호출과 응답 생성을 처리한다. */
 	private ApiResponse<PerformanceResponse> change(String clubId, String performanceId,
 			PerformanceTransitionRequest body, PerformanceStatus source, PerformanceStatus target,
 			HttpServletRequest request) {
-		return ApiResponse.of(PerformanceResponse.from(service.change(id(clubId), id(performanceId),
-				actor.requireUserId(), source, target, body.version(), body.reason())),
-				RequestIdFilter.require(request));
+		return ApiResponse.ok(PerformanceResponse.from(service.change(id(clubId), id(performanceId),
+				actor.requireUserId(), source, target, body.version(), body.reason())));
 	}
 
 	/** 경로 식별자를 양의 정수로 검증해 변환한다. */

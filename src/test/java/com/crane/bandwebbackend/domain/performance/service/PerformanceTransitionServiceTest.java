@@ -22,7 +22,8 @@ class PerformanceTransitionServiceTest {
     private final PerformanceRepository repository = mock(PerformanceRepository.class);
     private final EntityManager entityManager = mock(EntityManager.class);
     private final PerformanceTransitionService service =
-            new PerformanceTransitionService(members, repository, entityManager);
+            new PerformanceTransitionService(members, repository, entityManager,
+                    mock(com.crane.bandwebbackend.global.audit.AuditRecorder.class));
 
     @Test
     void api047RejectsStaleVersionBeforeChangingStatus() {

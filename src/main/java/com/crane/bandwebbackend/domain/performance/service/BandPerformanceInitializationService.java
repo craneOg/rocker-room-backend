@@ -3,7 +3,7 @@ package com.crane.bandwebbackend.domain.performance.service;
 import com.crane.bandwebbackend.domain.membership.entity.MemberType;
 import com.crane.bandwebbackend.domain.membership.entity.Membership;
 import com.crane.bandwebbackend.domain.membership.entity.MembershipStatus;
-import com.crane.bandwebbackend.domain.membership.repository.MembershipRepository;
+import com.crane.bandwebbackend.domain.membership.service.MembershipService;
 import com.crane.bandwebbackend.domain.participant.entity.PerformanceMember;
 import com.crane.bandwebbackend.domain.performance.entity.Performance;
 import com.crane.bandwebbackend.domain.performance.entity.PerformancePreset;
@@ -23,7 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 @RequiredArgsConstructor
 public class BandPerformanceInitializationService {
-	private final MembershipRepository memberships;
+	private final MembershipService memberships;
 	private final EntityManager entityManager;
 
 	/** 활성 정회원을 승인 참여자로 등록하고 모두 기본 팀에 편성한다. */
@@ -40,7 +40,7 @@ public class BandPerformanceInitializationService {
 		entityManager.flush();
 
 		// 동아리의 활성 정회원만 자동 참여 대상으로 선정한다.
-		List<Membership> eligible = memberships.findByClub_Id(performance.getClub().getId()).stream()
+		List<Membership> eligible = memberships.listAdmin(performance.getClub().getId(), actorUserId).stream()
 				.filter(member -> member.getStatus() == MembershipStatus.ACTIVE)
 				.filter(member -> member.getMemberType() == MemberType.REGULAR)
 				.sorted(Comparator.comparing(Membership::getId))

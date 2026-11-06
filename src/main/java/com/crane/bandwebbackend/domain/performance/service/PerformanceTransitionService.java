@@ -5,9 +5,10 @@ import com.crane.bandwebbackend.domain.club.entity.ClubStatus;
 import com.crane.bandwebbackend.domain.performance.entity.Performance;
 import com.crane.bandwebbackend.domain.performance.entity.PerformanceStatus;
 import com.crane.bandwebbackend.domain.performance.repository.PerformanceRepository;
-import com.crane.bandwebbackend.global.audit.AuditLog;
+import com.crane.bandwebbackend.global.audit.AuditRecorder;
 import com.crane.bandwebbackend.global.error.ApiErrorCode;
 import com.crane.bandwebbackend.global.error.ApiException;
+import java.util.Map;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -21,6 +22,7 @@ public class PerformanceTransitionService {
 	private final MembershipService membershipService;
 	private final PerformanceRepository repository;
 	private final EntityManager entityManager;
+	private final AuditRecorder auditRecorder;
 
 	/** API-151: Member 입력이 있으면 공개 전 상태로 되돌릴 수 없다. */
 	@Transactional
@@ -63,8 +65,7 @@ public class PerformanceTransitionService {
 		}
 		// 부원 입력이 없을 때만 초안으로 되돌리고 변경 내역을 기록한다.
 		performance.transitionTo(PerformanceStatus.DRAFT);
-		entityManager.persist(AuditLog.record(clubId, actorUserId, "PERFORMANCE_STATUS_CHANGED",
-				"PERFORMANCE", performanceId, reason, "{\"from\":\"ACTIVE\",\"to\":\"DRAFT\"}"));
+		auditRecorder.record(clubId, actorUserId, "PERFORMANCE_STATUS_CHANGED", "PERFORMANCE", performanceId, reason, Map.of("from", "ACTIVE", "to", "DRAFT"));
 		entityManager.flush();
 		return performance;
 	}
@@ -117,9 +118,7 @@ public class PerformanceTransitionService {
 		} catch (IllegalStateException | IllegalArgumentException exception) {
 			throw new ApiException(ApiErrorCode.STATE_CONFLICT, exception.getMessage(), "INVALID_STATE");
 		}
-		entityManager.persist(AuditLog.record(clubId, actorUserId, "PERFORMANCE_STATUS_CHANGED",
-				"PERFORMANCE", performanceId, reason,
-				"{\"from\":\"" + previous + "\",\"to\":\"" + target + "\"}"));
+		auditRecorder.record(clubId, actorUserId, "PERFORMANCE_STATUS_CHANGED", "PERFORMANCE", performanceId, reason, Map.of("from", previous.toString(), "to", target.toString()));
 		return performance;
 	}
 }
