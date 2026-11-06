@@ -61,17 +61,21 @@ public class User extends BaseTimeEntity {
 
     private LocalDateTime withdrawnAt;
 
-    /** AUTH-08. 사용자 자신에게 허용된 프로필 필드만 변경한다. */
-    public void updateProfile(String name, String handle, boolean clearImage) {
-        if (name != null) {
-            this.name = name.trim();
-        }
-        if (handle != null) {
-            this.handle = handle;
-        }
-        if (clearImage) {
-            this.profileImageUrl = null;
-        }
+    // 서비스 프로필은 카카오 프로필과 독립적으로 관리한다(API 8)
+    public void rename(String name) {
+        this.name = name;
+    }
+
+    public void changeHandle(String handle) {
+        this.handle = handle;
+    }
+
+    public void changeProfileImagePublic(boolean profileImagePublic) {
+        this.profileImagePublic = profileImagePublic;
+    }
+
+    public void clearProfileImage() {
+        this.profileImageUrl = null;
     }
 
     // 탈퇴 복구(U-10): 보관한 이름·사진을 되돌리고 토큰 버전을 올린다. handle은 복구하지 않는다
