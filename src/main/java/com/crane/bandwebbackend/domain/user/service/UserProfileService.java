@@ -13,6 +13,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 // API 7·8·128: 본인 프로필. 인증된 요청만 도달하므로 사용자는 항상 존재한다(필터가 확인)
 @Service
@@ -20,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class UserProfileService {
 
     private final UserRepository userRepository;
+    private final ProfileImageService profileImages;
 
     @Transactional(readOnly = true)
     public UserProfileResponse getMe(long userId) {
@@ -70,16 +73,24 @@ public class UserProfileService {
         return new HandleAvailabilityResponse(available);
     }
 
-    // ponytail: 사진 저장소(Cloudflare R2)와 업로드 API(129)가 아직 없어 유효한 임시 키가 존재할 수 없다.
-    // 그래서 키를 보내면 모두 IMAGE_KEY_NOT_FOUND이고, null("사진 삭제")만 처리한다.
-    // 저장소 연동 단계에서 키 검증·영구 위치 이동·이전 사진 삭제로 바꾼다
+    // null이면 사진 삭제, 키(API 129)면 영구 위치로 옮겨 연결한다. 이전 사진 객체는 커밋 뒤에 지운다
     private void applyProfileImage(User user, String key) {
+        String previousUrl = user.getProfileImageUrl();
         if (key == null) {
             user.clearProfileImage();
-            return;
+        } else {
+            user.changeProfileImage(profileImages.promote(user.getId(), key));
         }
-        throw new BusinessException(
-                ErrorCode.NOT_FOUND, "요청한 리소스를 찾을 수 없습니다.", List.of(ErrorDetail.of(null, "IMAGE_KEY_NOT_FOUND")));
+        long userId = user.getId();
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                profileImages.deletePrevious(userId, previousUrl);
+                if (key != null) {
+                    profileImages.deleteTmp(key);
+                }
+            }
+        });
     }
 
     // 명세상 null 불가인 필드를 null로 보내면 400(보내지 않은 것과 구분한다)

@@ -33,6 +33,13 @@ dependencies {
     implementation 'io.jsonwebtoken:jjwt-api:0.13.0'
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.9.1'
     implementation 'com.querydsl:querydsl-jpa:5.1.0:jakarta'
+    // Cloudflare R2(S3 호환) 사진 저장소. 동기 클라이언트와 JDK 기반 HTTP 클라이언트만 쓴다(Netty·Apache HttpClient 제외)
+    implementation(platform('software.amazon.awssdk:bom:2.57.2'))
+    implementation('software.amazon.awssdk:s3') {
+        exclude group: 'software.amazon.awssdk', module: 'netty-nio-client'
+        exclude group: 'software.amazon.awssdk', module: 'apache-client'
+    }
+    implementation 'software.amazon.awssdk:url-connection-client'
     compileOnly 'org.projectlombok:lombok'
     runtimeOnly 'com.mysql:mysql-connector-j'
     runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.13.0'

@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @Slf4j
@@ -84,6 +85,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
     public ResponseEntity<ErrorResponse> handle(HttpMediaTypeNotSupportedException e) {
         return respondValidation("지원하지 않는 요청 형식입니다.", List.of(ErrorDetail.of(null, "UNSUPPORTED_MEDIA_TYPE")));
+    }
+
+    // 업로드가 서버 한도(spring.servlet.multipart.max-file-size, 2MiB)를 넘으면 컨트롤러에 닿기 전에 발생한다
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ErrorResponse> handle(MaxUploadSizeExceededException e) {
+        return respondValidation(INVALID_REQUEST, List.of(ErrorDetail.of("file", "FILE_TOO_LARGE")));
     }
 
     // 낙관적 락 대상(performance, team, song, practice_schedule)

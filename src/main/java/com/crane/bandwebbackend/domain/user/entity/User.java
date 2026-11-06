@@ -78,6 +78,10 @@ public class User extends BaseTimeEntity {
         this.profileImageUrl = null;
     }
 
+    public void changeProfileImage(String profileImageUrl) {
+        this.profileImageUrl = profileImageUrl;
+    }
+
     // 탈퇴 복구(U-10): 보관한 이름·사진을 되돌리고 토큰 버전을 올린다. handle은 복구하지 않는다
     public void restore(String name, String profileImageUrl) {
         this.name = name;

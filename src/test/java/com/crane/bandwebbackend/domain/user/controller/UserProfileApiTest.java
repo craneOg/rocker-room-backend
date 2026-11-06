@@ -345,7 +345,7 @@ class UserProfileApiTest {
     }
 
     @Test
-    @DisplayName("API 8: 사진은 null을 보내면 삭제되고, 키를 보내면 404 IMAGE_KEY_NOT_FOUND(업로드 API 전까지)")
+    @DisplayName("API 8: 사진은 null을 보내면 삭제되고, 형식이 맞지 않는 키는 404 IMAGE_KEY_NOT_FOUND")
     void profileImage() throws Exception {
         long id = user("사진", "photo_user", "https://cdn.example/old.png", true);
 
