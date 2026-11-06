@@ -501,7 +501,11 @@ class AdminClubApiTest {
         long id = alpha();
         String path = "/api/v1/admin/clubs/" + id + "/deactivate";
         for (String body : new String[] {
-            "{}", "{\"reason\":null}", "{\"reason\":\"   \"}", "{\"reason\":\"" + "가".repeat(501) + "\"}"
+            "{}",
+            "{\"reason\":null}",
+            "{\"reason\":\"   \"}",
+            "{\"reason\":\"\u2003\u2003\"}",
+            "{\"reason\":\"" + "가".repeat(501) + "\"}"
         }) {
             mockMvc.perform(clubStatus(admin, path, body, true))
                     .andExpect(status().isBadRequest())
