@@ -10,9 +10,8 @@ import com.crane.bandwebbackend.domain.performance.entity.PerformanceStatus;
 import com.crane.bandwebbackend.domain.performance.repository.PerformancePolicyRepository;
 import com.crane.bandwebbackend.domain.performance.repository.PerformanceRepository;
 import com.crane.bandwebbackend.global.audit.AuditRecorder;
-import com.crane.bandwebbackend.global.error.ApiErrorCode;
-import com.crane.bandwebbackend.global.error.ApiException;
-import com.crane.bandwebbackend.global.error.ConfirmationRequiredException;
+import com.crane.bandwebbackend.global.error.ErrorCode;
+import com.crane.bandwebbackend.global.error.BusinessException;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
 import java.util.List;
@@ -56,23 +55,27 @@ public class VoteMethodChangeService {
 		// 공연을 잠근 상태로 현재 정책과 영향 투표 수를 다시 읽는다.
 		State state = state(clubId, performanceId, actorUserId, body, true);
 		if (body.reason() == null || body.reason().isBlank() || body.reason().length() > 500) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "변경 사유는 1~500자여야 합니다.");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "변경 사유는 1~500자여야 합니다.");
 		}
 		// 기존 투표가 삭제될 경우 명시적인 사용자 확인을 요구한다.
 		List<Object> warnings = warnings(state);
 		if (!warnings.isEmpty() && !Boolean.TRUE.equals(body.confirmed())) {
-			throw new ConfirmationRequiredException(warnings);
+			throw BusinessException.confirmationRequired("경고를 확인한 뒤 다시 요청해 주세요.", warnings);
 		}
 		int removed = 0;
+		boolean changed = state.policy().getVoteMethod() != body.voteMethod();
 		// 실제 방식이 달라질 때만 기존 투표 삭제·정책 변경·버전 증가를 수행한다.
-		if (state.policy().getVoteMethod() != body.voteMethod()) {
+		if (changed) {
 			removed = entityManager.createNativeQuery("DELETE FROM song_vote WHERE performance_id = :id")
 					.setParameter("id", performanceId).executeUpdate();
 			state.policy().changeVoteMethod(body.voteMethod());
-			entityManager.lock(state.performance(), LockModeType.OPTIMISTIC_FORCE_INCREMENT);
+			entityManager.lock(state.performance(), LockModeType.PESSIMISTIC_FORCE_INCREMENT);
 			auditRecorder.record(clubId, actorUserId, "VOTE_METHOD_CHANGED", "PERFORMANCE", performanceId, body.reason(), Map.of("removedVoteCount", removed));
 		}
 		entityManager.flush();
+		if (changed) {
+			entityManager.refresh(state.performance());
+		}
 		return new ChangeResult(PerformancePolicyResponse.from(state.policy()), removed);
 	}
 
@@ -83,28 +86,28 @@ public class VoteMethodChangeService {
 		memberships.requireAdmin(clubId, actorUserId);
 		if (body == null || body.version() == null || !body.version().matches("[0-9]+")
 				|| body.voteMethod() == null) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "투표 방식 요청이 유효하지 않습니다.");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "투표 방식 요청이 유효하지 않습니다.");
 		}
 		var performance = write
 				? performances.findWithLockByIdAndClub_Id(performanceId, clubId).orElse(null)
 				: performances.findByIdAndClub_Id(performanceId, clubId).orElse(null);
 		if (performance == null) {
-			throw new ApiException(ApiErrorCode.NOT_FOUND, "공연을 찾을 수 없습니다.");
+			throw BusinessException.of(ErrorCode.NOT_FOUND, "공연을 찾을 수 없습니다.");
 		}
 		if (performance.getClub().getStatus() != ClubStatus.ACTIVE) {
-			throw new ApiException(ApiErrorCode.STATE_CONFLICT, "비활성 동아리에서는 변경할 수 없습니다.",
+			throw BusinessException.of(ErrorCode.STATE_CONFLICT, "비활성 동아리에서는 변경할 수 없습니다.",
 					"CLUB_INACTIVE");
 		}
 		if (performance.getStatus() != PerformanceStatus.DRAFT
 				&& performance.getStatus() != PerformanceStatus.ACTIVE) {
-			throw new ApiException(ApiErrorCode.STATE_CONFLICT, "정책을 변경할 수 없는 공연 상태입니다.",
+			throw BusinessException.of(ErrorCode.STATE_CONFLICT, "정책을 변경할 수 없는 공연 상태입니다.",
 					"INVALID_STATE");
 		}
 		if (!body.version().equals(String.valueOf(performance.getVersion()))) {
-			throw new ApiException(ApiErrorCode.VERSION_CONFLICT, "공연 버전이 달라졌습니다.");
+			throw BusinessException.of(ErrorCode.VERSION_CONFLICT, "공연 버전이 달라졌습니다.");
 		}
 		PerformancePolicy policy = policies.findById(performanceId)
-				.orElseThrow(() -> new ApiException(ApiErrorCode.NOT_FOUND, "공연 정책을 찾을 수 없습니다."));
+				.orElseThrow(() -> BusinessException.of(ErrorCode.NOT_FOUND, "공연 정책을 찾을 수 없습니다."));
 		// 같은 방식이면 영향이 없고, 다른 방식이면 삭제될 투표 수를 집계한다.
 		long affected = policy.getVoteMethod() == body.voteMethod() ? 0
 				: ((Number) entityManager.createNativeQuery(

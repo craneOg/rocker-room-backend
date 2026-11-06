@@ -11,8 +11,8 @@ import com.crane.bandwebbackend.domain.performance.entity.PerformanceStatus;
 import com.crane.bandwebbackend.domain.performance.repository.PerformancePolicyRepository;
 import com.crane.bandwebbackend.domain.performance.repository.PerformanceRepository;
 import com.crane.bandwebbackend.global.audit.AuditRecorder;
-import com.crane.bandwebbackend.global.error.ApiErrorCode;
-import com.crane.bandwebbackend.global.error.ApiException;
+import com.crane.bandwebbackend.global.error.ErrorCode;
+import com.crane.bandwebbackend.global.error.BusinessException;
 import com.fasterxml.jackson.databind.JsonNode;
 import java.util.Map;
 import jakarta.persistence.EntityManager;
@@ -50,29 +50,29 @@ public class PerformancePolicyEditService {
 		// 관리자 권한과 정책 JSON 구조를 확인하고 투표 방식은 전용 API로 분리한다.
 		memberships.requireAdmin(clubId, actorUserId);
 		if (body == null || !body.isObject() || !body.hasNonNull("version") || body.has("voteMethod")) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "정책 요청이 유효하지 않습니다.");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "정책 요청이 유효하지 않습니다.");
 		}
 		// 공연의 동아리·상태·버전을 검증해 오래된 정책 수정 요청을 차단한다.
 		var performance = performances.findByIdAndClub_Id(performanceId, clubId)
-				.orElseThrow(() -> new ApiException(ApiErrorCode.NOT_FOUND, "공연을 찾을 수 없습니다."));
+				.orElseThrow(() -> BusinessException.of(ErrorCode.NOT_FOUND, "공연을 찾을 수 없습니다."));
 		if (performance.getClub().getStatus() != ClubStatus.ACTIVE) {
-			throw new ApiException(ApiErrorCode.STATE_CONFLICT, "비활성 동아리에서는 수정할 수 없습니다.",
+			throw BusinessException.of(ErrorCode.STATE_CONFLICT, "비활성 동아리에서는 수정할 수 없습니다.",
 					"CLUB_INACTIVE");
 		}
 		if (performance.getStatus() != PerformanceStatus.DRAFT
 				&& performance.getStatus() != PerformanceStatus.ACTIVE) {
-			throw new ApiException(ApiErrorCode.STATE_CONFLICT, "정책을 변경할 수 없는 공연 상태입니다.",
+			throw BusinessException.of(ErrorCode.STATE_CONFLICT, "정책을 변경할 수 없는 공연 상태입니다.",
 					"INVALID_STATE");
 		}
 		String version = body.path("version").asText();
 		if (!version.matches("[0-9]+")) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "version 형식이 유효하지 않습니다.");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "version 형식이 유효하지 않습니다.");
 		}
 		if (!version.equals(String.valueOf(performance.getVersion()))) {
-			throw new ApiException(ApiErrorCode.VERSION_CONFLICT, "공연 버전이 달라졌습니다.");
+			throw BusinessException.of(ErrorCode.VERSION_CONFLICT, "공연 버전이 달라졌습니다.");
 		}
 		PerformancePolicy policy = policies.findById(performanceId)
-				.orElseThrow(() -> new ApiException(ApiErrorCode.NOT_FOUND, "공연 정책을 찾을 수 없습니다."));
+				.orElseThrow(() -> BusinessException.of(ErrorCode.NOT_FOUND, "공연 정책을 찾을 수 없습니다."));
 		// 한도와 시즌 축소 여부를 나중에 경고하기 위해 기존 값을 보존한다.
 		Integer oldCandidateLimit = policy.getCandidateLimitPerMember();
 		Integer oldVoteLimit = policy.getVoteMaxChoices();
@@ -89,7 +89,7 @@ public class PerformancePolicyEditService {
 					""").setParameter("id", performanceId).setParameter("scope", scope.name())
 					.getSingleResult()).longValue();
 			if (incompatible > 0) {
-				throw new ApiException(ApiErrorCode.STATE_CONFLICT, "기존 후보곡과 범위가 충돌합니다.",
+				throw BusinessException.of(ErrorCode.STATE_CONFLICT, "기존 후보곡과 범위가 충돌합니다.",
 						"POLICY_SCOPE_CONFLICT");
 			}
 		}
@@ -118,15 +118,16 @@ public class PerformancePolicyEditService {
 		try {
 			policy.replace(values);
 		} catch (IllegalStateException exception) {
-			throw new ApiException(ApiErrorCode.RULE_VIOLATION, exception.getMessage(),
+			throw BusinessException.of(ErrorCode.RULE_VIOLATION, exception.getMessage(),
 					"PRACTICE_SEASON_REQUIRED");
 		} catch (IllegalArgumentException exception) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, exception.getMessage());
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, exception.getMessage());
 		}
 		// 정책 변경도 공연 revision에 반영하고 감사 로그와 함께 즉시 저장한다.
-		entityManager.lock(performance, LockModeType.OPTIMISTIC_FORCE_INCREMENT);
+		entityManager.lock(performance, LockModeType.PESSIMISTIC_FORCE_INCREMENT);
 		auditRecorder.record(clubId, actorUserId, "PERFORMANCE_POLICY_UPDATED", "PERFORMANCE", performanceId, null, Map.of("version", version));
 		entityManager.flush();
+		entityManager.refresh(performance);
 		// 기존 입력은 삭제하지 않으므로 축소된 기간·한도 영향을 경고로 알려 준다.
 		List<PolicyUpdateResponse.Warning> warnings = new ArrayList<>();
 		if (performance.getPerformDate() != null && values.practiceSeasonEnd() != null
@@ -161,12 +162,12 @@ public class PerformancePolicyEditService {
 		}
 		JsonNode node = body.get(key);
 		if (!node.isTextual()) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, key + "가 유효하지 않습니다.");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, key + "가 유효하지 않습니다.");
 		}
 		try {
 			return Enum.valueOf(type, node.asText());
 		} catch (IllegalArgumentException exception) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, key + "가 유효하지 않습니다.");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, key + "가 유효하지 않습니다.");
 		}
 	}
 
@@ -180,7 +181,7 @@ public class PerformancePolicyEditService {
 			return null;
 		}
 		if (!node.isInt()) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, key + "가 유효하지 않습니다.");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, key + "가 유효하지 않습니다.");
 		}
 		return node.asInt();
 	}
@@ -191,7 +192,7 @@ public class PerformancePolicyEditService {
 			return old;
 		}
 		if (!body.get(key).isBoolean()) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, key + "가 유효하지 않습니다.");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, key + "가 유효하지 않습니다.");
 		}
 		return body.get(key).asBoolean();
 	}
@@ -205,12 +206,12 @@ public class PerformancePolicyEditService {
 			return null;
 		}
 		if (!body.get(key).isTextual()) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, key + "가 유효하지 않습니다.");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, key + "가 유효하지 않습니다.");
 		}
 		try {
 			return LocalDate.parse(body.get(key).asText());
 		} catch (DateTimeException exception) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, key + "가 유효하지 않습니다.");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, key + "가 유효하지 않습니다.");
 		}
 	}
 
@@ -223,13 +224,13 @@ public class PerformancePolicyEditService {
 			return null;
 		}
 		if (!body.get(key).isTextual()) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, key + "가 유효하지 않습니다.");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, key + "가 유효하지 않습니다.");
 		}
 		try {
 			return OffsetDateTime.parse(body.get(key).asText())
 					.withOffsetSameInstant(ZoneOffset.UTC).toLocalDateTime();
 		} catch (DateTimeException exception) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, key + "가 유효하지 않습니다.");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, key + "가 유효하지 않습니다.");
 		}
 	}
 }

@@ -1,8 +1,12 @@
 package com.crane.bandwebbackend.domain.performance.service;
 
+import com.crane.bandwebbackend.domain.membership.entity.MemberType;
+import com.crane.bandwebbackend.domain.membership.service.MembershipService;
+import com.crane.bandwebbackend.domain.participant.service.ParticipationLookup;
 import com.crane.bandwebbackend.domain.performance.dto.PerformanceDetailResponse;
 import com.crane.bandwebbackend.domain.performance.dto.PerformancePolicyResponse;
 import com.crane.bandwebbackend.domain.performance.dto.PerformanceResponse;
+import com.crane.bandwebbackend.domain.schedule.entity.PracticeSchedule;
 import com.crane.bandwebbackend.domain.schedule.entity.ScheduleStatus;
 import com.crane.bandwebbackend.domain.schedule.service.ScheduleLookup;
 import jakarta.persistence.EntityManager;
@@ -10,6 +14,8 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.Comparator;
+import java.util.List;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,6 +25,8 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class PerformanceDetailReader {
 	private final PerformanceService performances;
+	private final MembershipService memberships;
+	private final ParticipationLookup participants;
 	private final EntityManager entityManager;
 	private final ScheduleLookup schedules;
 
@@ -41,10 +49,20 @@ public class PerformanceDetailReader {
 						performanceId));
 		LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
 		// 현재 이후의 가장 이른 확정 일정을 한국 시각 응답으로 변환한다.
-		var next = schedules.schedulesOfPerformance(clubId, performanceId).stream()
+		var actor = memberships.requireMember(clubId, actorUserId);
+		List<PracticeSchedule> visibleSchedules =
+				schedules.schedulesOfPerformance(clubId, performanceId);
+		if (actor.getMemberType() == MemberType.GUEST) {
+			Set<Long> attendedIds = participants.approvedMemberId(performanceId, actor.getId())
+					.map(memberId -> Set.copyOf(schedules.attendedScheduleIds(performanceId, memberId)))
+					.orElseGet(Set::of);
+			visibleSchedules = visibleSchedules.stream()
+					.filter(schedule -> attendedIds.contains(schedule.getId())).toList();
+		}
+		var next = visibleSchedules.stream()
 				.filter(schedule -> schedule.getStatus() == ScheduleStatus.CONFIRMED
 						&& !schedule.getStartAt().isBefore(now))
-				.min(Comparator.comparing(com.crane.bandwebbackend.domain.schedule.entity.PracticeSchedule::getStartAt))
+				.min(Comparator.comparing(PracticeSchedule::getStartAt))
 				.map(schedule -> new PerformanceDetailResponse.NextSchedule(schedule.getId().toString(),
 						schedule.getTitle(), schedule.getStartAt().atOffset(ZoneOffset.UTC)
 								.atZoneSameInstant(ZoneId.of("Asia/Seoul")).toOffsetDateTime()))
