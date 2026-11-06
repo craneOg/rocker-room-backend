@@ -6,8 +6,8 @@ import com.crane.bandwebbackend.domain.membership.service.MembershipService;
 import com.crane.bandwebbackend.domain.part.entity.Part;
 import com.crane.bandwebbackend.domain.part.repository.PartRepository;
 import com.crane.bandwebbackend.domain.participant.service.ParticipationLookup;
-import com.crane.bandwebbackend.global.error.ApiErrorCode;
-import com.crane.bandwebbackend.global.error.ApiException;
+import com.crane.bandwebbackend.global.error.ErrorCode;
+import com.crane.bandwebbackend.global.error.BusinessException;
 import com.crane.bandwebbackend.global.response.RevisionTag;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
@@ -36,7 +36,7 @@ public class PartService {
             return includeInactive ? parts : parts.stream().filter(Part::isActive).toList();
         }
         if (participationLookup.visiblePerformanceIds(actor.getId()).isEmpty()) {
-            throw new ApiException(ApiErrorCode.NOT_FOUND, "파트 목록을 찾을 수 없습니다.");
+            throw BusinessException.of(ErrorCode.NOT_FOUND, "파트 목록을 찾을 수 없습니다.");
         }
         if (!includeInactive) {
             return parts.stream().filter(Part::isActive).toList();
@@ -54,7 +54,7 @@ public class PartService {
         entityManager.lock(actor.getClub(), LockModeType.PESSIMISTIC_WRITE);
         String normalized = validateName(name);
         if (repository.existsByClub_IdAndName(clubId, normalized)) {
-            throw new ApiException(ApiErrorCode.DUPLICATE, "같은 이름의 파트가 있습니다.");
+            throw BusinessException.of(ErrorCode.DUPLICATE, "같은 이름의 파트가 있습니다.");
         }
         // 애플리케이션 검사 이후의 동시 삽입 충돌도 DB 예외를 동일한 중복 오류로 변환한다.
         try {
@@ -63,7 +63,7 @@ public class PartService {
             entityManager.refresh(part);
             return part;
         } catch (DataIntegrityViolationException exception) {
-            throw new ApiException(ApiErrorCode.DUPLICATE, "같은 이름의 파트가 있습니다.");
+            throw BusinessException.of(ErrorCode.DUPLICATE, "같은 이름의 파트가 있습니다.");
         }
     }
 
@@ -76,13 +76,13 @@ public class PartService {
         entityManager.lock(actor.getClub(), LockModeType.PESSIMISTIC_WRITE);
         Part part = requireLocked(clubId, partId, expectedRevision);
         if (name == null && displayOrder == null) {
-            throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "변경할 정보가 없습니다.");
+            throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "변경할 정보가 없습니다.");
         }
         // 이름이 전달된 경우에만 정규화와 동아리 내 중복 검사를 수행한다.
         if (name != null) {
             String normalized = validateName(name);
             if (!normalized.equals(part.getName()) && repository.existsByClub_IdAndName(clubId, normalized)) {
-                throw new ApiException(ApiErrorCode.DUPLICATE, "같은 이름의 파트가 있습니다.");
+                throw BusinessException.of(ErrorCode.DUPLICATE, "같은 이름의 파트가 있습니다.");
             }
             name = normalized;
         }
@@ -91,7 +91,7 @@ public class PartService {
         try {
             repository.flush();
         } catch (DataIntegrityViolationException exception) {
-            throw new ApiException(ApiErrorCode.DUPLICATE, "같은 이름의 파트가 있습니다.");
+            throw BusinessException.of(ErrorCode.DUPLICATE, "같은 이름의 파트가 있습니다.");
         }
         entityManager.refresh(part);
         return part;
@@ -116,10 +116,10 @@ public class PartService {
     /** 파트 행을 잠그고 요청 버전과 현재 버전의 일치를 확인한다. */
     private Part requireLocked(Long clubId, Long partId, String expectedRevision) {
         Part part = repository.findWithLockByIdAndClub_Id(partId, clubId)
-                .orElseThrow(() -> new ApiException(ApiErrorCode.NOT_FOUND, "파트를 찾을 수 없습니다."));
+                .orElseThrow(() -> BusinessException.of(ErrorCode.NOT_FOUND, "파트를 찾을 수 없습니다."));
         if (expectedRevision == null || !RevisionTag.from("part", part.getId(), part.getUpdatedAt())
                 .equals(expectedRevision)) {
-            throw new ApiException(ApiErrorCode.VERSION_CONFLICT, "파트가 먼저 변경되었습니다.");
+            throw BusinessException.of(ErrorCode.VERSION_CONFLICT, "파트가 먼저 변경되었습니다.");
         }
         return part;
     }
@@ -127,7 +127,7 @@ public class PartService {
     /** 파트 이름을 정규화하고 필수값 및 길이를 검증한다. */
     private static String validateName(String name) {
         if (name == null || name.trim().isEmpty() || name.trim().length() > 50) {
-            throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "파트 이름은 1~50자여야 합니다.");
+            throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "파트 이름은 1~50자여야 합니다.");
         }
         return name.trim();
     }

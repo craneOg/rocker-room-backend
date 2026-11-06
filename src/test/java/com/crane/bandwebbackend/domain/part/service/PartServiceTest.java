@@ -16,8 +16,8 @@ import com.crane.bandwebbackend.domain.membership.service.MembershipService;
 import com.crane.bandwebbackend.domain.part.entity.Part;
 import com.crane.bandwebbackend.domain.part.repository.PartRepository;
 import com.crane.bandwebbackend.domain.participant.service.ParticipationLookup;
-import com.crane.bandwebbackend.global.error.ApiErrorCode;
-import com.crane.bandwebbackend.global.error.ApiException;
+import com.crane.bandwebbackend.global.error.ErrorCode;
+import com.crane.bandwebbackend.global.error.BusinessException;
 import com.crane.bandwebbackend.global.response.RevisionTag;
 import jakarta.persistence.EntityManager;
 import java.time.LocalDateTime;
@@ -44,8 +44,8 @@ class PartServiceTest {
         when(part.getUpdatedAt()).thenReturn(LocalDateTime.of(2026, 11, 1, 0, 0));
 
         assertThatThrownBy(() -> service.update(1L, 2L, 7L, "old-revision", "베이스", null))
-                .isInstanceOfSatisfying(ApiException.class,
-                        exception -> assertThat(exception.getCode()).isEqualTo(ApiErrorCode.VERSION_CONFLICT));
+                .isInstanceOfSatisfying(BusinessException.class,
+                        exception -> assertThat(exception.getCode()).isEqualTo(ErrorCode.VERSION_CONFLICT));
     }
 
     @Test
@@ -125,8 +125,8 @@ class PartServiceTest {
         when(guest.getId()).thenReturn(3L);
 
         assertThatThrownBy(() -> service.list(1L, 7L, true))
-                .isInstanceOfSatisfying(ApiException.class,
-                        exception -> assertThat(exception.getCode()).isEqualTo(ApiErrorCode.NOT_FOUND));
+                .isInstanceOfSatisfying(BusinessException.class,
+                        exception -> assertThat(exception.getCode()).isEqualTo(ErrorCode.NOT_FOUND));
         verify(repository, never()).findHistoricallyReferencedPartIds(3L);
     }
 }
