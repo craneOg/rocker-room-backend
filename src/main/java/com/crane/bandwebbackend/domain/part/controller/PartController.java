@@ -8,7 +8,6 @@ import com.crane.bandwebbackend.domain.part.dto.PartUpdateRequest;
 import com.crane.bandwebbackend.domain.part.service.PartService;
 import com.crane.bandwebbackend.global.response.ApiIds;
 import com.crane.bandwebbackend.global.response.ApiResponse;
-import com.crane.bandwebbackend.global.response.RequestIdFilter;
 import com.crane.bandwebbackend.global.security.CurrentActor;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -33,7 +32,7 @@ import org.springframework.web.bind.annotation.RestController;
  * 변경 API를 켜기 전에 인증·CSRF와 POST 멱등 재시도 처리를 연결해야 한다.
  */
 @RestController
-@RequestMapping("/api/v2/clubs/{clubId}/parts")
+@RequestMapping("/api/v1/clubs/{clubId}/parts")
 @ConditionalOnProperty(prefix = "rocker.api-v2", name = "enabled", havingValue = "true")
 @RequiredArgsConstructor
 public class PartController {
@@ -46,7 +45,7 @@ public class PartController {
             @RequestParam(defaultValue = "true") boolean includeInactive, HttpServletRequest request) {
         var items = service.list(ApiIds.positive(clubId, "clubId"), currentActor.requireUserId(), includeInactive)
                 .stream().map(PartResponse::from).toList();
-        return ApiResponse.of(new PartListResponse(items), RequestIdFilter.require(request));
+        return ApiResponse.ok(new PartListResponse(items));
     }
 
     /** 동아리에 새 파트를 생성한다. */
@@ -59,7 +58,7 @@ public class PartController {
         PartResponse result = PartResponse.from(service.create(ApiIds.positive(clubId, "clubId"),
                 currentActor.requireUserId(), body.getName(), body.getDisplayOrder()));
         return ResponseEntity.status(HttpStatus.CREATED).eTag(result.getRevision())
-                .body(ApiResponse.of(result, RequestIdFilter.require(request)));
+                .body(ApiResponse.ok(result));
     }
 
     /** 파트 이름과 표시 순서를 수정한다. */
@@ -71,7 +70,7 @@ public class PartController {
                 ApiIds.positive(partId, "partId"), currentActor.requireUserId(),
                 body.getExpectedRevision(), body.getName(), body.getDisplayOrder()));
         return ResponseEntity.ok().eTag(result.getRevision())
-                .body(ApiResponse.of(result, RequestIdFilter.require(request)));
+                .body(ApiResponse.ok(result));
     }
 
     /** 파트의 활성 여부를 변경한다. */
@@ -83,6 +82,6 @@ public class PartController {
                 ApiIds.positive(partId, "partId"), currentActor.requireUserId(),
                 body.getExpectedRevision(), body.getIsActive()));
         return ResponseEntity.ok().eTag(result.getRevision())
-                .body(ApiResponse.of(result, RequestIdFilter.require(request)));
+                .body(ApiResponse.ok(result));
     }
 }

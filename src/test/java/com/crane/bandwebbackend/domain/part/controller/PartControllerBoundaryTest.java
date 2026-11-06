@@ -11,7 +11,7 @@ import com.crane.bandwebbackend.domain.club.entity.Club;
 import com.crane.bandwebbackend.domain.part.entity.Part;
 import com.crane.bandwebbackend.domain.part.service.PartService;
 import com.crane.bandwebbackend.global.error.ApiExceptionHandler;
-import com.crane.bandwebbackend.global.response.RequestIdFilter;
+import com.crane.bandwebbackend.global.config.RequestIdFilter;
 import com.crane.bandwebbackend.global.security.CurrentActor;
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -39,7 +39,7 @@ class PartControllerBoundaryTest {
         when(part.isActive()).thenReturn(true);
         when(part.getUpdatedAt()).thenReturn(LocalDateTime.of(2026, 11, 1, 0, 0));
 
-        mvc.perform(post("/api/v2/clubs/1/parts")
+        mvc.perform(post("/api/v1/clubs/1/parts")
                         .header("Idempotency-Key", UUID.randomUUID())
                         .header("X-Requested-With", "XMLHttpRequest")
                         .contentType(MediaType.APPLICATION_JSON)
