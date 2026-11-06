@@ -3,7 +3,6 @@ package com.crane.bandwebbackend.global.error;
 import com.crane.bandwebbackend.global.config.RequestIdFilter;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import java.util.List;
-import java.util.Map;
 import lombok.Getter;
 import org.slf4j.MDC;
 
@@ -18,7 +17,7 @@ public class ErrorResponse {
     }
 
     public static ErrorResponse of(
-            ErrorCode code, String message, List<ErrorDetail> details, List<Map<String, Object>> warnings) {
+            ErrorCode code, String message, List<ErrorDetail> details, List<?> warnings) {
         return new ErrorResponse(new Body(code.name(), message, details, warnings, requestId()));
     }
 
@@ -41,7 +40,7 @@ public class ErrorResponse {
 
         // CONFIRMATION_REQUIRED일 때만 값이 있다
         @JsonInclude(JsonInclude.Include.NON_EMPTY)
-        private final List<Map<String, Object>> warnings;
+        private final List<?> warnings;
 
         private final String requestId;
 
@@ -49,7 +48,7 @@ public class ErrorResponse {
                 String code,
                 String message,
                 List<ErrorDetail> details,
-                List<Map<String, Object>> warnings,
+                List<?> warnings,
                 String requestId) {
             this.code = code;
             this.message = message;
