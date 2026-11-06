@@ -10,8 +10,8 @@ import com.crane.bandwebbackend.domain.schedule.entity.PracticeSchedule;
 import com.crane.bandwebbackend.domain.schedule.entity.ScheduleStatus;
 import com.crane.bandwebbackend.domain.schedule.entity.ScheduleType;
 import com.crane.bandwebbackend.domain.schedule.repository.PracticeScheduleRepository;
-import com.crane.bandwebbackend.global.error.ApiErrorCode;
-import com.crane.bandwebbackend.global.error.ApiException;
+import com.crane.bandwebbackend.global.error.ErrorCode;
+import com.crane.bandwebbackend.global.error.BusinessException;
 import com.crane.bandwebbackend.global.response.ApiIds;
 import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.persistence.EntityManager;
@@ -54,11 +54,11 @@ public class ScheduleValidationService {
 		requireActiveClub(performance.getClub().getStatus());
 		requireEditable(performance.getStatus());
 		if (request == null || request.startAt() == null || request.endAt() == null) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "시작·종료 시각이 필요합니다.");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "시작·종료 시각이 필요합니다.");
 		}
 		ScheduleStatus status = request.status() == null ? ScheduleStatus.TENTATIVE : request.status();
 		if (status == ScheduleStatus.CANCELED) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "취소 상태는 생성할 수 없습니다.");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "취소 상태는 생성할 수 없습니다.");
 		}
 		// 대상 ID와 UTC 시간 범위를 정규화하고 참조 경계를 검증한다.
 		List<Long> teamIds = ids(request.teamIds(), "teamIds");
@@ -70,7 +70,7 @@ public class ScheduleValidationService {
 		if (request.title() != null && request.title().length() > 100
 				|| request.location() != null && request.location().length() > 200
 				|| request.memo() != null && request.memo().length() > 500) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "일정 문자열 길이가 유효하지 않습니다.");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "일정 문자열 길이가 유효하지 않습니다.");
 		}
 		return result(clubId, performanceId, performance.getVersion(), null, status,
 				start, end, Boolean.TRUE.equals(request.forAllParticipants()), teamIds, songIds, true);
@@ -92,18 +92,18 @@ public class ScheduleValidationService {
 		requireEditable(performance.getStatus());
 		PracticeSchedule schedule = schedules.findByIdAndPerformance_IdAndPerformance_Club_Id(
 				scheduleId, performanceId, clubId)
-				.orElseThrow(() -> new ApiException(ApiErrorCode.NOT_FOUND, "일정을 찾을 수 없습니다."));
+				.orElseThrow(() -> BusinessException.of(ErrorCode.NOT_FOUND, "일정을 찾을 수 없습니다."));
 		if (schedule.getStatus() == ScheduleStatus.CANCELED) {
-			throw new ApiException(ApiErrorCode.STATE_CONFLICT, "취소 일정은 수정할 수 없습니다.");
+			throw BusinessException.of(ErrorCode.STATE_CONFLICT, "취소 일정은 수정할 수 없습니다.");
 		}
 		if (patch == null || !patch.isObject() || !patch.hasNonNull("version")) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "version이 필요합니다.");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "version이 필요합니다.");
 		}
 		if (!String.valueOf(schedule.getVersion()).equals(patch.path("version").asText())) {
-			throw new ApiException(ApiErrorCode.VERSION_CONFLICT, "일정 버전이 달라졌습니다.");
+			throw BusinessException.of(ErrorCode.VERSION_CONFLICT, "일정 버전이 달라졌습니다.");
 		}
 		if (patch.has("status") && !schedule.getStatus().name().equals(patch.path("status").asText())) {
-			throw new ApiException(ApiErrorCode.STATE_CONFLICT, "상태 전이는 별도 API로 처리합니다.");
+			throw BusinessException.of(ErrorCode.STATE_CONFLICT, "상태 전이는 별도 API로 처리합니다.");
 		}
 		// 패치에 없는 시간·대상·전체 참석 여부는 현재 일정 값을 유지한다.
 		LocalDateTime start = patch.has("startAt") ? parseTime(patch.get("startAt")) : schedule.getStartAt();
@@ -122,14 +122,14 @@ public class ScheduleValidationService {
 			if (patch.has(field) && !patch.get(field).isNull()) {
 				int max = field.equals("title") ? 100 : field.equals("location") ? 200 : 500;
 				if (!patch.get(field).isTextual() || patch.get(field).asText().length() > max) {
-					throw new ApiException(ApiErrorCode.VALIDATION_ERROR, field + "가 유효하지 않습니다.");
+					throw BusinessException.of(ErrorCode.VALIDATION_ERROR, field + "가 유효하지 않습니다.");
 				}
 			}
 		}
 		if (patch.has("eventType")) {
 			try { ScheduleType.valueOf(patch.path("eventType").asText()); }
 			catch (IllegalArgumentException exception) {
-				throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "eventType이 유효하지 않습니다.");
+				throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "eventType이 유효하지 않습니다.");
 			}
 		}
 		return result(clubId, performanceId, performance.getVersion(), scheduleId, schedule.getStatus(),
@@ -205,12 +205,12 @@ public class ScheduleValidationService {
 		for (Long id : teamIds) {
 			Number count = (Number) entityManager.createNativeQuery("SELECT COUNT(*) FROM team WHERE id = :id AND performance_id = :performanceId")
 					.setParameter("id", id).setParameter("performanceId", performanceId).getSingleResult();
-			if (count.longValue() == 0) throw new ApiException(ApiErrorCode.NOT_FOUND, "팀을 찾을 수 없습니다.");
+			if (count.longValue() == 0) throw BusinessException.of(ErrorCode.NOT_FOUND, "팀을 찾을 수 없습니다.");
 		}
 		for (Long id : songIds) {
 			Number count = (Number) entityManager.createNativeQuery("SELECT COUNT(*) FROM song WHERE id = :id AND performance_id = :performanceId")
 					.setParameter("id", id).setParameter("performanceId", performanceId).getSingleResult();
-			if (count.longValue() == 0) throw new ApiException(ApiErrorCode.NOT_FOUND, "곡을 찾을 수 없습니다.");
+			if (count.longValue() == 0) throw BusinessException.of(ErrorCode.NOT_FOUND, "곡을 찾을 수 없습니다.");
 		}
 	}
 
@@ -219,13 +219,13 @@ public class ScheduleValidationService {
 		if (raw == null) return List.of();
 		List<Long> result = raw.stream().map(value -> ApiIds.positive(value, field)).toList();
 		if (new HashSet<>(result).size() != result.size())
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, field + "에 중복 ID가 있습니다.");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, field + "에 중복 ID가 있습니다.");
 		return result;
 	}
 
 	/** JSON 배열의 대상 식별자를 검증해 양의 정수 목록으로 변환한다. */
 	private static List<Long> ids(JsonNode raw, String field) {
-		if (!raw.isArray()) throw new ApiException(ApiErrorCode.VALIDATION_ERROR, field + "는 배열이어야 합니다.");
+		if (!raw.isArray()) throw BusinessException.of(ErrorCode.VALIDATION_ERROR, field + "는 배열이어야 합니다.");
 		List<String> values = new ArrayList<>();
 		raw.forEach(value -> values.add(value.asText()));
 		return ids(values, field);
@@ -233,16 +233,16 @@ public class ScheduleValidationService {
 
 	/** JSON 노드를 필수 불리언 값으로 변환한다. */
 	private static boolean bool(JsonNode raw) {
-		if (!raw.isBoolean()) throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "boolean 값이 유효하지 않습니다.");
+		if (!raw.isBoolean()) throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "boolean 값이 유효하지 않습니다.");
 		return raw.asBoolean();
 	}
 
 	/** JSON 오프셋 시각을 UTC 지역 시각으로 변환한다. */
 	private static LocalDateTime parseTime(JsonNode raw) {
-		if (!raw.isTextual()) throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "일시가 유효하지 않습니다.");
+		if (!raw.isTextual()) throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "일시가 유효하지 않습니다.");
 		try { return OffsetDateTime.parse(raw.asText()).withOffsetSameInstant(ZoneOffset.UTC).toLocalDateTime(); }
 		catch (DateTimeException exception) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "일시가 유효하지 않습니다.");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "일시가 유효하지 않습니다.");
 		}
 	}
 
@@ -250,7 +250,7 @@ public class ScheduleValidationService {
 	private static void validateTime(LocalDateTime start, LocalDateTime end) {
 		if (!start.isBefore(end) || start.getMinute() % 30 != 0 || end.getMinute() % 30 != 0
 				|| start.getSecond() != 0 || end.getSecond() != 0 || start.getNano() != 0 || end.getNano() != 0) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "시각은 30분 단위이며 종료가 시작보다 뒤여야 합니다.");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "시각은 30분 단위이며 종료가 시작보다 뒤여야 합니다.");
 		}
 	}
 
@@ -258,14 +258,14 @@ public class ScheduleValidationService {
 	private static void requireEditable(PerformanceStatus status) {
 		if (status != PerformanceStatus.DRAFT && status != PerformanceStatus.ACTIVE
 				&& status != PerformanceStatus.LOCKED) {
-			throw new ApiException(ApiErrorCode.STATE_CONFLICT, "일정을 검사할 수 없는 공연 상태입니다.");
+			throw BusinessException.of(ErrorCode.STATE_CONFLICT, "일정을 검사할 수 없는 공연 상태입니다.");
 		}
 	}
 
 	/** 동아리가 일정 변경 가능한 활성 상태인지 확인한다. */
 	private static void requireActiveClub(ClubStatus status) {
 		if (status != ClubStatus.ACTIVE) {
-			throw new ApiException(ApiErrorCode.STATE_CONFLICT, "비활성 동아리에서는 일정을 검사할 수 없습니다.",
+			throw BusinessException.of(ErrorCode.STATE_CONFLICT, "비활성 동아리에서는 일정을 검사할 수 없습니다.",
 					"CLUB_INACTIVE");
 		}
 	}

@@ -12,8 +12,8 @@ import com.crane.bandwebbackend.domain.performance.service.PerformanceService;
 import com.crane.bandwebbackend.domain.schedule.repository.PracticeScheduleRepository;
 import com.crane.bandwebbackend.domain.schedule.repository.PracticeScheduleSongRepository;
 import com.crane.bandwebbackend.domain.schedule.repository.PracticeScheduleTeamRepository;
-import com.crane.bandwebbackend.global.error.ApiErrorCode;
-import com.crane.bandwebbackend.global.error.ApiException;
+import com.crane.bandwebbackend.global.error.ErrorCode;
+import com.crane.bandwebbackend.global.error.BusinessException;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.Test;
 
@@ -32,8 +32,8 @@ class CalendarReaderTest {
         assertThatThrownBy(() -> reader.club(1L, 7L,
                 LocalDateTime.of(2026, 11, 1, 0, 0), LocalDateTime.of(2026, 12, 1, 0, 0),
                 null, null, null, null, true, false, true))
-                .isInstanceOfSatisfying(ApiException.class,
+                .isInstanceOfSatisfying(BusinessException.class,
                         error -> org.assertj.core.api.Assertions.assertThat(error.getCode())
-                                .isEqualTo(ApiErrorCode.FORBIDDEN));
+                                .isEqualTo(ErrorCode.FORBIDDEN));
     }
 }

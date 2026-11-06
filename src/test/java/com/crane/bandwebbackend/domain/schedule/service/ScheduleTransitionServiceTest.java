@@ -15,7 +15,7 @@ import com.crane.bandwebbackend.domain.performance.entity.PerformanceStatus;
 import com.crane.bandwebbackend.domain.schedule.entity.PracticeSchedule;
 import com.crane.bandwebbackend.domain.schedule.entity.ScheduleStatus;
 import com.crane.bandwebbackend.domain.schedule.repository.PracticeScheduleRepository;
-import com.crane.bandwebbackend.global.error.ConfirmationRequiredException;
+import com.crane.bandwebbackend.global.error.BusinessException;
 import jakarta.persistence.EntityManager;
 import java.util.List;
 import java.util.Map;
@@ -47,7 +47,7 @@ class ScheduleTransitionServiceTest {
         when(edits.warningsFor(1L, 2L, 3L, 7L)).thenReturn(List.of(Map.of("type", "OUT_OF_SEASON")));
 
         assertThatThrownBy(() -> service.confirm(1L, 2L, 3L, 7L, "4", false))
-                .isInstanceOfSatisfying(ConfirmationRequiredException.class,
+                .isInstanceOfSatisfying(BusinessException.class,
                         error -> assertThat(error.getWarnings()).hasSize(1));
         verify(schedule, never()).transitionTo(ScheduleStatus.CONFIRMED);
     }

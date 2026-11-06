@@ -16,8 +16,8 @@ import com.crane.bandwebbackend.domain.schedule.service.ScheduleEditService;
 import com.crane.bandwebbackend.domain.schedule.service.ScheduleDetailReader;
 import com.crane.bandwebbackend.domain.schedule.service.ScheduleCreateService;
 import com.crane.bandwebbackend.domain.schedule.service.ScheduleValidationService;
-import com.crane.bandwebbackend.global.error.ApiErrorCode;
-import com.crane.bandwebbackend.global.error.ApiException;
+import com.crane.bandwebbackend.global.error.ErrorCode;
+import com.crane.bandwebbackend.global.error.BusinessException;
 import com.crane.bandwebbackend.global.response.ApiIds;
 import com.crane.bandwebbackend.global.response.ApiResponse;
 import com.crane.bandwebbackend.global.response.PageResponse;
@@ -84,10 +84,10 @@ public class PracticeScheduleController {
 		HttpServletRequest request
 	) {
 		if (page < 0 || size < 1 || size > 100) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "page 또는 size 범위가 유효하지 않습니다.");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "page 또는 size 범위가 유효하지 않습니다.");
 		}
 		if (!sort.equals("startAt,asc")) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "sort 값이 유효하지 않습니다.");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "sort 값이 유효하지 않습니다.");
 		}
 		PageRequest pageable = PageRequest.of(page, size,
 				Sort.by(Sort.Direction.ASC, "startAt").and(Sort.by(Sort.Direction.ASC, "id")));
@@ -238,7 +238,7 @@ public class PracticeScheduleController {
 		HttpServletRequest request
 	) {
 		if (body.reason() != null) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "unconfirm은 reason을 받지 않습니다.");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "unconfirm은 reason을 받지 않습니다.");
 		}
 		PracticeSchedule schedule = transitionService.change(ApiIds.positive(clubId, "clubId"),
 				ApiIds.positive(performanceId, "performanceId"), ApiIds.positive(scheduleId, "scheduleId"),

@@ -14,8 +14,8 @@ import com.crane.bandwebbackend.domain.schedule.entity.ScheduleType;
 import com.crane.bandwebbackend.domain.schedule.repository.PracticeScheduleRepository;
 import com.crane.bandwebbackend.domain.schedule.repository.PracticeScheduleSongRepository;
 import com.crane.bandwebbackend.domain.schedule.repository.PracticeScheduleTeamRepository;
-import com.crane.bandwebbackend.global.error.ApiErrorCode;
-import com.crane.bandwebbackend.global.error.ApiException;
+import com.crane.bandwebbackend.global.error.ErrorCode;
+import com.crane.bandwebbackend.global.error.BusinessException;
 import com.crane.bandwebbackend.global.response.ApiIds;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -114,7 +114,7 @@ public class CalendarReader {
 		Membership actor = membershipService.requireMember(clubId, actorUserId);
 		// 임시 일정은 운영 정보이므로 동아리 임원에게만 공개한다.
 		if (includeTentative && actor.getRole() != MembershipRole.CLUB_ADMIN) {
-			throw new ApiException(ApiErrorCode.FORBIDDEN, "임시 일정은 임원만 조회할 수 있습니다.");
+			throw BusinessException.of(ErrorCode.FORBIDDEN, "임시 일정은 임원만 조회할 수 있습니다.");
 		}
 		// 일정 유형과 팀·곡 필터를 실제 일정 ID 집합으로 미리 변환한다.
 		Set<ScheduleType> types = eventTypes == null ? EnumSet.allOf(ScheduleType.class) : parseTypes(eventTypes);
@@ -176,7 +176,7 @@ public class CalendarReader {
 	private static List<CalendarEvent> finish(List<CalendarEvent> events) {
 		// 무제한 캘린더 조회가 과도한 응답을 만들지 않도록 상한을 강제한다.
 		if (events.size() > 2000) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "조회 결과가 2000건을 초과합니다.",
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "조회 결과가 2000건을 초과합니다.",
 					"RANGE_TOO_LARGE");
 		}
 		return events.stream().sorted(Comparator.comparing(CalendarEvent::startAt)
@@ -186,7 +186,7 @@ public class CalendarReader {
 	/** 캘린더 조회 시작·종료 범위와 최대 기간을 검증한다. */
 	private static void checkRange(LocalDateTime from, LocalDateTime to) {
 		if (from == null || to == null || !from.isBefore(to)) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "조회 기간이 유효하지 않습니다.");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "조회 기간이 유효하지 않습니다.");
 		}
 	}
 
@@ -209,7 +209,7 @@ public class CalendarReader {
 			}
 			return result;
 		} catch (IllegalArgumentException exception) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "eventType이 유효하지 않습니다.");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "eventType이 유효하지 않습니다.");
 		}
 	}
 }

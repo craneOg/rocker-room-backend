@@ -17,8 +17,8 @@ import com.crane.bandwebbackend.domain.schedule.repository.PracticeScheduleTeamR
 import com.crane.bandwebbackend.domain.song.entity.Song;
 import com.crane.bandwebbackend.domain.team.entity.Team;
 import com.crane.bandwebbackend.global.audit.AuditRecorder;
-import com.crane.bandwebbackend.global.error.ApiErrorCode;
-import com.crane.bandwebbackend.global.error.ApiException;
+import com.crane.bandwebbackend.global.error.ErrorCode;
+import com.crane.bandwebbackend.global.error.BusinessException;
 import com.crane.bandwebbackend.global.response.ApiIds;
 import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.persistence.EntityManager;
@@ -62,29 +62,29 @@ public class ScheduleEditService {
 		// 일정 수정 권한과 낙관적 잠금에 사용할 요청 버전을 먼저 검증한다.
 		membershipService.requireAdmin(clubId, actorUserId);
 		if (body == null || !body.isObject() || !body.hasNonNull("version")) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "version이 필요합니다.");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "version이 필요합니다.");
 		}
 		String version = body.path("version").asText();
 		if (!version.matches("[0-9]+")) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "version 형식이 올바르지 않습니다.");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "version 형식이 올바르지 않습니다.");
 		}
 		// URL의 동아리·공연에 실제로 속한 일정만 조회한다.
 		PracticeSchedule schedule = schedules.findByIdAndPerformance_IdAndPerformance_Club_Id(
 				scheduleId, performanceId, clubId)
-				.orElseThrow(() -> new ApiException(ApiErrorCode.NOT_FOUND, "일정을 찾을 수 없습니다."));
+				.orElseThrow(() -> BusinessException.of(ErrorCode.NOT_FOUND, "일정을 찾을 수 없습니다."));
 		// 비활성 동아리, 종료된 공연, 취소된 일정에서는 수정을 금지한다.
 		if (schedule.getPerformance().getClub().getStatus() != ClubStatus.ACTIVE) {
-			throw new ApiException(ApiErrorCode.STATE_CONFLICT, "비활성 동아리에서는 수정할 수 없습니다.",
+			throw BusinessException.of(ErrorCode.STATE_CONFLICT, "비활성 동아리에서는 수정할 수 없습니다.",
 					"CLUB_INACTIVE");
 		}
 		if (schedule.getStatus() == ScheduleStatus.CANCELED
 				|| schedule.getPerformance().getStatus() == PerformanceStatus.FINISHED
 				|| schedule.getPerformance().getStatus() == PerformanceStatus.CANCELED) {
-			throw new ApiException(ApiErrorCode.STATE_CONFLICT, "수정할 수 없는 일정입니다.", "INVALID_STATE");
+			throw BusinessException.of(ErrorCode.STATE_CONFLICT, "수정할 수 없는 일정입니다.", "INVALID_STATE");
 		}
 		// 조회 이후 다른 요청이 먼저 수정했다면 덮어쓰지 않고 충돌로 응답한다.
 		if (!version.equals(String.valueOf(schedule.getVersion()))) {
-			throw new ApiException(ApiErrorCode.VERSION_CONFLICT, "일정 버전이 달라졌습니다.");
+			throw BusinessException.of(ErrorCode.VERSION_CONFLICT, "일정 버전이 달라졌습니다.");
 		}
 		entityManager.lock(schedule, LockModeType.OPTIMISTIC_FORCE_INCREMENT);
 
@@ -107,7 +107,7 @@ public class ScheduleEditService {
 		try {
 			schedule.replace(type, title, start, end, location, all, memo);
 		} catch (IllegalArgumentException exception) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, exception.getMessage());
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, exception.getMessage());
 		}
 		// teamIds가 명시된 경우에만 기존 팀 연결을 요청 값으로 완전히 교체한다.
 		if (body.has("teamIds")) {
@@ -117,7 +117,7 @@ public class ScheduleEditService {
 			for (Long id : ids) {
 				Team team = entityManager.find(Team.class, id);
 				if (team == null || !team.getPerformance().getId().equals(performanceId)) {
-					throw new ApiException(ApiErrorCode.NOT_FOUND, "같은 공연의 팀을 찾을 수 없습니다.");
+					throw BusinessException.of(ErrorCode.NOT_FOUND, "같은 공연의 팀을 찾을 수 없습니다.");
 				}
 				teamLinks.save(PracticeScheduleTeam.link(schedule, team));
 			}
@@ -130,7 +130,7 @@ public class ScheduleEditService {
 			for (Long id : ids) {
 				Song song = entityManager.find(Song.class, id);
 				if (song == null || !song.getPerformance().getId().equals(performanceId)) {
-					throw new ApiException(ApiErrorCode.NOT_FOUND, "같은 공연의 곡을 찾을 수 없습니다.");
+					throw BusinessException.of(ErrorCode.NOT_FOUND, "같은 공연의 곡을 찾을 수 없습니다.");
 				}
 				songLinks.save(PracticeScheduleSong.link(schedule, song));
 			}
@@ -138,7 +138,7 @@ public class ScheduleEditService {
 		// 연결 변경을 DB에 반영한 뒤 확정 일정의 실제 참석 대상이 남아 있는지 재검증한다.
 		entityManager.flush();
 		if (schedule.getStatus() == ScheduleStatus.CONFIRMED && attendeeIds(scheduleId).isEmpty()) {
-			throw new ApiException(ApiErrorCode.RULE_VIOLATION, "확정 일정에 참석 대상이 없습니다.",
+			throw BusinessException.of(ErrorCode.RULE_VIOLATION, "확정 일정에 참석 대상이 없습니다.",
 					"SCHEDULE_TARGET_EMPTY");
 		}
 		// 충돌은 저장을 막지 않고 경고로 반환하며, 수정 사실은 감사 로그에 남긴다.
@@ -162,12 +162,12 @@ public class ScheduleEditService {
 		Membership actor = membershipService.requireMember(clubId, actorUserId);
 		PracticeSchedule schedule = schedules.findByIdAndPerformance_IdAndPerformance_Club_Id(
 				scheduleId, performanceId, clubId)
-				.orElseThrow(() -> new ApiException(ApiErrorCode.NOT_FOUND, "일정을 찾을 수 없습니다."));
+				.orElseThrow(() -> BusinessException.of(ErrorCode.NOT_FOUND, "일정을 찾을 수 없습니다."));
 		// 일반 회원에게는 확정되었고 본인이 참석 대상인 일정의 경고만 허용한다.
 		if (actor.getRole() != MembershipRole.CLUB_ADMIN) {
 			if (schedule.getStatus() != ScheduleStatus.CONFIRMED
 					|| !attendeeIds(scheduleId).contains(actor.getId())) {
-				throw new ApiException(ApiErrorCode.NOT_FOUND, "일정을 찾을 수 없습니다.");
+				throw BusinessException.of(ErrorCode.NOT_FOUND, "일정을 찾을 수 없습니다.");
 			}
 		}
 		// 시간 충돌·시즌 경고와 곡별 파트 부족 경고를 하나의 목록으로 합친다.
@@ -364,7 +364,7 @@ public class ScheduleEditService {
 		if (!teamIds.isEmpty()) {
 			Team first = entityManager.find(Team.class, teamIds.get(0));
 			if (first == null || !first.getPerformance().getId().equals(schedule.getPerformance().getId())) {
-				throw new ApiException(ApiErrorCode.NOT_FOUND, "같은 공연의 팀을 찾을 수 없습니다.");
+				throw BusinessException.of(ErrorCode.NOT_FOUND, "같은 공연의 팀을 찾을 수 없습니다.");
 			}
 			teamName = first.getName() + (teamIds.size() > 1 ? " 외 " + (teamIds.size() - 1) + "팀" : "") + " ";
 		}
@@ -382,7 +382,7 @@ public class ScheduleEditService {
 	private static List<Long> ids(JsonNode node, String field) {
 		// 배열 형식과 각 ID의 양수 여부를 검증한다.
 		if (node == null || !node.isArray()) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, field + "은 배열이어야 합니다.");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, field + "은 배열이어야 합니다.");
 		}
 		List<Long> result = new ArrayList<>();
 		for (JsonNode item : node) {
@@ -390,7 +390,7 @@ public class ScheduleEditService {
 		}
 		// 같은 연결 엔티티가 중복 생성되지 않도록 중복 ID도 거부한다.
 		if (new HashSet<>(result).size() != result.size()) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, field + "에 중복 ID가 있습니다.");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, field + "에 중복 ID가 있습니다.");
 		}
 		return result;
 	}
@@ -401,7 +401,7 @@ public class ScheduleEditService {
 			return null;
 		}
 		if (!node.isTextual() || node.asText().length() > max) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "문자열 필드가 유효하지 않습니다.");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "문자열 필드가 유효하지 않습니다.");
 		}
 		return node.asText();
 	}
@@ -409,7 +409,7 @@ public class ScheduleEditService {
 	/** JSON 노드를 필수 불리언 값으로 변환한다. */
 	private static boolean booleanValue(JsonNode node) {
 		if (!node.isBoolean()) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "boolean 필드가 유효하지 않습니다.");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "boolean 필드가 유효하지 않습니다.");
 		}
 		return node.asBoolean();
 	}
@@ -417,24 +417,24 @@ public class ScheduleEditService {
 	/** JSON 문자열을 유효한 일정 유형으로 변환한다. */
 	private static ScheduleType enumValue(JsonNode node) {
 		if (!node.isTextual()) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "eventType이 유효하지 않습니다.");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "eventType이 유효하지 않습니다.");
 		}
 		try {
 			return ScheduleType.valueOf(node.asText());
 		} catch (IllegalArgumentException exception) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "eventType이 유효하지 않습니다.");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "eventType이 유효하지 않습니다.");
 		}
 	}
 
 	/** JSON 오프셋 시각을 UTC 지역 시각으로 변환한다. */
 	private static LocalDateTime dateTime(JsonNode node) {
 		if (!node.isTextual()) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "일시가 유효하지 않습니다.");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "일시가 유효하지 않습니다.");
 		}
 		try {
 			return OffsetDateTime.parse(node.asText()).withOffsetSameInstant(ZoneOffset.UTC).toLocalDateTime();
 		} catch (DateTimeException exception) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "일시가 유효하지 않습니다.");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "일시가 유효하지 않습니다.");
 		}
 	}
 }

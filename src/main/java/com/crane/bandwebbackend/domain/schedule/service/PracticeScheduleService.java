@@ -12,8 +12,8 @@ import com.crane.bandwebbackend.domain.schedule.entity.ScheduleType;
 import com.crane.bandwebbackend.domain.schedule.repository.PracticeScheduleRepository;
 import com.crane.bandwebbackend.domain.schedule.repository.PracticeScheduleTeamRepository;
 import com.crane.bandwebbackend.domain.schedule.repository.PracticeScheduleSongRepository;
-import com.crane.bandwebbackend.global.error.ApiErrorCode;
-import com.crane.bandwebbackend.global.error.ApiException;
+import com.crane.bandwebbackend.global.error.ErrorCode;
+import com.crane.bandwebbackend.global.error.BusinessException;
 import java.util.List;
 import java.util.Set;
 import java.util.HashSet;
@@ -73,7 +73,7 @@ public class PracticeScheduleService {
 		// 조회 기간을 93일로 제한하고 소속·공연 열람 권한을 확인한다.
 		if (from == null || to == null || !from.isBefore(to)
 				|| Duration.between(from, to).compareTo(Duration.ofDays(93)) > 0) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "조회 기간은 93일 이하여야 합니다.");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "조회 기간은 93일 이하여야 합니다.");
 		}
 		Membership actor = membershipService.requireMember(clubId, actorUserId);
 		performanceService.detail(clubId, performanceId, actorUserId);
@@ -142,7 +142,7 @@ public class PracticeScheduleService {
 		Membership actor = membershipService.requireMember(clubId, actorUserId);
 		performanceService.detail(clubId, performanceId, actorUserId);
 		if (actor.getMemberType() == MemberType.GUEST) {
-			throw new ApiException(ApiErrorCode.NOT_FOUND, "일정 목록을 찾을 수 없습니다.");
+			throw BusinessException.of(ErrorCode.NOT_FOUND, "일정 목록을 찾을 수 없습니다.");
 		}
 		List<PracticeSchedule> schedules = repository.findByPerformance_IdAndPerformance_Club_Id(performanceId, clubId);
 		if (actor.getRole() == MembershipRole.CLUB_ADMIN) {
@@ -164,16 +164,16 @@ public class PracticeScheduleService {
 		performanceService.detail(clubId, performanceId, actorUserId);
 		PracticeSchedule schedule = repository.findByIdAndPerformance_IdAndPerformance_Club_Id(
 						scheduleId, performanceId, clubId)
-				.orElseThrow(() -> new ApiException(ApiErrorCode.NOT_FOUND, "일정을 찾을 수 없습니다."));
+				.orElseThrow(() -> BusinessException.of(ErrorCode.NOT_FOUND, "일정을 찾을 수 없습니다."));
 		if (schedule.getStatus() == ScheduleStatus.TENTATIVE && actor.getRole() != MembershipRole.CLUB_ADMIN) {
-			throw new ApiException(ApiErrorCode.NOT_FOUND, "일정을 찾을 수 없습니다.");
+			throw BusinessException.of(ErrorCode.NOT_FOUND, "일정을 찾을 수 없습니다.");
 		}
 		// 객원은 본인이 참석 대상인 확정 일정만 상세 조회할 수 있다.
 		if (actor.getMemberType() == MemberType.GUEST) {
 			Long memberId = participationLookup.approvedMemberId(performanceId, actor.getId()).orElse(null);
 			if (memberId == null || !repository.findAttendedScheduleIds(performanceId, memberId)
 					.contains(scheduleId)) {
-				throw new ApiException(ApiErrorCode.NOT_FOUND, "일정을 찾을 수 없습니다.");
+				throw BusinessException.of(ErrorCode.NOT_FOUND, "일정을 찾을 수 없습니다.");
 			}
 		}
 		return schedule;
