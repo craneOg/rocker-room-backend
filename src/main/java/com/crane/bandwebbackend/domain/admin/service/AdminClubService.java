@@ -88,17 +88,7 @@ public class AdminClubService {
         Map<String, Long> performances = clubs.performanceStatusCounts(clubId);
         auditRecorder.record(clubId, actorUserId, "CLUB_DETAIL_VIEWED", "CLUB", clubId, null, null);
         return AdminClubDetailResponse.builder()
-                .club(AdminClubDetailResponse.ClubInfo.builder()
-                        .id(club.getId())
-                        .name(club.getName())
-                        .description(club.getDescription())
-                        .clubType(club.getClubType())
-                        .status(club.getStatus())
-                        .searchable(club.isSearchable())
-                        .createdByUserId(club.getCreatedBy())
-                        .createdAt(KstTime.toKst(club.getCreatedAt()))
-                        .updatedAt(KstTime.toKst(club.getUpdatedAt()))
-                        .build())
+                .club(toClubInfo(club))
                 .creator(AdminClubDetailResponse.Creator.builder()
                         .userId(club.getCreatedBy())
                         .name(
@@ -140,8 +130,51 @@ public class AdminClubService {
                 .build();
     }
 
+    // API 120: 이미 비활성이면 200으로 그대로 돌려주고 감사 기록도 남기지 않는다
+    @Transactional
+    public AdminClubDetailResponse.ClubInfo deactivate(long actorUserId, long clubId, String reason) {
+        return changeStatus(actorUserId, clubId, ClubStatus.INACTIVE, "CLUB_DEACTIVATED", reason);
+    }
+
+    // API 159: 이미 활성이면 200으로 그대로 돌려주고 감사 기록도 남기지 않는다
+    @Transactional
+    public AdminClubDetailResponse.ClubInfo reactivate(long actorUserId, long clubId, String reason) {
+        return changeStatus(actorUserId, clubId, ClubStatus.ACTIVE, "CLUB_REACTIVATED", reason);
+    }
+
+    // 조건부 UPDATE라 두 운영자가 동시에 같은 전환을 해도 한 번만 바뀌고 감사 기록도 한 건만 남는다
+    private AdminClubDetailResponse.ClubInfo changeStatus(
+            long actorUserId, long clubId, ClubStatus target, String action, String reason) {
+        ClubRow before = clubs.findClub(clubId).orElseThrow(AdminClubService::notFound);
+        if (!target.name().equals(before.getStatus()) && clubs.updateStatus(clubId, target.name()) == 1) {
+            auditRecorder.record(
+                    clubId,
+                    actorUserId,
+                    action,
+                    "CLUB",
+                    clubId,
+                    reason.strip(),
+                    Map.of("from", before.getStatus(), "to", target.name()));
+        }
+        return toClubInfo(clubs.findClub(clubId).orElseThrow(AdminClubService::notFound));
+    }
+
     private LocalDateTime inactiveCutoff() {
         return LocalDateTime.now(clock.withZone(ZoneOffset.UTC)).minus(Duration.ofDays(INACTIVE_DAYS));
+    }
+
+    private static AdminClubDetailResponse.ClubInfo toClubInfo(ClubRow club) {
+        return AdminClubDetailResponse.ClubInfo.builder()
+                .id(club.getId())
+                .name(club.getName())
+                .description(club.getDescription())
+                .clubType(club.getClubType())
+                .status(club.getStatus())
+                .searchable(club.isSearchable())
+                .createdByUserId(club.getCreatedBy())
+                .createdAt(KstTime.toKst(club.getCreatedAt()))
+                .updatedAt(KstTime.toKst(club.getUpdatedAt()))
+                .build();
     }
 
     private static AdminClubResponse toResponse(ClubRow c) {
