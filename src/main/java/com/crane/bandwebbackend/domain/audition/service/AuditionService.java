@@ -32,8 +32,8 @@ import com.crane.bandwebbackend.global.audit.AuditRecorder;
 import jakarta.persistence.EntityManager;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
-import com.crane.bandwebbackend.global.error.ApiErrorCode;
-import com.crane.bandwebbackend.global.error.ApiException;
+import com.crane.bandwebbackend.global.error.ErrorCode;
+import com.crane.bandwebbackend.global.error.BusinessException;
 import java.util.List;
 import java.util.Comparator;
 import java.util.ArrayList;
@@ -105,27 +105,27 @@ public class AuditionService {
 		membershipService.requireAdmin(clubId, actorUserId);
 		var performance = performanceService.require(clubId, performanceId);
 		if (performance.getClub().getStatus() != ClubStatus.ACTIVE) {
-			throw new ApiException(ApiErrorCode.STATE_CONFLICT, "비활성 동아리에서는 등록할 수 없습니다.",
+			throw BusinessException.of(ErrorCode.STATE_CONFLICT, "비활성 동아리에서는 등록할 수 없습니다.",
 					"CLUB_INACTIVE");
 		}
 		if (performance.getStatus() == PerformanceStatus.FINISHED
 				|| performance.getStatus() == PerformanceStatus.CANCELED) {
-			throw new ApiException(ApiErrorCode.STATE_CONFLICT, "공연 상태가 등록을 허용하지 않습니다.",
+			throw BusinessException.of(ErrorCode.STATE_CONFLICT, "공연 상태가 등록을 허용하지 않습니다.",
 					"INVALID_STATE");
 		}
 		// 요청 유형을 곡 자체 심사와 특정 세션 지원자 심사로 구분한다.
 		boolean session = "SESSION".equals(body.type());
 		if (!session && !"SONG".equals(body.type())) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "오디션 유형이 유효하지 않습니다.");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "오디션 유형이 유효하지 않습니다.");
 		}
 		// 동시 중복 등록을 막기 위해 대상 곡을 쓰기 잠금으로 조회한다.
 		Long songId = ApiIds.positive(body.songId(), "songId");
 		Song song = entityManager.find(Song.class, songId, LockModeType.PESSIMISTIC_WRITE);
 		if (song == null || !song.getPerformance().getId().equals(performanceId)) {
-			throw new ApiException(ApiErrorCode.NOT_FOUND, "곡을 찾을 수 없습니다.");
+			throw BusinessException.of(ErrorCode.NOT_FOUND, "곡을 찾을 수 없습니다.");
 		}
 		if (song.getStatus() != SongStatus.PROPOSED && song.getStatus() != SongStatus.CONFIRMED) {
-			throw new ApiException(ApiErrorCode.STATE_CONFLICT, "심사 대상 곡이 아닙니다.",
+			throw BusinessException.of(ErrorCode.STATE_CONFLICT, "심사 대상 곡이 아닙니다.",
 					"SONG_NOT_AUDITIONABLE");
 		}
 		// 일정이 연결됐다면 같은 공연의 오디션 유형 일정인지 검증한다.
@@ -135,7 +135,7 @@ public class AuditionService {
 					ApiIds.positive(body.linkedScheduleId(), "linkedScheduleId"));
 			if (schedule == null || !schedule.getPerformance().getId().equals(performanceId)
 					|| schedule.getScheduleType() != ScheduleType.AUDITION) {
-				throw new ApiException(ApiErrorCode.RULE_VIOLATION, "오디션 일정이 아닙니다.",
+				throw BusinessException.of(ErrorCode.RULE_VIOLATION, "오디션 일정이 아닙니다.",
 						"SCHEDULE_NOT_AUDITION");
 			}
 		}
@@ -146,34 +146,34 @@ public class AuditionService {
 			if (body.partId() == null || body.applicantPerformanceMemberIds() == null
 					|| body.applicantPerformanceMemberIds().isEmpty()
 					|| body.applicantPerformanceMemberIds().size() > 50) {
-				throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "세션 심사에는 파트와 지원자가 필요합니다.");
+				throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "세션 심사에는 파트와 지원자가 필요합니다.");
 			}
 			part = entityManager.find(Part.class, ApiIds.positive(body.partId(), "partId"));
 			if (part == null || !part.getClub().getId().equals(clubId) || !part.isActive()) {
-				throw new ApiException(ApiErrorCode.RULE_VIOLATION, "활성 파트가 아닙니다.",
+				throw BusinessException.of(ErrorCode.RULE_VIOLATION, "활성 파트가 아닙니다.",
 						"PART_NOT_ACTIVE");
 			}
 			Set<Long> uniqueIds = new HashSet<>();
 			for (String raw : body.applicantPerformanceMemberIds()) {
 				Long id = ApiIds.positive(raw, "applicantPerformanceMemberIds");
 				if (!uniqueIds.add(id)) {
-					throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "중복 지원자가 있습니다.");
+					throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "중복 지원자가 있습니다.");
 				}
 				applicantIds.add(id);
 			}
 		} else if (body.partId() != null || body.applicantPerformanceMemberIds() != null
 				&& !body.applicantPerformanceMemberIds().isEmpty()) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "곡 심사에는 지원자와 파트를 지정할 수 없습니다.");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "곡 심사에는 지원자와 파트를 지정할 수 없습니다.");
 		}
 		// 모든 지원자가 같은 공연에서 지원 또는 승인 상태인지 전수 확인한다.
 		List<PerformanceMember> applicants = new ArrayList<>();
 		for (Long id : applicantIds) {
 			PerformanceMember applicant = memberRepository.member(clubId, performanceId, id)
-					.orElseThrow(() -> new ApiException(ApiErrorCode.RULE_VIOLATION,
+					.orElseThrow(() -> BusinessException.of(ErrorCode.RULE_VIOLATION,
 					"지원자 자격이 없습니다.", "APPLICANT_NOT_ELIGIBLE"));
 			if (applicant.getStatus() != PerformanceMemberStatus.APPLIED
 					&& applicant.getStatus() != PerformanceMemberStatus.APPROVED) {
-				throw new ApiException(ApiErrorCode.RULE_VIOLATION, "지원자 자격이 없습니다.",
+				throw BusinessException.of(ErrorCode.RULE_VIOLATION, "지원자 자격이 없습니다.",
 						"APPLICANT_NOT_ELIGIBLE");
 			}
 			applicants.add(applicant);
@@ -189,7 +189,7 @@ public class AuditionService {
 						: entry.getPerformanceMember() == null)
 				.toList();
 		if (!pending.isEmpty()) {
-			throw new ApiException(ApiErrorCode.DUPLICATE, "심사 대기 기록이 이미 있습니다.",
+			throw BusinessException.of(ErrorCode.DUPLICATE, "심사 대기 기록이 이미 있습니다.",
 					"AUDITION_ALREADY_PENDING");
 		}
 		// 곡 심사는 한 건, 세션 심사는 지원자마다 한 건씩 생성한다.
@@ -226,18 +226,18 @@ public class AuditionService {
 		var performance = performanceService.require(clubId, performanceId);
 		if (performance.getStatus() == PerformanceStatus.FINISHED
 				|| performance.getStatus() == PerformanceStatus.CANCELED) {
-			throw new ApiException(ApiErrorCode.STATE_CONFLICT, "이 공연에서는 심사할 수 없습니다.",
+			throw BusinessException.of(ErrorCode.STATE_CONFLICT, "이 공연에서는 심사할 수 없습니다.",
 					"INVALID_STATE");
 		}
 		if (performance.getStatus() == PerformanceStatus.LOCKED
 				&& (body.reason() == null || body.reason().isBlank())) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "사유가 필요합니다.", "REASON_REQUIRED");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "사유가 필요합니다.", "REASON_REQUIRED");
 		}
 		// 수정 행을 잠근 뒤 현재 revision을 다시 계산해 동시 수정 충돌을 검사한다.
 		AuditionEntry entry = repository.findWithLockByIdAndPerformanceId(auditionId, performanceId)
-				.orElseThrow(() -> new ApiException(ApiErrorCode.NOT_FOUND, "오디션을 찾을 수 없습니다."));
+				.orElseThrow(() -> BusinessException.of(ErrorCode.NOT_FOUND, "오디션을 찾을 수 없습니다."));
 		if (!RevisionTag.from("a", entry.getId(), entry.getUpdatedAt()).equals(body.revision())) {
-			throw new ApiException(ApiErrorCode.VERSION_CONFLICT, "오디션이 먼저 변경되었습니다.");
+			throw BusinessException.of(ErrorCode.VERSION_CONFLICT, "오디션이 먼저 변경되었습니다.");
 		}
 		// 이전 결과를 보존한 뒤 심사 결과·의견·심사자·시각을 갱신한다.
 		var previous = entry.getResult();
@@ -273,13 +273,13 @@ public class AuditionService {
 		membershipService.requireAdmin(clubId, actorUserId);
 		performanceService.require(clubId, performanceId);
 		if (page < 0 || size < 1 || size > 100) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "page 또는 size 범위가 유효하지 않습니다.");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "page 또는 size 범위가 유효하지 않습니다.");
 		}
 		if (tab != null && !tab.equals("PENDING") && !tab.equals("DONE")) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "tab 값이 유효하지 않습니다.");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "tab 값이 유효하지 않습니다.");
 		}
 		if (type != null && !type.equals("SONG") && !type.equals("SESSION")) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "type 값이 유효하지 않습니다.");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "type 값이 유효하지 않습니다.");
 		}
 		// tab을 제외한 유형·곡·일정 필터를 먼저 적용해 전체 대기 건수의 기준을 만든다.
 		List<AuditionEntry> filtered = repository.findByPerformanceId(performanceId).stream()
@@ -335,7 +335,7 @@ public class AuditionService {
 			return entries;
 		}
 		PerformanceMember member = memberRepository.memberOfMembership(performanceId, actor.getId())
-				.orElseThrow(() -> new ApiException(ApiErrorCode.NOT_FOUND, "오디션 목록을 찾을 수 없습니다."));
+				.orElseThrow(() -> BusinessException.of(ErrorCode.NOT_FOUND, "오디션 목록을 찾을 수 없습니다."));
 		return entries.stream().filter(entry -> entry.getPerformanceMember() != null
 				&& entry.getPerformanceMember().getId().equals(member.getId())).toList();
 	}
@@ -352,14 +352,14 @@ public class AuditionService {
 		Membership actor = membershipService.requireMember(clubId, actorUserId);
 		performanceService.require(clubId, performanceId);
 		AuditionEntry entry = repository.findByIdAndPerformanceId(auditionId, performanceId)
-				.orElseThrow(() -> new ApiException(ApiErrorCode.NOT_FOUND, "오디션을 찾을 수 없습니다."));
+				.orElseThrow(() -> BusinessException.of(ErrorCode.NOT_FOUND, "오디션을 찾을 수 없습니다."));
 		// 임원 외에는 해당 심사의 지원자 본인에게만 상세 내용을 공개한다.
 		if (actor.getRole() == MembershipRole.CLUB_ADMIN) {
 			return entry;
 		}
 		if (entry.getPerformanceMember() == null
 				|| !entry.getPerformanceMember().getMembership().getId().equals(actor.getId())) {
-			throw new ApiException(ApiErrorCode.NOT_FOUND, "오디션을 찾을 수 없습니다.");
+			throw BusinessException.of(ErrorCode.NOT_FOUND, "오디션을 찾을 수 없습니다.");
 		}
 		return entry;
 	}

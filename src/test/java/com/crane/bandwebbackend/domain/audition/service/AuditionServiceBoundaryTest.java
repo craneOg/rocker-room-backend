@@ -13,8 +13,8 @@ import com.crane.bandwebbackend.domain.membership.service.MembershipService;
 import com.crane.bandwebbackend.domain.participant.entity.PerformanceMember;
 import com.crane.bandwebbackend.domain.participant.service.ParticipationLookup;
 import com.crane.bandwebbackend.domain.performance.service.PerformanceService;
-import com.crane.bandwebbackend.global.error.ApiErrorCode;
-import com.crane.bandwebbackend.global.error.ApiException;
+import com.crane.bandwebbackend.global.error.ErrorCode;
+import com.crane.bandwebbackend.global.error.BusinessException;
 import jakarta.persistence.EntityManager;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -37,8 +37,8 @@ class AuditionServiceBoundaryTest {
         when(repository.findByIdAndPerformanceId(4L, 2L)).thenReturn(Optional.of(songReview));
 
         assertThatThrownBy(() -> service.detail(1L, 2L, 4L, 7L))
-                .isInstanceOfSatisfying(ApiException.class,
-                        exception -> assertThat(exception.getCode()).isEqualTo(ApiErrorCode.NOT_FOUND));
+                .isInstanceOfSatisfying(BusinessException.class,
+                        exception -> assertThat(exception.getCode()).isEqualTo(ErrorCode.NOT_FOUND));
 
         AuditionEntry otherSession = mock(AuditionEntry.class);
         PerformanceMember otherMember = mock(PerformanceMember.class);
@@ -49,8 +49,8 @@ class AuditionServiceBoundaryTest {
         when(otherMembership.getId()).thenReturn(99L);
 
         assertThatThrownBy(() -> service.detail(1L, 2L, 5L, 7L))
-                .isInstanceOfSatisfying(ApiException.class,
-                        exception -> assertThat(exception.getCode()).isEqualTo(ApiErrorCode.NOT_FOUND));
+                .isInstanceOfSatisfying(BusinessException.class,
+                        exception -> assertThat(exception.getCode()).isEqualTo(ErrorCode.NOT_FOUND));
     }
 
     @Test

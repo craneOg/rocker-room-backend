@@ -13,8 +13,8 @@ import com.crane.bandwebbackend.domain.participant.service.ParticipationLookup;
 import com.crane.bandwebbackend.domain.performance.entity.Performance;
 import com.crane.bandwebbackend.domain.performance.entity.PerformanceStatus;
 import com.crane.bandwebbackend.domain.performance.service.PerformanceService;
-import com.crane.bandwebbackend.global.error.ApiErrorCode;
-import com.crane.bandwebbackend.global.error.ApiException;
+import com.crane.bandwebbackend.global.error.ErrorCode;
+import com.crane.bandwebbackend.global.error.BusinessException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityManager;
 import java.time.LocalDateTime;
@@ -41,7 +41,7 @@ class AuditionReviewServiceTest {
                 "{\"result\":\"PASSED\",\"revision\":\"stale\"}", AuditionReviewRequest.class);
 
         assertThatThrownBy(() -> service.review(1L, 2L, 3L, 7L, body))
-                .isInstanceOfSatisfying(ApiException.class,
-                        error -> assertThat(error.getCode()).isEqualTo(ApiErrorCode.VERSION_CONFLICT));
+                .isInstanceOfSatisfying(BusinessException.class,
+                        error -> assertThat(error.getCode()).isEqualTo(ErrorCode.VERSION_CONFLICT));
     }
 }
