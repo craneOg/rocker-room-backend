@@ -1,6 +1,6 @@
 package com.crane.bandwebbackend.domain.schedule.service;
 
-import com.crane.bandwebbackend.domain.part.repository.MembershipPartRepository;
+import com.crane.bandwebbackend.domain.part.service.MembershipPartReader;
 import com.crane.bandwebbackend.domain.participant.entity.PerformanceMember;
 import com.crane.bandwebbackend.domain.schedule.dto.ScheduleDetailResponse;
 import jakarta.persistence.EntityManager;
@@ -16,7 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class ScheduleDetailReader {
 	private final EntityManager entityManager;
-	private final MembershipPartRepository parts;
+	private final MembershipPartReader parts;
 
 	/** 일정 참여자 목록을 조회한다 */
 	@Transactional(readOnly = true)
@@ -52,9 +52,8 @@ public class ScheduleDetailReader {
 			var membership = member.getMembership();
 			String name = membership.getDisplayName() == null
 					? membership.getUser().getName() : membership.getDisplayName();
-			List<ScheduleDetailResponse.Part> memberParts = parts.findByMembership_Id(membership.getId())
-					.stream().map(link -> new ScheduleDetailResponse.Part(
-							link.getPart().getId().toString(), link.getPart().getName())).toList();
+			List<ScheduleDetailResponse.Part> memberParts = parts.partsOf(membership.getId())
+					.stream().map(part -> new ScheduleDetailResponse.Part(part.getId(), part.getName())).toList();
 			return new ScheduleDetailResponse.Participant(membership.getUser().getId().toString(),
 					id.toString(), membership.getId().toString(), name, memberParts,
 					membership.getMemberType(), support.contains(id));

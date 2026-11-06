@@ -5,7 +5,7 @@ import com.crane.bandwebbackend.domain.membership.service.MembershipService;
 import com.crane.bandwebbackend.domain.membership.entity.Membership;
 import com.crane.bandwebbackend.domain.membership.entity.MembershipRole;
 import com.crane.bandwebbackend.domain.performance.entity.PerformanceStatus;
-import com.crane.bandwebbackend.domain.performance.repository.PerformancePolicyRepository;
+import com.crane.bandwebbackend.domain.performance.service.PerformanceService;
 import com.crane.bandwebbackend.domain.schedule.entity.PracticeSchedule;
 import com.crane.bandwebbackend.domain.schedule.entity.PracticeScheduleSong;
 import com.crane.bandwebbackend.domain.schedule.entity.PracticeScheduleTeam;
@@ -16,7 +16,7 @@ import com.crane.bandwebbackend.domain.schedule.repository.PracticeScheduleSongR
 import com.crane.bandwebbackend.domain.schedule.repository.PracticeScheduleTeamRepository;
 import com.crane.bandwebbackend.domain.song.entity.Song;
 import com.crane.bandwebbackend.domain.team.entity.Team;
-import com.crane.bandwebbackend.global.audit.AuditLog;
+import com.crane.bandwebbackend.global.audit.AuditRecorder;
 import com.crane.bandwebbackend.global.error.ApiErrorCode;
 import com.crane.bandwebbackend.global.error.ApiException;
 import com.crane.bandwebbackend.global.response.ApiIds;
@@ -46,8 +46,9 @@ public class ScheduleEditService {
 	private final PracticeScheduleRepository schedules;
 	private final PracticeScheduleTeamRepository teamLinks;
 	private final PracticeScheduleSongRepository songLinks;
-	private final PerformancePolicyRepository policies;
+	private final PerformanceService performances;
 	private final EntityManager entityManager;
+	private final AuditRecorder auditRecorder;
 
 	/** 일정 수정한다 */
 	@Transactional
@@ -142,8 +143,7 @@ public class ScheduleEditService {
 		}
 		// 충돌은 저장을 막지 않고 경고로 반환하며, 수정 사실은 감사 로그에 남긴다.
 		List<Object> warnings = warnings(schedule, true);
-		entityManager.persist(AuditLog.record(clubId, actorUserId, "SCHEDULE_UPDATED",
-				"PRACTICE_SCHEDULE", scheduleId, null, "{\"version\":\"" + version + "\"}"));
+		auditRecorder.record(clubId, actorUserId, "SCHEDULE_UPDATED", "PRACTICE_SCHEDULE", scheduleId, null, Map.of("version", version));
 		return new EditResult(schedule, warnings);
 	}
 
@@ -264,7 +264,7 @@ public class ScheduleEditService {
 	) {
 		List<Object> result = new ArrayList<>();
 		// 공연 정책의 합주 시즌을 벗어나면 저장 차단 대신 경고를 추가한다.
-		policies.findById(performanceId).ifPresent(policy -> {
+		performances.policyIfExists(clubId, performanceId).ifPresent(policy -> {
 			if (policy.getPracticeSeasonStart() != null && policy.getPracticeSeasonEnd() != null
 					&& (kst(startAt).toLocalDate().isBefore(policy.getPracticeSeasonStart())
 					|| kst(endAt).toLocalDate().isAfter(policy.getPracticeSeasonEnd()))) {

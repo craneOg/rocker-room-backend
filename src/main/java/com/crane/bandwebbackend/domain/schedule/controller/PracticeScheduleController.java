@@ -21,7 +21,6 @@ import com.crane.bandwebbackend.global.error.ApiException;
 import com.crane.bandwebbackend.global.response.ApiIds;
 import com.crane.bandwebbackend.global.response.ApiResponse;
 import com.crane.bandwebbackend.global.response.PageResponse;
-import com.crane.bandwebbackend.global.response.RequestIdFilter;
 import com.crane.bandwebbackend.global.security.CurrentActor;
 import jakarta.validation.Valid;
 import jakarta.servlet.http.HttpServletRequest;
@@ -103,7 +102,7 @@ public class PracticeScheduleController {
 		Map<Long, List<String>> songs = targetReader.songIds(ids);
 		Page<ScheduleResponse> response = schedules.map(schedule -> ScheduleResponse.from(schedule,
 				teams.getOrDefault(schedule.getId(), List.of()), songs.getOrDefault(schedule.getId(), List.of())));
-		return ResponseEntity.ok(ApiResponse.of(PageResponse.from(response), RequestIdFilter.require(request)));
+		return ResponseEntity.ok(ApiResponse.ok(PageResponse.from(response)));
 	}
 
 	/** 일정 생성한다 */
@@ -117,8 +116,8 @@ public class PracticeScheduleController {
 	) {
 		var result = createService.create(ApiIds.positive(clubId, "clubId"),
 				ApiIds.positive(performanceId, "performanceId"), currentActor.requireUserId(), body);
-		return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.of(new ScheduleMutationResponse(response(result.schedule()), result.warnings(),
-				ScheduleMutationResponse.Effects.none()), RequestIdFilter.require(request)));
+		return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(new ScheduleMutationResponse(response(result.schedule()), result.warnings(),
+				ScheduleMutationResponse.Effects.none())));
 	}
 
 	/** 일정 생성 요청을 검증한다 */
@@ -130,9 +129,8 @@ public class PracticeScheduleController {
 		@RequestHeader("X-Requested-With") String requestedWith,
 		HttpServletRequest request
 	) {
-		return ResponseEntity.ok(ApiResponse.of(validationService.create(ApiIds.positive(clubId, "clubId"),
-				ApiIds.positive(performanceId, "performanceId"), currentActor.requireUserId(), body),
-				RequestIdFilter.require(request)));
+		return ResponseEntity.ok(ApiResponse.ok(validationService.create(ApiIds.positive(clubId, "clubId"),
+				ApiIds.positive(performanceId, "performanceId"), currentActor.requireUserId(), body)));
 	}
 
 	/** 일정 상세 정보를 조회한다 */
@@ -146,8 +144,7 @@ public class PracticeScheduleController {
 		Long id = ApiIds.positive(scheduleId, "scheduleId");
 		PracticeSchedule schedule = service.detail(ApiIds.positive(clubId, "clubId"),
 				ApiIds.positive(performanceId, "performanceId"), id, currentActor.requireUserId());
-		return ResponseEntity.ok(ApiResponse.of(new ScheduleDetailResponse(response(schedule), detailReader.participants(id)),
-				RequestIdFilter.require(request)));
+		return ResponseEntity.ok(ApiResponse.ok(new ScheduleDetailResponse(response(schedule), detailReader.participants(id))));
 	}
 
 	/** API-113: 임원은 대상 전체, 일반 부원은 자신에게 해당하는 충돌만 본다. */
@@ -161,7 +158,7 @@ public class PracticeScheduleController {
 		List<Object> items = editService.warningsFor(ApiIds.positive(clubId, "clubId"),
 				ApiIds.positive(performanceId, "performanceId"), ApiIds.positive(scheduleId, "scheduleId"),
 				currentActor.requireUserId());
-		return ResponseEntity.ok(ApiResponse.of(Map.of("items", items), RequestIdFilter.require(request)));
+		return ResponseEntity.ok(ApiResponse.ok(Map.of("items", items)));
 	}
 
 	/** API-110: 수정은 즉시 저장하고 겹침·시즌 경고를 결과에 담는다. */
@@ -177,8 +174,8 @@ public class PracticeScheduleController {
 		ScheduleEditService.EditResult result = editService.edit(ApiIds.positive(clubId, "clubId"),
 				ApiIds.positive(performanceId, "performanceId"), ApiIds.positive(scheduleId, "scheduleId"),
 				currentActor.requireUserId(), body);
-		return ResponseEntity.ok(ApiResponse.of(new ScheduleMutationResponse(response(result.schedule()), result.warnings(),
-				ScheduleMutationResponse.Effects.none()), RequestIdFilter.require(request)));
+		return ResponseEntity.ok(ApiResponse.ok(new ScheduleMutationResponse(response(result.schedule()), result.warnings(),
+				ScheduleMutationResponse.Effects.none())));
 	}
 
 	/** 일정 수정 요청을 검증한다 */
@@ -191,9 +188,9 @@ public class PracticeScheduleController {
 		@RequestHeader("X-Requested-With") String requestedWith,
 		HttpServletRequest request
 	) {
-		return ResponseEntity.ok(ApiResponse.of(validationService.edit(ApiIds.positive(clubId, "clubId"),
+		return ResponseEntity.ok(ApiResponse.ok(validationService.edit(ApiIds.positive(clubId, "clubId"),
 				ApiIds.positive(performanceId, "performanceId"), ApiIds.positive(scheduleId, "scheduleId"),
-				currentActor.requireUserId(), body), RequestIdFilter.require(request)));
+				currentActor.requireUserId(), body)));
 	}
 
 	/** 일정 취소한다 */
@@ -209,7 +206,7 @@ public class PracticeScheduleController {
 		PracticeSchedule schedule = transitionService.change(ApiIds.positive(clubId, "clubId"),
 				ApiIds.positive(performanceId, "performanceId"), ApiIds.positive(scheduleId, "scheduleId"),
 				currentActor.requireUserId(), body.version(), ScheduleStatus.CANCELED, body.reason());
-		return ResponseEntity.ok(ApiResponse.of(ScheduleMutationResponse.of(response(schedule)), RequestIdFilter.require(request)));
+		return ResponseEntity.ok(ApiResponse.ok(ScheduleMutationResponse.of(response(schedule))));
 	}
 
 	/** 일정 확정한다 */
@@ -226,8 +223,8 @@ public class PracticeScheduleController {
 				ApiIds.positive(clubId, "clubId"), ApiIds.positive(performanceId, "performanceId"),
 				ApiIds.positive(scheduleId, "scheduleId"), currentActor.requireUserId(), body.version(),
 				Boolean.TRUE.equals(body.confirmed()));
-		return ResponseEntity.ok(ApiResponse.of(new ScheduleMutationResponse(response(result.schedule()), result.warnings(),
-				ScheduleMutationResponse.Effects.none()), RequestIdFilter.require(request)));
+		return ResponseEntity.ok(ApiResponse.ok(new ScheduleMutationResponse(response(result.schedule()), result.warnings(),
+				ScheduleMutationResponse.Effects.none())));
 	}
 
 	/** 일정 확정을 해제한다 */
@@ -246,7 +243,7 @@ public class PracticeScheduleController {
 		PracticeSchedule schedule = transitionService.change(ApiIds.positive(clubId, "clubId"),
 				ApiIds.positive(performanceId, "performanceId"), ApiIds.positive(scheduleId, "scheduleId"),
 				currentActor.requireUserId(), body.version(), ScheduleStatus.TENTATIVE, null);
-		return ResponseEntity.ok(ApiResponse.of(response(schedule), RequestIdFilter.require(request)));
+		return ResponseEntity.ok(ApiResponse.ok(response(schedule)));
 	}
 
 	/** 일정 엔티티와 연결 대상을 상세 응답으로 조합한다. */

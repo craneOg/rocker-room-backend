@@ -6,9 +6,8 @@ import static org.mockito.Mockito.when;
 
 import com.crane.bandwebbackend.domain.membership.entity.Membership;
 import com.crane.bandwebbackend.domain.membership.entity.MembershipRole;
-import com.crane.bandwebbackend.domain.membership.repository.MembershipRepository;
 import com.crane.bandwebbackend.domain.membership.service.MembershipService;
-import com.crane.bandwebbackend.domain.participant.repository.PerformanceMemberRepository;
+import com.crane.bandwebbackend.domain.participant.service.ParticipationLookup;
 import com.crane.bandwebbackend.domain.performance.service.PerformanceService;
 import com.crane.bandwebbackend.domain.schedule.repository.PracticeScheduleRepository;
 import com.crane.bandwebbackend.domain.schedule.repository.PracticeScheduleSongRepository;
@@ -20,8 +19,8 @@ import org.junit.jupiter.api.Test;
 
 class CalendarReaderTest {
     private final MembershipService memberships = mock(MembershipService.class);
-    private final CalendarReader reader = new CalendarReader(mock(MembershipRepository.class), memberships,
-            mock(PerformanceService.class), mock(PerformanceMemberRepository.class),
+    private final CalendarReader reader = new CalendarReader(memberships,
+            mock(PerformanceService.class), mock(ParticipationLookup.class),
             mock(PracticeScheduleRepository.class), mock(PracticeScheduleTeamRepository.class),
             mock(PracticeScheduleSongRepository.class));
 

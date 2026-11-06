@@ -28,7 +28,7 @@ class ScheduleTransitionServiceTest {
     private final EntityManager entityManager = mock(EntityManager.class);
     private final ScheduleEditService edits = mock(ScheduleEditService.class);
     private final ScheduleTransitionService service = new ScheduleTransitionService(
-            memberships, schedules, entityManager, edits);
+            memberships, schedules, entityManager, mock(com.crane.bandwebbackend.global.audit.AuditRecorder.class), edits);
 
     @Test
     void confirmRequiresExplicitRetryWhenScheduleHasWarnings() {

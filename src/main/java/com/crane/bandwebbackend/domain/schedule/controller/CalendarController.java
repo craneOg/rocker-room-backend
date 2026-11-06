@@ -4,7 +4,6 @@ import com.crane.bandwebbackend.domain.schedule.dto.CalendarEvent;
 import com.crane.bandwebbackend.domain.schedule.service.CalendarReader;
 import com.crane.bandwebbackend.global.response.ApiIds;
 import com.crane.bandwebbackend.global.response.ApiResponse;
-import com.crane.bandwebbackend.global.response.RequestIdFilter;
 import com.crane.bandwebbackend.global.security.CurrentActor;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.OffsetDateTime;
@@ -39,8 +38,8 @@ public class CalendarController {
 		@RequestParam(defaultValue = "true") boolean includePerformanceDates,
 		HttpServletRequest request
 	) {
-		return ResponseEntity.ok(ApiResponse.of(new Items(reader.personal(actor.requireUserId(), utc(from), utc(to),
-				clubIds, includeCanceled, includePerformanceDates)), RequestIdFilter.require(request)));
+		return ResponseEntity.ok(ApiResponse.ok(new Items(reader.personal(actor.requireUserId(), utc(from), utc(to),
+				clubIds, includeCanceled, includePerformanceDates))));
 	}
 
 	/** 일정 연결된 동아리를 조회한다 */
@@ -58,10 +57,10 @@ public class CalendarController {
 		@RequestParam(defaultValue = "true") boolean includePerformanceDates,
 		HttpServletRequest request
 	) {
-		return ResponseEntity.ok(ApiResponse.of(new Items(reader.club(ApiIds.positive(clubId, "clubId"), actor.requireUserId(),
+		return ResponseEntity.ok(ApiResponse.ok(new Items(reader.club(ApiIds.positive(clubId, "clubId"), actor.requireUserId(),
 				utc(from), utc(to), id(performanceId, "performanceId"), id(teamId, "teamId"),
 				id(songId, "songId"), eventType, includeTentative, includeCanceled,
-				includePerformanceDates)), RequestIdFilter.require(request)));
+				includePerformanceDates))));
 	}
 
 	/** 선택 경로 식별자를 양의 정수로 검증해 변환한다. */

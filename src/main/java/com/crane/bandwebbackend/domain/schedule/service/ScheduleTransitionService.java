@@ -6,11 +6,12 @@ import com.crane.bandwebbackend.domain.performance.entity.PerformanceStatus;
 import com.crane.bandwebbackend.domain.schedule.entity.PracticeSchedule;
 import com.crane.bandwebbackend.domain.schedule.entity.ScheduleStatus;
 import com.crane.bandwebbackend.domain.schedule.repository.PracticeScheduleRepository;
-import com.crane.bandwebbackend.global.audit.AuditLog;
+import com.crane.bandwebbackend.global.audit.AuditRecorder;
 import com.crane.bandwebbackend.global.error.ApiErrorCode;
 import com.crane.bandwebbackend.global.error.ApiException;
 import com.crane.bandwebbackend.global.error.ConfirmationRequiredException;
 import java.util.List;
+import java.util.Map;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -24,6 +25,7 @@ public class ScheduleTransitionService {
 	private final MembershipService membershipService;
 	private final PracticeScheduleRepository repository;
 	private final EntityManager entityManager;
+	private final AuditRecorder auditRecorder;
 	private final ScheduleEditService editService;
 
 	/** 일정 확정한다 */
@@ -71,9 +73,7 @@ public class ScheduleTransitionService {
 			throw new ConfirmationRequiredException(warnings);
 		}
 		schedule.transitionTo(ScheduleStatus.CONFIRMED);
-		entityManager.persist(AuditLog.record(clubId, actorUserId, "SCHEDULE_STATUS_CHANGED",
-				"PRACTICE_SCHEDULE", scheduleId, null,
-				"{\"from\":\"TENTATIVE\",\"to\":\"CONFIRMED\"}"));
+		auditRecorder.record(clubId, actorUserId, "SCHEDULE_STATUS_CHANGED", "PRACTICE_SCHEDULE", scheduleId, null, Map.of("from", "TENTATIVE", "to", "CONFIRMED"));
 		entityManager.flush();
 		return new ConfirmResult(schedule, warnings);
 	}
@@ -127,9 +127,7 @@ public class ScheduleTransitionService {
 			throw new ApiException(ApiErrorCode.STATE_CONFLICT, "취소할 수 없는 일정입니다.", "INVALID_STATE");
 		}
 		schedule.transitionTo(target);
-		entityManager.persist(AuditLog.record(clubId, actorUserId, "SCHEDULE_STATUS_CHANGED",
-				"PRACTICE_SCHEDULE", scheduleId, reason,
-				"{\"from\":\"" + previous + "\",\"to\":\"" + target + "\"}"));
+		auditRecorder.record(clubId, actorUserId, "SCHEDULE_STATUS_CHANGED", "PRACTICE_SCHEDULE", scheduleId, reason, Map.of("from", previous.toString(), "to", target.toString()));
 		entityManager.flush();
 		return schedule;
 	}

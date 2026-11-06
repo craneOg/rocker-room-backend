@@ -3,10 +3,8 @@ package com.crane.bandwebbackend.domain.schedule.service;
 import com.crane.bandwebbackend.domain.membership.entity.Membership;
 import com.crane.bandwebbackend.domain.membership.entity.MembershipRole;
 import com.crane.bandwebbackend.domain.membership.entity.MembershipStatus;
-import com.crane.bandwebbackend.domain.membership.repository.MembershipRepository;
 import com.crane.bandwebbackend.domain.membership.service.MembershipService;
-import com.crane.bandwebbackend.domain.participant.entity.PerformanceMemberStatus;
-import com.crane.bandwebbackend.domain.participant.repository.PerformanceMemberRepository;
+import com.crane.bandwebbackend.domain.participant.service.ParticipationLookup;
 import com.crane.bandwebbackend.domain.performance.entity.Performance;
 import com.crane.bandwebbackend.domain.performance.service.PerformanceService;
 import com.crane.bandwebbackend.domain.schedule.dto.CalendarEvent;
@@ -36,10 +34,9 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 @RequiredArgsConstructor
 public class CalendarReader {
-	private final MembershipRepository memberships;
 	private final MembershipService membershipService;
 	private final PerformanceService performances;
-	private final PerformanceMemberRepository participants;
+	private final ParticipationLookup participants;
 	private final PracticeScheduleRepository schedules;
 	private final PracticeScheduleTeamRepository teamLinks;
 	private final PracticeScheduleSongRepository songLinks;
@@ -59,7 +56,7 @@ public class CalendarReader {
 		Set<Long> clubs = clubIds == null ? null : parseIds(clubIds, "clubIds");
 		List<CalendarEvent> result = new ArrayList<>();
 		// 사용자의 유효한 동아리 소속만 순회하고, 요청된 동아리 필터를 적용한다.
-		for (Membership membership : memberships.findByUser_Id(actorUserId)) {
+		for (Membership membership : membershipService.membershipsOfUser(actorUserId)) {
 			if (membership.getStatus() != MembershipStatus.ACTIVE
 					&& membership.getStatus() != MembershipStatus.ON_LEAVE
 					&& membership.getStatus() != MembershipStatus.GRADUATED) {
@@ -71,10 +68,9 @@ public class CalendarReader {
 			}
 			// 각 동아리에서 승인된 공연 참여자로 등록된 공연만 개인 캘린더에 포함한다.
 			for (Performance performance : performances.list(clubId, actorUserId)) {
-				boolean approved = participants.findByPerformance_IdAndMembership_Id(
-						performance.getId(), membership.getId())
-						.map(member -> member.getStatus() == PerformanceMemberStatus.APPROVED).orElse(false);
-				if (!approved) {
+				Long participantId = participants.approvedMemberId(performance.getId(), membership.getId())
+						.orElse(null);
+				if (participantId == null) {
 					continue;
 				}
 				// 확정 일정(선택 시 취소 일정 포함) 가운데 본인이 실제 참석 대상인 일정만 수집한다.
@@ -84,9 +80,8 @@ public class CalendarReader {
 							&& !(includeCanceled && schedule.getStatus() == ScheduleStatus.CANCELED)) {
 						continue;
 					}
-					if (overlaps(schedule, from, to) && schedules.findAttendedScheduleIds(
-							performance.getId(), participants.findByPerformance_IdAndMembership_Id(
-									performance.getId(), membership.getId()).orElseThrow().getId())
+				if (overlaps(schedule, from, to) && schedules.findAttendedScheduleIds(
+							performance.getId(), participantId)
 							.contains(schedule.getId())) {
 						result.add(CalendarEvent.schedule(schedule));
 					}
@@ -134,10 +129,7 @@ public class CalendarReader {
 				continue;
 			}
 			// 게스트의 참석 대상 여부를 판단할 수 있도록 승인된 공연 참여자 ID를 구한다.
-			Long participantId = participants.findByPerformance_IdAndMembership_Id(
-					performance.getId(), actor.getId())
-					.filter(member -> member.getStatus() == PerformanceMemberStatus.APPROVED)
-					.map(member -> member.getId()).orElse(null);
+			Long participantId = participants.approvedMemberId(performance.getId(), actor.getId()).orElse(null);
 			for (PracticeSchedule schedule : schedules.findByPerformance_IdAndPerformance_Club_Id(
 					performance.getId(), clubId)) {
 				if (!overlaps(schedule, from, to) || !types.contains(schedule.getScheduleType())

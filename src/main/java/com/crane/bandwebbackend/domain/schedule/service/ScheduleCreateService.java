@@ -16,10 +16,11 @@ import com.crane.bandwebbackend.domain.schedule.repository.PracticeScheduleSongR
 import com.crane.bandwebbackend.domain.schedule.repository.PracticeScheduleTeamRepository;
 import com.crane.bandwebbackend.domain.song.entity.Song;
 import com.crane.bandwebbackend.domain.team.entity.Team;
-import com.crane.bandwebbackend.global.audit.AuditLog;
+import com.crane.bandwebbackend.global.audit.AuditRecorder;
 import com.crane.bandwebbackend.global.error.ApiErrorCode;
 import com.crane.bandwebbackend.global.error.ApiException;
 import com.crane.bandwebbackend.global.response.ApiIds;
+import java.util.Map;
 import jakarta.persistence.EntityManager;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
@@ -42,6 +43,7 @@ public class ScheduleCreateService {
 	private final ScheduleEditService warnings;
 	private final CoreEntityLookupService entityLookup;
 	private final EntityManager entityManager;
+	private final AuditRecorder auditRecorder;
 
 	/** 일정 생성한다 */
 	@Transactional
@@ -135,8 +137,7 @@ public class ScheduleCreateService {
 			throw new ApiException(ApiErrorCode.RULE_VIOLATION, "확정 일정에 참석 대상이 없습니다.",
 					"SCHEDULE_TARGET_EMPTY");
 		}
-		entityManager.persist(AuditLog.record(clubId, actorUserId, "SCHEDULE_CREATED",
-				"PRACTICE_SCHEDULE", schedule.getId(), null, "{}"));
+		auditRecorder.record(clubId, actorUserId, "SCHEDULE_CREATED", "PRACTICE_SCHEDULE", schedule.getId(), null, Map.of());
 		return new ScheduleEditService.EditResult(schedule,
 				warnings.warningsFor(clubId, performanceId, schedule.getId(), actorUserId));
 	}
