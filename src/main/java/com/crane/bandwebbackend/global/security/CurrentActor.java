@@ -22,6 +22,9 @@ public class CurrentActor {
             throw unauthenticated();
         }
         Object principal = authentication.getPrincipal();
+        if (principal instanceof AuthPrincipal actor) {
+            return positive(actor.userId());
+        }
         if (principal instanceof Number number) {
             return positive(number.longValue());
         }

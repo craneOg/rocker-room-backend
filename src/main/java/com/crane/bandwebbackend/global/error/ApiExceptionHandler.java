@@ -1,6 +1,6 @@
 package com.crane.bandwebbackend.global.error;
 
-import com.crane.bandwebbackend.global.response.RequestIdFilter;
+import com.crane.bandwebbackend.global.response.Meta;
 import jakarta.servlet.http.HttpServletRequest;
 import java.sql.SQLException;
 import java.util.LinkedHashMap;
@@ -41,7 +41,7 @@ public class ApiExceptionHandler {
 			error.put("message", confirmation.getMessage());
 			error.put("details", List.of());
 			error.put("warnings", confirmation.getWarnings());
-			error.put("requestId", RequestIdFilter.require(request));
+			error.put("requestId", Meta.current().getRequestId());
 			return ResponseEntity.status(ApiErrorCode.CONFIRMATION_REQUIRED.status())
 					.contentType(MediaType.APPLICATION_JSON).body(Map.of("error", error));
 		}
@@ -135,7 +135,7 @@ public class ApiExceptionHandler {
 		log.error("Unexpected API error", exception);
 		Map<String, Object> error = new LinkedHashMap<>();
 		error.put("message", "서버 내부 오류가 발생했습니다.");
-		error.put("requestId", RequestIdFilter.require(request));
+		error.put("requestId", Meta.current().getRequestId());
 		return ResponseEntity.internalServerError().contentType(MediaType.APPLICATION_JSON)
 				.body(Map.of("error", error));
 	}
@@ -146,7 +146,7 @@ public class ApiExceptionHandler {
 		error.put("code", code.name());
 		error.put("message", detail);
 		error.put("details", fieldErrors);
-		error.put("requestId", RequestIdFilter.require(request));
+		error.put("requestId", Meta.current().getRequestId());
 		return ResponseEntity.status(code.status())
 				.contentType(MediaType.APPLICATION_JSON).body(Map.of("error", error));
 	}

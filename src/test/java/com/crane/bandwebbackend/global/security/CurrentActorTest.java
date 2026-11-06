@@ -20,6 +20,14 @@ class CurrentActorTest {
     }
 
     @Test
+    void returnsJwtAuthenticatedPrincipal() {
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(new AuthPrincipal(17L, "sid", "jti", false), null, List.of()));
+
+        assertThat(currentActor.requireUserId()).isEqualTo(17L);
+    }
+
+    @Test
     void returnsNumericAuthenticatedPrincipal() {
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken(17L, null, List.of()));
