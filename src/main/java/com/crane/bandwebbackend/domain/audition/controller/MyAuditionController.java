@@ -4,7 +4,6 @@ import com.crane.bandwebbackend.domain.audition.dto.MyAuditionsResponse;
 import com.crane.bandwebbackend.domain.audition.service.AuditionService;
 import com.crane.bandwebbackend.global.response.ApiIds;
 import com.crane.bandwebbackend.global.response.ApiResponse;
-import com.crane.bandwebbackend.global.response.RequestIdFilter;
 import com.crane.bandwebbackend.global.security.CurrentActor;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -31,9 +30,8 @@ public class MyAuditionController {
 		@RequestParam(required = false) String performanceId,
 		HttpServletRequest request
 	) {
-		return ResponseEntity.ok(ApiResponse.of(service.mine(actor.requireUserId(),
+		return ResponseEntity.ok(ApiResponse.ok(service.mine(actor.requireUserId(),
 						clubId == null ? null : ApiIds.positive(clubId, "clubId"),
-						performanceId == null ? null : ApiIds.positive(performanceId, "performanceId")),
-				RequestIdFilter.require(request)));
+						performanceId == null ? null : ApiIds.positive(performanceId, "performanceId"))));
 	}
 }

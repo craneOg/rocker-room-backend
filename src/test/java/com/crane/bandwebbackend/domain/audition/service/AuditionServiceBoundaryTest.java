@@ -11,7 +11,7 @@ import com.crane.bandwebbackend.domain.membership.entity.Membership;
 import com.crane.bandwebbackend.domain.membership.entity.MembershipRole;
 import com.crane.bandwebbackend.domain.membership.service.MembershipService;
 import com.crane.bandwebbackend.domain.participant.entity.PerformanceMember;
-import com.crane.bandwebbackend.domain.participant.repository.PerformanceMemberRepository;
+import com.crane.bandwebbackend.domain.participant.service.ParticipationLookup;
 import com.crane.bandwebbackend.domain.performance.service.PerformanceService;
 import com.crane.bandwebbackend.global.error.ApiErrorCode;
 import com.crane.bandwebbackend.global.error.ApiException;
@@ -21,11 +21,12 @@ import org.junit.jupiter.api.Test;
 
 class AuditionServiceBoundaryTest {
     private final AuditionEntryRepository repository = mock(AuditionEntryRepository.class);
-    private final PerformanceMemberRepository memberRepository = mock(PerformanceMemberRepository.class);
+    private final ParticipationLookup memberRepository = mock(ParticipationLookup.class);
     private final MembershipService membershipService = mock(MembershipService.class);
     private final PerformanceService performanceService = mock(PerformanceService.class);
     private final AuditionService service = new AuditionService(
-            repository, memberRepository, membershipService, performanceService, mock(EntityManager.class));
+            repository, memberRepository, membershipService, performanceService, mock(EntityManager.class),
+            mock(com.crane.bandwebbackend.global.audit.AuditRecorder.class));
 
     @Test
     void aud03DoesNotRevealSongReviewOrOtherMembersSessionToOrdinaryMember() {

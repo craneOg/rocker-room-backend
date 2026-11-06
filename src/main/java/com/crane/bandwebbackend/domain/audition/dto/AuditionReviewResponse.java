@@ -21,7 +21,7 @@ public record AuditionReviewResponse(
 		String judgedBy,
 		String judgedByName,
 		OffsetDateTime judgedAt,
-		String version
+		String revision
 ) {
 
 	/** 오디션 엔티티를 응답 데이터로 변환한다 */
@@ -35,6 +35,6 @@ public record AuditionReviewResponse(
 				.applicantName(item.applicantName())
 				.result(item.result()).comment(item.comment())
 				.judgedBy(item.judgedBy()).judgedByName(item.judgedByName())
-				.judgedAt(item.judgedAt()).version(item.version()).build();
+				.judgedAt(item.judgedAt()).revision(item.revision()).build();
 	}
 }

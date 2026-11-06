@@ -4,6 +4,7 @@ import com.crane.bandwebbackend.domain.audition.entity.AuditionEntry;
 import com.crane.bandwebbackend.domain.audition.dto.AuditionItemResponse;
 import com.crane.bandwebbackend.domain.audition.dto.AuditionListResponse;
 import com.crane.bandwebbackend.domain.audition.dto.AuditionReviewRequest;
+import com.crane.bandwebbackend.domain.audition.dto.AuditionReviewResponse;
 import com.crane.bandwebbackend.domain.audition.dto.AuditionCreateRequest;
 import com.crane.bandwebbackend.domain.audition.dto.AuditionCreatedItem;
 import com.crane.bandwebbackend.domain.audition.dto.MyAuditionItem;
@@ -16,17 +17,18 @@ import com.crane.bandwebbackend.domain.song.entity.Song;
 import com.crane.bandwebbackend.domain.song.entity.SongStatus;
 import com.crane.bandwebbackend.domain.club.entity.ClubStatus;
 import com.crane.bandwebbackend.global.response.ApiIds;
+import com.crane.bandwebbackend.global.response.RevisionTag;
 import jakarta.persistence.LockModeType;
 import com.crane.bandwebbackend.domain.audition.repository.AuditionEntryRepository;
 import com.crane.bandwebbackend.domain.membership.entity.Membership;
 import com.crane.bandwebbackend.domain.membership.entity.MembershipRole;
 import com.crane.bandwebbackend.domain.membership.service.MembershipService;
 import com.crane.bandwebbackend.domain.participant.entity.PerformanceMember;
-import com.crane.bandwebbackend.domain.participant.repository.PerformanceMemberRepository;
+import com.crane.bandwebbackend.domain.participant.service.ParticipationLookup;
 import com.crane.bandwebbackend.domain.performance.service.PerformanceService;
 import com.crane.bandwebbackend.domain.performance.entity.PerformanceStatus;
 import com.crane.bandwebbackend.domain.user.entity.User;
-import com.crane.bandwebbackend.global.audit.AuditLog;
+import com.crane.bandwebbackend.global.audit.AuditRecorder;
 import jakarta.persistence.EntityManager;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -48,10 +50,11 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class AuditionService {
 	private final AuditionEntryRepository repository;
-	private final PerformanceMemberRepository memberRepository;
+	private final ParticipationLookup memberRepository;
 	private final MembershipService membershipService;
 	private final PerformanceService performanceService;
 	private final EntityManager entityManager;
+	private final AuditRecorder auditRecorder;
 
 	/** API-150: 본인 세션 심사와 본인이 제안한 곡의 심사만 조회한다. */
 	@Transactional(readOnly = true)
@@ -165,8 +168,8 @@ public class AuditionService {
 		// 모든 지원자가 같은 공연에서 지원 또는 승인 상태인지 전수 확인한다.
 		List<PerformanceMember> applicants = new ArrayList<>();
 		for (Long id : applicantIds) {
-			PerformanceMember applicant = memberRepository.findByIdAndPerformance_IdAndClubId(id,
-					performanceId, clubId).orElseThrow(() -> new ApiException(ApiErrorCode.RULE_VIOLATION,
+			PerformanceMember applicant = memberRepository.member(clubId, performanceId, id)
+					.orElseThrow(() -> new ApiException(ApiErrorCode.RULE_VIOLATION,
 					"지원자 자격이 없습니다.", "APPLICANT_NOT_ELIGIBLE"));
 			if (applicant.getStatus() != PerformanceMemberStatus.APPLIED
 					&& applicant.getStatus() != PerformanceMemberStatus.APPROVED) {
@@ -204,16 +207,14 @@ public class AuditionService {
 		// 생성 결과를 먼저 확정해 ID를 얻고 각 심사별 감사 로그를 남긴다.
 		repository.saveAllAndFlush(created);
 		for (AuditionEntry entry : created) {
-			entityManager.persist(AuditLog.record(clubId, actorUserId, "AUDITION_CREATED",
-					"AUDITION", entry.getId(), null,
-					"{\"songId\":" + songId + "}"));
+			auditRecorder.record(clubId, actorUserId, "AUDITION_CREATED", "AUDITION", entry.getId(), null, Map.of("songId", songId));
 		}
 		return created.stream().map(AuditionCreatedItem::from).toList();
 	}
 
 	/** 오디션 심사 결과를 입력하거나 정정한다 */
 	@Transactional
-	public AuditionEntry review(
+	public AuditionReviewResponse review(
 		Long clubId,
 		Long performanceId,
 		Long auditionId,
@@ -232,27 +233,27 @@ public class AuditionService {
 				&& (body.reason() == null || body.reason().isBlank())) {
 			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "사유가 필요합니다.", "REASON_REQUIRED");
 		}
-		// URL 범위 안의 심사를 조회하고 요청 버전으로 동시 수정 충돌을 검사한다.
-		AuditionEntry entry = repository.findByIdAndPerformanceId(auditionId, performanceId)
+		// 수정 행을 잠근 뒤 현재 revision을 다시 계산해 동시 수정 충돌을 검사한다.
+		AuditionEntry entry = repository.findWithLockByIdAndPerformanceId(auditionId, performanceId)
 				.orElseThrow(() -> new ApiException(ApiErrorCode.NOT_FOUND, "오디션을 찾을 수 없습니다."));
-		if (!String.valueOf(entry.getVersion()).equals(body.version())) {
-			throw new ApiException(ApiErrorCode.VERSION_CONFLICT, "오디션 버전이 달라졌습니다.");
+		if (!RevisionTag.from("a", entry.getId(), entry.getUpdatedAt()).equals(body.revision())) {
+			throw new ApiException(ApiErrorCode.VERSION_CONFLICT, "오디션이 먼저 변경되었습니다.");
 		}
 		// 이전 결과를 보존한 뒤 심사 결과·의견·심사자·시각을 갱신한다.
 		var previous = entry.getResult();
 		User reviewer = entityManager.find(User.class, actorUserId);
 		entry.review(body.result(), body.comment(), reviewer, LocalDateTime.now(ZoneOffset.UTC));
-		String detail = "{\"from\":" + (previous == null ? "null" : "\"" + previous + "\"")
-				+ ",\"to\":\"" + body.result() + "\"}";
+		Map<String, Object> detail = new java.util.HashMap<>();
+		detail.put("from", previous == null ? null : previous.toString());
+		detail.put("to", body.result().toString());
 		// 일반 심사 감사 로그와 잠금 후 예외 수정 로그를 필요에 따라 함께 남긴다.
-		entityManager.persist(AuditLog.record(clubId, actorUserId, "AUDITION_REVIEWED",
-				"AUDITION", auditionId, body.reason(), detail));
+		auditRecorder.record(clubId, actorUserId, "AUDITION_REVIEWED", "AUDITION", auditionId, body.reason(), detail);
 		if (performance.getStatus() == PerformanceStatus.LOCKED) {
-			entityManager.persist(AuditLog.record(clubId, actorUserId, "LOCKED_EXCEPTION_EDIT",
-					"AUDITION", auditionId, body.reason(), detail));
+			auditRecorder.record(clubId, actorUserId, "LOCKED_EXCEPTION_EDIT", "AUDITION", auditionId, body.reason(), detail);
 		}
 		entityManager.flush();
-		return entry;
+		entityManager.refresh(entry);
+		return AuditionReviewResponse.from(entry);
 	}
 
 	/** API-147: tab과 무관한 pendingCount를 같은 필터 집합에서 계산한다. */
@@ -333,7 +334,7 @@ public class AuditionService {
 		if (actor.getRole() == MembershipRole.CLUB_ADMIN) {
 			return entries;
 		}
-		PerformanceMember member = memberRepository.findByPerformance_IdAndMembership_Id(performanceId, actor.getId())
+		PerformanceMember member = memberRepository.memberOfMembership(performanceId, actor.getId())
 				.orElseThrow(() -> new ApiException(ApiErrorCode.NOT_FOUND, "오디션 목록을 찾을 수 없습니다."));
 		return entries.stream().filter(entry -> entry.getPerformanceMember() != null
 				&& entry.getPerformanceMember().getId().equals(member.getId())).toList();

@@ -1,16 +1,21 @@
 package com.crane.bandwebbackend.domain.audition.repository;
 
 import com.crane.bandwebbackend.domain.audition.entity.AuditionEntry;
+import jakarta.persistence.LockModeType;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.EntityGraph;
+import org.springframework.data.jpa.repository.Lock;
 
 public interface AuditionEntryRepository extends JpaRepository<AuditionEntry, Long> {
 	@EntityGraph(attributePaths = {"song", "song.candidateTeam", "performanceMember",
 			"performanceMember.membership", "performanceMember.membership.user",
 			"part", "practiceSchedule", "reviewedBy"})
 	Optional<AuditionEntry> findByIdAndPerformanceId(Long id, Long performanceId);
+
+	@Lock(LockModeType.PESSIMISTIC_WRITE)
+	Optional<AuditionEntry> findWithLockByIdAndPerformanceId(Long id, Long performanceId);
 
 	@EntityGraph(attributePaths = {"song", "song.candidateTeam", "performanceMember",
 			"performanceMember.membership", "performanceMember.membership.user",

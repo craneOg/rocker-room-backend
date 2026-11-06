@@ -17,7 +17,6 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-import jakarta.persistence.Version;
 import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -71,10 +70,6 @@ public class AuditionEntry extends BaseTimeEntity {
 
 	@Column(length = 500)
 	private String comment;
-
-	@Version
-	@Column(nullable = false)
-	private Long version;
 
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "reviewed_by_user_id")

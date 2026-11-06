@@ -19,7 +19,7 @@ public record AuditionCreatedItem(
 		OffsetDateTime scheduledAt,
 		String memo,
 		AuditionResult result,
-		String version
+		String revision
 ) {
 
 	/** 오디션 엔티티를 응답 데이터로 변환한다 */
@@ -31,6 +31,6 @@ public record AuditionCreatedItem(
 				.partId(item.partId())
 				.applicantPerformanceMemberId(item.applicantPerformanceMemberId())
 				.linkedScheduleId(item.linkedScheduleId()).scheduledAt(item.scheduledAt())
-				.memo(item.memo()).result(item.result()).version(item.version()).build();
+				.memo(item.memo()).result(item.result()).revision(item.revision()).build();
 	}
 }

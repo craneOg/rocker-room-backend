@@ -5,6 +5,7 @@ import com.crane.bandwebbackend.domain.audition.entity.AuditionResult;
 import com.crane.bandwebbackend.domain.membership.entity.Membership;
 import com.crane.bandwebbackend.domain.schedule.entity.PracticeSchedule;
 import com.crane.bandwebbackend.domain.song.entity.SongStatus;
+import com.crane.bandwebbackend.global.response.RevisionTag;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
@@ -32,7 +33,7 @@ public record AuditionItemResponse(
 		String judgedBy,
 		String judgedByName,
 		OffsetDateTime judgedAt,
-		String version,
+		String revision,
 		OffsetDateTime createdAt
 ) {
 
@@ -63,7 +64,7 @@ public record AuditionItemResponse(
 				.judgedBy(entry.getReviewedBy() == null ? null : entry.getReviewedBy().getId().toString())
 				.judgedByName(entry.getReviewedBy() == null ? null : entry.getReviewedBy().getName())
 				.judgedAt(kst(entry.getReviewedAt()))
-				.version(entry.getVersion() == null ? "0" : entry.getVersion().toString())
+				.revision(RevisionTag.from("a", entry.getId(), entry.getUpdatedAt()))
 				.createdAt(kst(entry.getCreatedAt()))
 				.build();
 	}

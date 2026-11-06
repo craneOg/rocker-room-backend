@@ -8,7 +8,6 @@ import com.crane.bandwebbackend.domain.audition.dto.AuditionCreateResponse;
 import com.crane.bandwebbackend.domain.audition.service.AuditionService;
 import com.crane.bandwebbackend.global.response.ApiIds;
 import com.crane.bandwebbackend.global.response.ApiResponse;
-import com.crane.bandwebbackend.global.response.RequestIdFilter;
 import com.crane.bandwebbackend.global.security.CurrentActor;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -55,7 +54,7 @@ public class AuditionController {
 				ApiIds.positive(performanceId, "performanceId"), currentActor.requireUserId(),
 				tab, type, songId == null ? null : ApiIds.positive(songId, "songId"),
 				scheduleId == null ? null : ApiIds.positive(scheduleId, "scheduleId"), page, size);
-		return ResponseEntity.ok(ApiResponse.of(result, RequestIdFilter.require(request)));
+		return ResponseEntity.ok(ApiResponse.ok(result));
 	}
 
 	/** 오디션 생성한다 */
@@ -69,9 +68,8 @@ public class AuditionController {
 	) {
 		var items = service.create(ApiIds.positive(clubId, "clubId"),
 				ApiIds.positive(performanceId, "performanceId"), currentActor.requireUserId(), body);
-		return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.of(AuditionCreateResponse.builder()
-				.items(items).build(),
-				RequestIdFilter.require(request)));
+		return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(AuditionCreateResponse.builder()
+				.items(items).build()));
 	}
 
 	/** 오디션 심사 결과를 저장한다 */
@@ -84,9 +82,9 @@ public class AuditionController {
 		@RequestHeader("X-Requested-With") String requestedWith,
 		HttpServletRequest request
 	) {
-		var entry = service.review(ApiIds.positive(clubId, "clubId"),
+		var result = service.review(ApiIds.positive(clubId, "clubId"),
 				ApiIds.positive(performanceId, "performanceId"), ApiIds.positive(auditionId, "auditionId"),
 				currentActor.requireUserId(), body);
-		return ResponseEntity.ok(ApiResponse.of(AuditionReviewResponse.from(entry), RequestIdFilter.require(request)));
+		return ResponseEntity.ok(ApiResponse.ok(result));
 	}
 }

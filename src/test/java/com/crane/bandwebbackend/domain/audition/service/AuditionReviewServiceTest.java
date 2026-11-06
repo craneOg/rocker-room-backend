@@ -9,7 +9,7 @@ import com.crane.bandwebbackend.domain.audition.dto.AuditionReviewRequest;
 import com.crane.bandwebbackend.domain.audition.entity.AuditionEntry;
 import com.crane.bandwebbackend.domain.audition.repository.AuditionEntryRepository;
 import com.crane.bandwebbackend.domain.membership.service.MembershipService;
-import com.crane.bandwebbackend.domain.participant.repository.PerformanceMemberRepository;
+import com.crane.bandwebbackend.domain.participant.service.ParticipationLookup;
 import com.crane.bandwebbackend.domain.performance.entity.Performance;
 import com.crane.bandwebbackend.domain.performance.entity.PerformanceStatus;
 import com.crane.bandwebbackend.domain.performance.service.PerformanceService;
@@ -17,6 +17,7 @@ import com.crane.bandwebbackend.global.error.ApiErrorCode;
 import com.crane.bandwebbackend.global.error.ApiException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityManager;
+import java.time.LocalDateTime;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
@@ -24,19 +25,20 @@ class AuditionReviewServiceTest {
     private final AuditionEntryRepository repository = mock(AuditionEntryRepository.class);
     private final PerformanceService performances = mock(PerformanceService.class);
     private final AuditionService service = new AuditionService(repository,
-            mock(PerformanceMemberRepository.class), mock(MembershipService.class),
-            performances, mock(EntityManager.class));
+            mock(ParticipationLookup.class), mock(MembershipService.class),
+            performances, mock(EntityManager.class), mock(com.crane.bandwebbackend.global.audit.AuditRecorder.class));
 
     @Test
-    void api149RejectsStaleAuditionVersion() throws Exception {
+    void api149RejectsStaleAuditionRevision() throws Exception {
         Performance performance = mock(Performance.class);
         AuditionEntry entry = mock(AuditionEntry.class);
         when(performances.require(1L, 2L)).thenReturn(performance);
         when(performance.getStatus()).thenReturn(PerformanceStatus.ACTIVE);
-        when(repository.findByIdAndPerformanceId(3L, 2L)).thenReturn(Optional.of(entry));
-        when(entry.getVersion()).thenReturn(4L);
+        when(repository.findWithLockByIdAndPerformanceId(3L, 2L)).thenReturn(Optional.of(entry));
+        when(entry.getId()).thenReturn(3L);
+        when(entry.getUpdatedAt()).thenReturn(LocalDateTime.of(2026, 11, 5, 0, 0));
         AuditionReviewRequest body = new ObjectMapper().readValue(
-                "{\"result\":\"PASSED\",\"version\":\"3\"}", AuditionReviewRequest.class);
+                "{\"result\":\"PASSED\",\"revision\":\"stale\"}", AuditionReviewRequest.class);
 
         assertThatThrownBy(() -> service.review(1L, 2L, 3L, 7L, body))
                 .isInstanceOfSatisfying(ApiException.class,
