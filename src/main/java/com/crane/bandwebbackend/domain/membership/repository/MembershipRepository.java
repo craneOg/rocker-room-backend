@@ -5,8 +5,6 @@ import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.EntityGraph;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 
 public interface MembershipRepository extends JpaRepository<Membership, Long> {
 	@EntityGraph(attributePaths = {"club", "user"})
@@ -20,13 +18,6 @@ public interface MembershipRepository extends JpaRepository<Membership, Long> {
 
 	@EntityGraph(attributePaths = {"club", "user"})
 	List<Membership> findByUser_Id(Long userId);
-
-	@EntityGraph(attributePaths = {"club", "user"})
-	Page<Membership> findByUser_Id(Long userId, Pageable pageable);
-
-	@EntityGraph(attributePaths = {"club", "user"})
-	Page<Membership> findByUser_IdAndStatus(Long userId,
-			com.crane.bandwebbackend.domain.membership.entity.MembershipStatus status, Pageable pageable);
 
 	boolean existsByClub_IdAndRoleAndStatusIn(Long clubId,
 			com.crane.bandwebbackend.domain.membership.entity.MembershipRole role,

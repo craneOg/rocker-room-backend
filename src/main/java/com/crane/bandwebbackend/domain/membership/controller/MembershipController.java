@@ -11,7 +11,6 @@ import com.crane.bandwebbackend.domain.membership.dto.MembershipWithdrawalReques
 import com.crane.bandwebbackend.domain.membership.dto.MembershipWithdrawalResult;
 import com.crane.bandwebbackend.domain.membership.entity.MemberType;
 import com.crane.bandwebbackend.domain.membership.entity.MembershipRole;
-import com.crane.bandwebbackend.domain.membership.repository.MembershipRepository;
 import com.crane.bandwebbackend.domain.membership.service.MemberDirectoryService;
 import com.crane.bandwebbackend.domain.membership.service.MembershipWithdrawalPreviewService;
 import com.crane.bandwebbackend.domain.membership.service.MembershipWithdrawalService;
@@ -25,7 +24,6 @@ import com.crane.bandwebbackend.global.error.ApiErrorCode;
 import com.crane.bandwebbackend.global.error.ApiException;
 import com.crane.bandwebbackend.global.response.ApiIds;
 import com.crane.bandwebbackend.global.response.ApiResponse;
-import com.crane.bandwebbackend.global.response.RequestIdFilter;
 import com.crane.bandwebbackend.global.response.PageResponse;
 import com.crane.bandwebbackend.global.security.CurrentActor;
 import jakarta.servlet.http.HttpServletRequest;
@@ -66,7 +64,6 @@ public class MembershipController {
 	private final MembershipDecisionService decisionService;
 	private final MembershipPartReader partReader;
 	private final MemberDirectoryService directory;
-	private final MembershipRepository repository;
 	private final MembershipWithdrawalPreviewService withdrawalPreview;
 	private final MembershipWithdrawalService withdrawalService;
 	private final CurrentActor currentActor;
@@ -88,14 +85,9 @@ public class MembershipController {
 			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "page 또는 size가 유효하지 않습니다.");
 		}
 		Long actorId = currentActor.requireUserId();
-		var result = directory.list(ApiIds.positive(clubId, "clubId"), actorId, q, status, role,
+		Page<Object> items = directory.list(ApiIds.positive(clubId, "clubId"), actorId, q, status, role,
 				memberType, partId, PageRequest.of(page, size));
-		Page<Object> items = result.page().map(member -> result.admin()
-				? MembershipResponse.from(member, result.parts().getOrDefault(member.getId(), java.util.List.of()),
-						actorId)
-				: MembershipPublicItem.from(member,
-						result.parts().getOrDefault(member.getId(), java.util.List.of()), actorId));
-		return ResponseEntity.ok(ApiResponse.of(PageResponse.from(items), RequestIdFilter.require(request)));
+		return ResponseEntity.ok(ApiResponse.ok(PageResponse.from(items)));
 	}
 
 	/** 소속 초대한다 */
@@ -109,26 +101,22 @@ public class MembershipController {
 		Long club = ApiIds.positive(clubId, "clubId");
 		Long actor = currentActor.requireUserId();
 		var user = directory.lookup(club, actor, body.handle()).user();
-		boolean existed = repository.findByClub_IdAndUser_Id(club, user.getId()).isPresent();
+		boolean existed = service.exists(club, user.getId());
 		Membership invited = service.invite(club, actor, body.handle(),
 				body.memberType() == null ? MemberType.REGULAR : body.memberType(), body.displayName());
-		return ResponseEntity.status(existed ? HttpStatus.OK : HttpStatus.CREATED).body(ApiResponse.of(
-				MembershipResponse.from(invited, partReader.partsOf(invited.getId()), actor),
-				RequestIdFilter.require(request)));
+		return ResponseEntity.status(existed ? HttpStatus.OK : HttpStatus.CREATED).body(ApiResponse.ok(MembershipResponse.from(invited, partReader.partsOf(invited.getId()), actor)));
 	}
 
 	/** 소속 상세 정보를 조회한다 */
 	@GetMapping("/{membershipId}")
-	public ResponseEntity<ApiResponse<MembershipResponse>> detail(
+	public ResponseEntity<ApiResponse<Object>> detail(
 		@PathVariable String clubId,
 		@PathVariable String membershipId,
 		HttpServletRequest request
 	) {
 		Long club = ApiIds.positive(clubId, "clubId");
 		Long id = ApiIds.positive(membershipId, "membershipId");
-		Membership membership = service.detail(club, id, currentActor.requireUserId());
-		return ResponseEntity.ok(ApiResponse.of(MembershipResponse.from(membership, partReader.partsOf(id), currentActor.requireUserId()),
-				RequestIdFilter.require(request)));
+		return ResponseEntity.ok(ApiResponse.ok(directory.detail(club, id, currentActor.requireUserId())));
 	}
 
 	/** 소속 탈퇴 영향을 미리 조회한다 */
@@ -138,9 +126,8 @@ public class MembershipController {
 		@PathVariable String membershipId,
 		HttpServletRequest request
 	) {
-		return ResponseEntity.ok(ApiResponse.of(withdrawalPreview.preview(ApiIds.positive(clubId, "clubId"),
-				ApiIds.positive(membershipId, "membershipId"), currentActor.requireUserId()),
-				RequestIdFilter.require(request)));
+		return ResponseEntity.ok(ApiResponse.ok(withdrawalPreview.preview(ApiIds.positive(clubId, "clubId"),
+				ApiIds.positive(membershipId, "membershipId"), currentActor.requireUserId())));
 	}
 
 	/** 소속 철회하거나 탈퇴한다 */
@@ -152,9 +139,8 @@ public class MembershipController {
 		@RequestHeader("X-Requested-With") String requestedWith,
 		HttpServletRequest request
 	) {
-		return ResponseEntity.ok(ApiResponse.of(withdrawalService.withdraw(ApiIds.positive(clubId, "clubId"),
-				ApiIds.positive(membershipId, "membershipId"), currentActor.requireUserId(), body),
-				RequestIdFilter.require(request)));
+		return ResponseEntity.ok(ApiResponse.ok(withdrawalService.withdraw(ApiIds.positive(clubId, "clubId"),
+				ApiIds.positive(membershipId, "membershipId"), currentActor.requireUserId(), body)));
 	}
 
 	/** 소속 승인한다 */
@@ -291,8 +277,7 @@ public class MembershipController {
 
 	/** 소속 엔티티와 보유 파트를 표준 API 응답으로 변환한다. */
 	private ApiResponse<MembershipResponse> response(Membership member, HttpServletRequest request) {
-		return ApiResponse.of(MembershipResponse.from(member, partReader.partsOf(member.getId()),
-						currentActor.requireUserId()),
-				RequestIdFilter.require(request));
+		return ApiResponse.ok(MembershipResponse.from(member, partReader.partsOf(member.getId()),
+						currentActor.requireUserId()));
 	}
 }

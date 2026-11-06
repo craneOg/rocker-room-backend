@@ -4,15 +4,13 @@ import com.crane.bandwebbackend.domain.club.entity.ClubStatus;
 import com.crane.bandwebbackend.domain.club.entity.ClubType;
 import com.crane.bandwebbackend.domain.membership.entity.Membership;
 import com.crane.bandwebbackend.domain.membership.entity.MembershipStatus;
-import com.crane.bandwebbackend.domain.participant.entity.PerformanceMember;
-import com.crane.bandwebbackend.domain.participant.entity.PerformanceMemberSource;
-import com.crane.bandwebbackend.domain.participant.entity.PerformanceMemberStatus;
-import com.crane.bandwebbackend.domain.participant.repository.PerformanceMemberRepository;
+import com.crane.bandwebbackend.domain.participant.service.ParticipationLookup;
 import com.crane.bandwebbackend.domain.performance.entity.PerformanceStatus;
-import com.crane.bandwebbackend.domain.performance.repository.PerformanceRepository;
-import com.crane.bandwebbackend.global.audit.AuditLog;
+import com.crane.bandwebbackend.domain.performance.service.PerformanceService;
+import com.crane.bandwebbackend.global.audit.AuditRecorder;
 import com.crane.bandwebbackend.global.error.ApiErrorCode;
 import com.crane.bandwebbackend.global.error.ApiException;
+import java.util.Map;
 import jakarta.persistence.EntityManager;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -26,9 +24,10 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class MembershipDecisionService {
 	private final MembershipService members;
-	private final PerformanceRepository performances;
-	private final PerformanceMemberRepository participants;
+	private final PerformanceService performances;
+	private final ParticipationLookup participants;
 	private final EntityManager entityManager;
+	private final AuditRecorder auditRecorder;
 
 	/** 소속 신청을 승인하거나 거절한다 */
 	@Transactional
@@ -80,20 +79,11 @@ public class MembershipDecisionService {
 		if (before == MembershipStatus.PENDING && target == MembershipStatus.ACTIVE
 				&& member.getClub().getClubType() == ClubType.BAND) {
 			// C-14: 밴드형 동아리는 승인 시 진행 중 공연에 자동 편입한다.
-			performances.findByClub_Id(clubId).stream()
+			performances.list(clubId, actorUserId).stream()
 					.filter(performance -> performance.getStatus() == PerformanceStatus.DRAFT
 							|| performance.getStatus() == PerformanceStatus.ACTIVE
 							|| performance.getStatus() == PerformanceStatus.LOCKED)
-					.forEach(performance -> {
-						PerformanceMember existing = participants.findByPerformance_IdAndMembership_Id(
-								performance.getId(), membershipId).orElse(null);
-						if (existing == null) {
-							participants.save(PerformanceMember.addByAdmin(performance, member, now));
-						} else if (existing.getStatus() == PerformanceMemberStatus.REJECTED
-								|| existing.getStatus() == PerformanceMemberStatus.WITHDRAWN) {
-							existing.reapply(PerformanceMemberSource.ADMIN, now);
-						}
-					});
+					.forEach(performance -> participants.ensureAdminParticipation(performance, member, now));
 		}
 		// 목표 상태를 도메인 감사 이벤트 이름으로 변환해 변경 내역을 기록한다.
 		String action = switch (target) {
@@ -102,9 +92,7 @@ public class MembershipDecisionService {
 			case DECLINED -> "INVITATION_DECLINED";
 			default -> throw new IllegalStateException("지원하지 않는 소속 결정입니다.");
 		};
-		entityManager.persist(AuditLog.record(clubId, actorUserId, action,
-				"MEMBERSHIP", membershipId, reason,
-				"{\"from\":\"" + before + "\",\"to\":\"" + target + "\"}"));
+		auditRecorder.record(clubId, actorUserId, action, "MEMBERSHIP", membershipId, reason, Map.of("from", before.toString(), "to", target.toString()));
 		return member;
 	}
 }

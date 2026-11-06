@@ -12,10 +12,10 @@ import com.crane.bandwebbackend.domain.membership.repository.MembershipRepositor
 import com.crane.bandwebbackend.domain.part.service.MembershipPartReader;
 import com.crane.bandwebbackend.domain.membership.dto.MembershipResponse;
 import com.crane.bandwebbackend.domain.participant.entity.PerformanceMemberStatus;
-import com.crane.bandwebbackend.domain.participant.repository.PerformanceMemberRepository;
-import com.crane.bandwebbackend.domain.schedule.repository.PracticeScheduleRepository;
+import com.crane.bandwebbackend.domain.participant.service.ParticipationLookup;
+import com.crane.bandwebbackend.domain.schedule.service.ScheduleLookup;
 import com.crane.bandwebbackend.domain.performance.entity.PerformanceStatus;
-import com.crane.bandwebbackend.global.audit.AuditLog;
+import com.crane.bandwebbackend.global.audit.AuditRecorder;
 import com.crane.bandwebbackend.global.error.ApiErrorCode;
 import com.crane.bandwebbackend.global.error.ApiException;
 import com.crane.bandwebbackend.global.response.ApiIds;
@@ -40,10 +40,11 @@ import org.springframework.transaction.annotation.Transactional;
 public class MembershipWithdrawalService {
 	private final MembershipService memberships;
 	private final MembershipRepository repository;
-	private final PerformanceMemberRepository participants;
-	private final PracticeScheduleRepository schedules;
+	private final ParticipationLookup participants;
+	private final ScheduleLookup schedules;
 	private final MembershipPartReader parts;
 	private final EntityManager entityManager;
+	private final AuditRecorder auditRecorder;
 
 	/** 소속 철회하거나 탈퇴한다 */
 	@Transactional
@@ -53,15 +54,7 @@ public class MembershipWithdrawalService {
 		Long actorUserId,
 		MembershipWithdrawalRequest request
 	) {
-		// 대상 소속을 조회하고 본인 탈퇴인지 관리자 내보내기인지에 따라 권한을 나눈다.
-		Membership target = memberships.require(clubId, membershipId);
-		boolean selfWithdrawal = target.getUser().getId().equals(actorUserId);
-		if (selfWithdrawal) {
-			memberships.requireMember(clubId, actorUserId);
-		} else {
-			memberships.requireAdmin(clubId, actorUserId);
-		}
-		// 마지막 관리자 판단이 동시에 실행되지 않도록 동아리와 대상 소속 행을 잠근다.
+		// 마지막 관리자 판단이 동시에 실행되지 않도록 다른 소속 조회보다 먼저 동아리를 잠근다.
 		Club club = entityManager.find(Club.class, clubId, LockModeType.PESSIMISTIC_WRITE);
 		if (club == null) {
 			throw new ApiException(ApiErrorCode.NOT_FOUND, "동아리를 찾을 수 없습니다.");
@@ -69,6 +62,14 @@ public class MembershipWithdrawalService {
 		if (club.getStatus() != ClubStatus.ACTIVE) {
 			throw new ApiException(ApiErrorCode.STATE_CONFLICT, "비활성 동아리에서는 내보낼 수 없습니다.",
 					"CLUB_INACTIVE");
+		}
+		// 잠금 안에서 대상과 요청자 권한을 다시 읽어 본인 탈퇴와 관리자 내보내기를 구분한다.
+		Membership target = memberships.require(clubId, membershipId);
+		boolean selfWithdrawal = target.getUser().getId().equals(actorUserId);
+		if (selfWithdrawal) {
+			memberships.requireMember(clubId, actorUserId);
+		} else {
+			memberships.requireAdmin(clubId, actorUserId);
 		}
 		entityManager.refresh(target, LockModeType.PESSIMISTIC_WRITE);
 		if (target.getStatus() != MembershipStatus.ACTIVE
@@ -105,7 +106,7 @@ public class MembershipWithdrawalService {
 		Set<Long> affectedUsers = new HashSet<>();
 		affectedUsers.add(target.getUser().getId());
 		// 진행 중 공연의 유효 참여를 철회하고, 팀장이면 먼저 후임을 배정한다.
-		for (var participant : participants.findByMembership_Id(membershipId)) {
+		for (var participant : participants.membersOfMembership(membershipId)) {
 			PerformanceStatus performanceStatus = participant.getPerformance().getStatus();
 			if ((performanceStatus != PerformanceStatus.DRAFT && performanceStatus != PerformanceStatus.ACTIVE
 					&& performanceStatus != PerformanceStatus.LOCKED)
@@ -113,14 +114,12 @@ public class MembershipWithdrawalService {
 					&& participant.getStatus() != PerformanceMemberStatus.APPROVED)) {
 				continue;
 			}
-			affectedSchedules.addAll(schedules.findAttendedScheduleIds(
+			affectedSchedules.addAll(schedules.attendedScheduleIds(
 					participant.getPerformance().getId(), participant.getId()));
 			reassignLeaders(participant.getPerformance().getId(), participant.getId(), specified,
 					affectedUsers);
 			participant.transitionTo(PerformanceMemberStatus.WITHDRAWN, LocalDateTime.now(ZoneOffset.UTC));
-			entityManager.persist(AuditLog.record(clubId, actorUserId, "PERFORMANCE_MEMBER_WITHDRAWN",
-					"PERFORMANCE_MEMBER", participant.getId(), request.reason(),
-					"{\"membershipId\":\"" + membershipId + "\"}"));
+			auditRecorder.record(clubId, actorUserId, "PERFORMANCE_MEMBER_WITHDRAWN", "PERFORMANCE_MEMBER", participant.getId(), request.reason(), Map.of("membershipId", membershipId));
 		}
 		// 사용되지 않은 후임 요청은 대상이 팀장이 아닌 팀을 지정한 것으로 판단한다.
 		if (!specified.isEmpty()) {
@@ -152,18 +151,13 @@ public class MembershipWithdrawalService {
 		if (requiresSuccession) {
 			if (successorId == null) {
 				club.deactivate();
-				entityManager.persist(AuditLog.record(clubId, actorUserId, "CLUB_DEACTIVATED",
-						"CLUB", clubId, request.reason(),
-						"{\"formerAdminMembershipId\":" + membershipId + "}"));
+				auditRecorder.record(clubId, actorUserId, "CLUB_DEACTIVATED", "CLUB", clubId, request.reason(), Map.of("formerAdminMembershipId", membershipId));
 			} else {
-				entityManager.persist(AuditLog.record(clubId, actorUserId, "ADMIN_SUCCESSION",
-						"MEMBERSHIP", successorId, request.reason(),
-						"{\"formerAdminMembershipId\":" + membershipId + "}"));
+				auditRecorder.record(clubId, actorUserId, "ADMIN_SUCCESSION", "MEMBERSHIP", successorId, request.reason(), Map.of("formerAdminMembershipId", membershipId));
 			}
 		}
 		// 전체 변경 이력을 남기고 즉시 flush해 제약조건 오류도 이 트랜잭션에서 확인한다.
-		entityManager.persist(AuditLog.record(clubId, actorUserId, "MEMBERSHIP_WITHDRAWN",
-				"MEMBERSHIP", membershipId, request.reason(), "{}"));
+		auditRecorder.record(clubId, actorUserId, "MEMBERSHIP_WITHDRAWN", "MEMBERSHIP", membershipId, request.reason(), Map.of());
 		entityManager.flush();
 		return new MembershipWithdrawalResult(MembershipResponse.from(target, parts.partsOf(membershipId),
 				actorUserId), List.of(), new MembershipWithdrawalResult.Effects(List.of(),

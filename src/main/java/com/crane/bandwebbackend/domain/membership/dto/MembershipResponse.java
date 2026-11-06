@@ -60,9 +60,8 @@ public record MembershipResponse(
 				.userId(membership.getUser().getId().toString())
 				.userName(membership.getUser().getName())
 				.handle(membership.getUser().getHandle())
-				// User 담당 영역에 profileImagePublic가 연결되기 전에는 타인의 사진을 공개하지 않는다.
-				.profileImageUrl(membership.getUser().getId().equals(viewerUserId)
-						? membership.getUser().getProfileImageUrl() : null)
+				.profileImageUrl(membership.getUser().profileImageUrlFor(
+						membership.getUser().getId().equals(viewerUserId) ? membership.getUser() : null))
 				.displayName(membership.getDisplayName() == null
 						? membership.getUser().getName() : membership.getDisplayName())
 				.memberType(membership.getMemberType())

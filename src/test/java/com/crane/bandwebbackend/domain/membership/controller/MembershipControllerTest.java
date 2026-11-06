@@ -15,17 +15,18 @@ import com.crane.bandwebbackend.domain.membership.entity.MemberType;
 import com.crane.bandwebbackend.domain.membership.entity.Membership;
 import com.crane.bandwebbackend.domain.membership.entity.MembershipRole;
 import com.crane.bandwebbackend.domain.membership.entity.MembershipStatus;
+import com.crane.bandwebbackend.domain.membership.dto.MembershipPublicItem;
+import com.crane.bandwebbackend.domain.membership.dto.MembershipResponse;
 import com.crane.bandwebbackend.domain.membership.service.MembershipService;
 import com.crane.bandwebbackend.domain.membership.service.MembershipStatusService;
 import com.crane.bandwebbackend.domain.membership.service.MembershipDecisionService;
 import com.crane.bandwebbackend.domain.membership.service.MemberDirectoryService;
 import com.crane.bandwebbackend.domain.membership.service.MembershipWithdrawalPreviewService;
 import com.crane.bandwebbackend.domain.membership.service.MembershipWithdrawalService;
-import com.crane.bandwebbackend.domain.membership.repository.MembershipRepository;
 import com.crane.bandwebbackend.domain.part.service.MembershipPartReader;
 import com.crane.bandwebbackend.domain.user.entity.User;
 import com.crane.bandwebbackend.global.error.ApiExceptionHandler;
-import com.crane.bandwebbackend.global.response.RequestIdFilter;
+import com.crane.bandwebbackend.global.config.RequestIdFilter;
 import com.crane.bandwebbackend.global.security.CurrentActor;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -41,13 +42,12 @@ class MembershipControllerTest {
     private final MembershipDecisionService decisionService = mock(MembershipDecisionService.class);
     private final MembershipPartReader partReader = mock(MembershipPartReader.class);
     private final MemberDirectoryService directory = mock(MemberDirectoryService.class);
-    private final MembershipRepository repository = mock(MembershipRepository.class);
     private final MembershipWithdrawalPreviewService withdrawalPreview = mock(MembershipWithdrawalPreviewService.class);
     private final MembershipWithdrawalService withdrawalService = mock(MembershipWithdrawalService.class);
     private final CurrentActor actor = mock(CurrentActor.class);
     private final MockMvc mvc = MockMvcBuilders.standaloneSetup(
                     new MembershipController(service, statusService, decisionService, partReader,
-                            directory, repository, withdrawalPreview, withdrawalService, actor))
+                            directory, withdrawalPreview, withdrawalService, actor))
             .addFilters(new RequestIdFilter())
             .setControllerAdvice(new ApiExceptionHandler())
             .build();
@@ -55,6 +55,28 @@ class MembershipControllerTest {
     @BeforeEach
     void actorId() {
         when(actor.requireUserId()).thenReturn(7L);
+    }
+
+    @Test
+    void api21RegularMemberSeesOnlyPublicFieldsOfAnotherMember() throws Exception {
+        Membership target = mock(Membership.class);
+        Membership viewer = mock(Membership.class);
+        User user = mock(User.class);
+        when(target.getId()).thenReturn(10L);
+        when(target.getUser()).thenReturn(user);
+        when(user.getId()).thenReturn(9L);
+        when(user.getName()).thenReturn("다른 부원");
+        MembershipPublicItem publicItem = MembershipPublicItem.from(target, List.of(), 7L);
+        when(directory.detail(1L, 10L, 7L)).thenReturn(publicItem);
+        when(viewer.getMemberType()).thenReturn(MemberType.REGULAR);
+        when(viewer.getRole()).thenReturn(MembershipRole.MEMBER);
+        when(partReader.partsOf(10L)).thenReturn(List.of());
+
+        mvc.perform(get("/api/v1/clubs/1/memberships/10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.displayName").value("다른 부원"))
+                .andExpect(jsonPath("$.data.status").doesNotExist())
+                .andExpect(jsonPath("$.data.handle").doesNotExist());
     }
 
     @Test
@@ -74,7 +96,8 @@ class MembershipControllerTest {
         when(club.getId()).thenReturn(1L);
         when(user.getId()).thenReturn(7L);
         when(user.getName()).thenReturn("테스트 부원");
-        when(service.detail(1L, 10L, 7L)).thenReturn(membership);
+        MembershipResponse ownItem = MembershipResponse.from(membership, List.of(), 7L);
+        when(directory.detail(1L, 10L, 7L)).thenReturn(ownItem);
         when(partReader.partsOf(10L)).thenReturn(List.of());
 
         var result = mvc.perform(get("/api/v1/clubs/1/memberships/10"))
@@ -86,7 +109,7 @@ class MembershipControllerTest {
         String headerId = result.getResponse().getHeader("X-Request-Id");
         assertThat(headerId).isNotBlank();
         assertThat(result.getResponse().getContentAsString()).contains("\"requestId\":\"" + headerId + "\"");
-        verify(service).detail(1L, 10L, 7L);
+        verify(directory).detail(1L, 10L, 7L);
     }
 
     @Test

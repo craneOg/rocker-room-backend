@@ -7,14 +7,15 @@ import com.crane.bandwebbackend.domain.part.entity.Part;
 import com.crane.bandwebbackend.domain.part.repository.PartRepository;
 import com.crane.bandwebbackend.domain.participant.entity.PerformanceMemberSource;
 import com.crane.bandwebbackend.domain.participant.entity.PerformanceMemberStatus;
-import com.crane.bandwebbackend.domain.participant.repository.PerformanceMemberRepository;
+import com.crane.bandwebbackend.domain.participant.service.ParticipationLookup;
 import com.crane.bandwebbackend.domain.participant.service.PerformanceMemberService;
-import com.crane.bandwebbackend.domain.performance.repository.PerformanceRepository;
-import com.crane.bandwebbackend.global.audit.AuditLog;
+import com.crane.bandwebbackend.domain.performance.service.PerformanceService;
+import com.crane.bandwebbackend.global.audit.AuditRecorder;
 import com.crane.bandwebbackend.global.error.ApiErrorCode;
 import com.crane.bandwebbackend.global.error.ApiException;
 import com.crane.bandwebbackend.global.response.ApiIds;
 import com.fasterxml.jackson.databind.JsonNode;
+import java.util.Map;
 import jakarta.persistence.EntityManager;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -33,10 +34,11 @@ public class MembershipBulkService {
 	private final MembershipService memberships;
 	private final MembershipStatusService statusService;
 	private final PartRepository parts;
-	private final PerformanceRepository performances;
-	private final PerformanceMemberRepository performanceMembers;
+	private final PerformanceService performances;
+	private final ParticipationLookup performanceMembers;
 	private final PerformanceMemberService participantService;
 	private final EntityManager entityManager;
+	private final AuditRecorder auditRecorder;
 	private final PlatformTransactionManager transactionManager;
 
 	/** 소속 일괄 요청을 처리한다 */
@@ -129,8 +131,7 @@ public class MembershipBulkService {
 			}
 			case ASSIGN_PERFORMANCE -> {
 				Long performanceId = ApiIds.positive(requiredText(node, "performanceId"), "performanceId");
-				performances.findByIdAndClub_Id(performanceId, clubId)
-						.orElseThrow(() -> new ApiException(ApiErrorCode.NOT_FOUND, "공연을 찾을 수 없습니다."));
+				performances.require(clubId, performanceId);
 				yield new Params(null, null, List.of(), performanceId);
 			}
 		};
@@ -172,21 +173,18 @@ public class MembershipBulkService {
 							""").setParameter("membershipId", id).setParameter("partId", partId).executeUpdate();
 				}
 			}
-			entityManager.persist(AuditLog.record(clubId, actorUserId, "MEMBERSHIP_PARTS_CHANGED",
-					"MEMBERSHIP", id, request.reason(), "{\"mode\":\"" + params.mode() + "\"}"));
+			auditRecorder.record(clubId, actorUserId, "MEMBERSHIP_PARTS_CHANGED", "MEMBERSHIP", id, request.reason(), Map.of("mode", params.mode()));
 			return false;
 		}
 		// 이미 유효 참여자인 경우는 성공한 건너뜀으로 표시하고, 아니면 관리자 참여를 생성한다.
-		var existing = performanceMembers.findByPerformance_IdAndMembership_Id(params.performanceId(), id)
-				.orElse(null);
-		if (existing != null && (existing.getStatus() == PerformanceMemberStatus.APPLIED
-				|| existing.getStatus() == PerformanceMemberStatus.APPROVED)) {
+		var existingStatus = performanceMembers.status(params.performanceId(), id).orElse(null);
+		if (existingStatus == PerformanceMemberStatus.APPLIED
+				|| existingStatus == PerformanceMemberStatus.APPROVED) {
 			return true;
 		}
 		var added = participantService.register(clubId, params.performanceId(), actorUserId,
 				PerformanceMemberSource.ADMIN, id);
-		entityManager.persist(AuditLog.record(clubId, actorUserId, "PERFORMANCE_MEMBER_ADDED",
-				"PERFORMANCE_MEMBER", added.getId(), request.reason(), "{\"membershipId\":\"" + id + "\"}"));
+		auditRecorder.record(clubId, actorUserId, "PERFORMANCE_MEMBER_ADDED", "PERFORMANCE_MEMBER", added.getId(), request.reason(), Map.of("membershipId", id));
 		return false;
 	}
 

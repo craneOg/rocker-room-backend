@@ -4,6 +4,8 @@ import com.crane.bandwebbackend.domain.membership.entity.MemberType;
 import com.crane.bandwebbackend.domain.membership.entity.Membership;
 import com.crane.bandwebbackend.domain.membership.entity.MembershipRole;
 import com.crane.bandwebbackend.domain.membership.entity.MembershipStatus;
+import com.crane.bandwebbackend.domain.membership.dto.MembershipResponse;
+import com.crane.bandwebbackend.domain.membership.dto.MembershipPublicItem;
 import com.crane.bandwebbackend.domain.membership.repository.MembershipRepository;
 import com.crane.bandwebbackend.domain.part.dto.PartResponse;
 import com.crane.bandwebbackend.domain.part.service.MembershipPartReader;
@@ -36,9 +38,23 @@ public class MemberDirectoryService {
 	private final MembershipPartReader partReader;
 	private final CoreEntityLookupService entityLookup;
 
+	@Transactional(readOnly = true)
+	public Object detail(Long clubId, Long membershipId, Long actorUserId) {
+		Membership member = membershipService.detail(clubId, membershipId, actorUserId);
+		List<PartResponse> parts = partReader.partsOf(membershipId);
+		if (member.getUser().getId().equals(actorUserId)) {
+			return MembershipResponse.from(member, parts, actorUserId);
+		}
+		Membership actor = membershipService.requireMember(clubId, actorUserId);
+		boolean admin = actor.getRole() == MembershipRole.CLUB_ADMIN && actor.getMemberType() == MemberType.REGULAR
+				&& (actor.getStatus() == MembershipStatus.ACTIVE || actor.getStatus() == MembershipStatus.ON_LEAVE);
+		return admin ? MembershipResponse.from(member, parts, actorUserId)
+				: MembershipPublicItem.from(member, parts, actorUserId);
+	}
+
 	/** 소속 목록을 조회한다 */
 	@Transactional(readOnly = true)
-	public DirectoryPage list(
+	public Page<Object> list(
 		Long clubId,
 		Long actorUserId,
 		String q,
@@ -86,8 +102,12 @@ public class MemberDirectoryService {
 		// 메모리 필터 결과에서 요청 페이지 구간만 잘라 반환한다.
 		int start = (int) Math.min((long) pageable.getPageNumber() * pageable.getPageSize(), selected.size());
 		int end = Math.min(start + pageable.getPageSize(), selected.size());
-		return new DirectoryPage(new PageImpl<>(selected.subList(start, end), pageable, selected.size()),
-				parts, admin);
+		List<Object> items = selected.subList(start, end).stream()
+				.map(member -> (Object) (admin
+						? MembershipResponse.from(member, parts.getOrDefault(member.getId(), List.of()), actorUserId)
+						: MembershipPublicItem.from(member, parts.getOrDefault(member.getId(), List.of()), actorUserId)))
+				.toList();
+		return new PageImpl<>(items, pageable, selected.size());
 	}
 
 	/** 소속 사용자를 조회한다 */
@@ -130,9 +150,6 @@ public class MemberDirectoryService {
 	/** 동아리 표시명이 없으면 사용자 기본 이름을 반환한다. */
 	private static String displayName(Membership member) {
 		return member.getDisplayName() == null ? member.getUser().getName() : member.getDisplayName();
-	}
-
-	public record DirectoryPage(Page<Membership> page, Map<Long, List<PartResponse>> parts, boolean admin) {
 	}
 
 	public record LookupResult(User user, Membership membership) {

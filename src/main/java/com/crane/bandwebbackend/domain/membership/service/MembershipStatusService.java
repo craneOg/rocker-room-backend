@@ -8,11 +8,12 @@ import com.crane.bandwebbackend.domain.membership.entity.Membership;
 import com.crane.bandwebbackend.domain.membership.entity.MembershipRole;
 import com.crane.bandwebbackend.domain.membership.entity.MembershipStatus;
 import com.crane.bandwebbackend.domain.membership.repository.MembershipRepository;
-import com.crane.bandwebbackend.domain.participant.repository.PerformanceMemberRepository;
+import com.crane.bandwebbackend.domain.participant.service.ParticipationLookup;
 import com.crane.bandwebbackend.domain.performance.entity.PerformanceStatus;
 import com.crane.bandwebbackend.global.error.ApiErrorCode;
 import com.crane.bandwebbackend.global.error.ApiException;
-import com.crane.bandwebbackend.global.audit.AuditLog;
+import com.crane.bandwebbackend.global.audit.AuditRecorder;
+import java.util.Map;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
 import java.time.LocalDateTime;
@@ -29,8 +30,9 @@ import org.springframework.transaction.annotation.Transactional;
 public class MembershipStatusService {
 	private final MembershipService membershipService;
 	private final MembershipRepository repository;
-	private final PerformanceMemberRepository performanceMemberRepository;
+	private final ParticipationLookup performanceMemberRepository;
 	private final EntityManager entityManager;
+	private final AuditRecorder auditRecorder;
 
 	/** 소속 상태를 전환한다 */
 	@Transactional
@@ -75,7 +77,7 @@ public class MembershipStatusService {
 		MembershipStatus previous = member.getStatus();
 		member.transitionTo(target, LocalDateTime.now(ZoneOffset.UTC));
 		audit(clubId, actorUserId, "MEMBERSHIP_STATUS_CHANGED", member, reason,
-				"{\"from\":\"" + previous + "\",\"to\":\"" + target + "\"}");
+				Map.of("from", previous.toString(), "to", target.toString()));
 		return member;
 	}
 
@@ -106,7 +108,7 @@ public class MembershipStatusService {
 				throw new ApiException(ApiErrorCode.RULE_VIOLATION, "임원은 객원이 될 수 없습니다.",
 						"ADMIN_CANNOT_BE_GUEST");
 			}
-			boolean connected = performanceMemberRepository.findByMembership_Id(membershipId)
+			boolean connected = performanceMemberRepository.membersOfMembership(membershipId)
 					.stream().anyMatch(pm -> EnumSet.of(PerformanceStatus.DRAFT, PerformanceStatus.ACTIVE,
 							PerformanceStatus.LOCKED).contains(pm.getPerformance().getStatus()));
 			if (connected) {
@@ -122,7 +124,7 @@ public class MembershipStatusService {
 		MemberType previous = member.getMemberType();
 		member.changeMemberType(target);
 		audit(clubId, actorUserId, "MEMBERSHIP_TYPE_CHANGED", member, reason,
-				"{\"from\":\"" + previous + "\",\"to\":\"" + target + "\"}");
+				Map.of("from", previous.toString(), "to", target.toString()));
 		return member;
 	}
 
@@ -162,8 +164,7 @@ public class MembershipStatusService {
 
 	/** 소속 상태 또는 유형 변경 내역을 감사 로그로 남긴다. */
 	private void audit(Long clubId, Long actorUserId, String action, Membership member,
-					   String reason, String detail) {
-		entityManager.persist(AuditLog.record(clubId, actorUserId, action,
-				"MEMBERSHIP", member.getId(), reason, detail));
+					   String reason, Map<String, Object> detail) {
+		auditRecorder.record(clubId, actorUserId, action, "MEMBERSHIP", member.getId(), reason, detail);
 	}
 }

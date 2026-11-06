@@ -13,9 +13,9 @@ import com.crane.bandwebbackend.domain.membership.dto.MembershipBulkRequest;
 import com.crane.bandwebbackend.domain.membership.entity.Membership;
 import com.crane.bandwebbackend.domain.membership.entity.MembershipStatus;
 import com.crane.bandwebbackend.domain.part.repository.PartRepository;
-import com.crane.bandwebbackend.domain.participant.repository.PerformanceMemberRepository;
+import com.crane.bandwebbackend.domain.participant.service.ParticipationLookup;
 import com.crane.bandwebbackend.domain.participant.service.PerformanceMemberService;
-import com.crane.bandwebbackend.domain.performance.repository.PerformanceRepository;
+import com.crane.bandwebbackend.domain.performance.service.PerformanceService;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import jakarta.persistence.EntityManager;
 import java.util.List;
@@ -46,10 +46,11 @@ class MembershipBulkServiceTest {
 				memberships,
 				statusService,
 				mock(PartRepository.class),
-				mock(PerformanceRepository.class),
-				mock(PerformanceMemberRepository.class),
+				mock(PerformanceService.class),
+				mock(ParticipationLookup.class),
 				mock(PerformanceMemberService.class),
 				mock(EntityManager.class),
+				mock(com.crane.bandwebbackend.global.audit.AuditRecorder.class),
 				transactionManager);
 		var params = JsonNodeFactory.instance.objectNode().put("status", "ON_LEAVE");
 

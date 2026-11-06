@@ -22,7 +22,8 @@ public record MembershipPublicItem(String id, String displayName, String userNam
 		return new MembershipPublicItem(member.getId().toString(),
 				member.getDisplayName() == null ? member.getUser().getName() : member.getDisplayName(),
 				member.getUser().getName(), member.getMemberType(), member.getRole(),
-				member.getUser().getId().equals(viewerUserId) ? member.getUser().getProfileImageUrl() : null,
+				member.getUser().profileImageUrlFor(
+						member.getUser().getId().equals(viewerUserId) ? member.getUser() : null),
 				parts.stream().map(part -> new Part(part.getId(), part.getName(),
 						part.getDisplayOrder(), part.isActive())).toList());
 	}

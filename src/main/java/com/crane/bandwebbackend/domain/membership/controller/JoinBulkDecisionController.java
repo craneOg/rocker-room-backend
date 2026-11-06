@@ -5,7 +5,6 @@ import com.crane.bandwebbackend.domain.membership.dto.JoinBulkDecisionResponse;
 import com.crane.bandwebbackend.domain.membership.service.JoinBulkDecisionService;
 import com.crane.bandwebbackend.global.response.ApiIds;
 import com.crane.bandwebbackend.global.response.ApiResponse;
-import com.crane.bandwebbackend.global.response.RequestIdFilter;
 import com.crane.bandwebbackend.global.security.CurrentActor;
 import jakarta.validation.Valid;
 import jakarta.servlet.http.HttpServletRequest;
@@ -35,7 +34,6 @@ public class JoinBulkDecisionController {
 		@RequestHeader("X-Requested-With") String requestedWith,
 		HttpServletRequest request
 	) {
-		return ResponseEntity.ok(ApiResponse.of(service.decide(ApiIds.positive(clubId, "clubId"), actor.requireUserId(), body),
-				RequestIdFilter.require(request)));
+		return ResponseEntity.ok(ApiResponse.ok(service.decide(ApiIds.positive(clubId, "clubId"), actor.requireUserId(), body)));
 	}
 }

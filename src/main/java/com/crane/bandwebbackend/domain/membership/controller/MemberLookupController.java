@@ -4,7 +4,6 @@ import com.crane.bandwebbackend.domain.membership.entity.Membership;
 import com.crane.bandwebbackend.domain.membership.service.MemberDirectoryService;
 import com.crane.bandwebbackend.global.response.ApiIds;
 import com.crane.bandwebbackend.global.response.ApiResponse;
-import com.crane.bandwebbackend.global.response.RequestIdFilter;
 import com.crane.bandwebbackend.global.security.CurrentActor;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.OffsetDateTime;
@@ -42,10 +41,9 @@ public class MemberLookupController {
 				member.getStatus().name(), member.getInvitedAt() == null ? null
 						: member.getInvitedAt().atOffset(ZoneOffset.UTC)
 								.atZoneSameInstant(ZoneId.of("Asia/Seoul")).plusMonths(1).toOffsetDateTime());
-		// User 엔티티에 공개 설정 필드가 아직 없어 타인의 사진은 안전하게 null로 보낸다.
-		return ResponseEntity.ok(ApiResponse.of(new LookupResponse(result.user().getId().toString(), result.user().getHandle(),
-				result.user().getName(), result.user().getId().equals(actor)
-						? result.user().getProfileImageUrl() : null, info), RequestIdFilter.require(request)));
+		return ResponseEntity.ok(ApiResponse.ok(new LookupResponse(result.user().getId().toString(), result.user().getHandle(),
+				result.user().getName(), result.user().profileImageUrlFor(
+						result.user().getId().equals(actor) ? result.user() : null), info)));
 	}
 
 	public record LookupResponse(String userId, String handle, String name,

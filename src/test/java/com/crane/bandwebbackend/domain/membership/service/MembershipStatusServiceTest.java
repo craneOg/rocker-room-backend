@@ -12,7 +12,7 @@ import com.crane.bandwebbackend.domain.membership.entity.Membership;
 import com.crane.bandwebbackend.domain.membership.entity.MembershipRole;
 import com.crane.bandwebbackend.domain.membership.entity.MembershipStatus;
 import com.crane.bandwebbackend.domain.membership.repository.MembershipRepository;
-import com.crane.bandwebbackend.domain.participant.repository.PerformanceMemberRepository;
+import com.crane.bandwebbackend.domain.participant.service.ParticipationLookup;
 import com.crane.bandwebbackend.global.error.ApiErrorCode;
 import com.crane.bandwebbackend.global.error.ApiException;
 import jakarta.persistence.EntityManager;
@@ -23,10 +23,11 @@ import org.junit.jupiter.api.Test;
 class MembershipStatusServiceTest {
     private final MembershipService members = mock(MembershipService.class);
     private final MembershipRepository repository = mock(MembershipRepository.class);
-    private final PerformanceMemberRepository participants = mock(PerformanceMemberRepository.class);
+    private final ParticipationLookup participants = mock(ParticipationLookup.class);
     private final EntityManager entityManager = mock(EntityManager.class);
     private final MembershipStatusService service =
-            new MembershipStatusService(members, repository, participants, entityManager);
+            new MembershipStatusService(members, repository, participants, entityManager,
+                    mock(com.crane.bandwebbackend.global.audit.AuditRecorder.class));
 
     @Test
     void api161BlocksGraduationOfLastAdminAfterLockingClub() {

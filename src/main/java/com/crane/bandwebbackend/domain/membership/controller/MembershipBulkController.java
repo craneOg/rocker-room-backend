@@ -5,7 +5,6 @@ import com.crane.bandwebbackend.domain.membership.dto.MembershipBulkResponse;
 import com.crane.bandwebbackend.domain.membership.service.MembershipBulkService;
 import com.crane.bandwebbackend.global.response.ApiIds;
 import com.crane.bandwebbackend.global.response.ApiResponse;
-import com.crane.bandwebbackend.global.response.RequestIdFilter;
 import com.crane.bandwebbackend.global.security.CurrentActor;
 import jakarta.validation.Valid;
 import jakarta.servlet.http.HttpServletRequest;
@@ -35,7 +34,7 @@ public class MembershipBulkController {
 		@RequestHeader("X-Requested-With") String requestedWith,
 		HttpServletRequest request
 	) {
-		return ResponseEntity.ok(ApiResponse.of(service.process(ApiIds.positive(clubId, "clubId"),
-				currentActor.requireUserId(), body), RequestIdFilter.require(request)));
+		return ResponseEntity.ok(ApiResponse.ok(service.process(ApiIds.positive(clubId, "clubId"),
+				currentActor.requireUserId(), body)));
 	}
 }

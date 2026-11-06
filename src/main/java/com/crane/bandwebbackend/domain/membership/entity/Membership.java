@@ -85,27 +85,6 @@ public class Membership extends BaseTimeEntity {
     // 이 동아리 홈을 마지막으로 연 시각(HOME-002 최근 본 순). 갱신은 updated_at이 바뀌지 않도록 전용 쿼리로 처리
     private LocalDateTime lastViewedAt;
 
-	/** 소속 신청한다 */
-	public static Membership apply(
-		Club club,
-		User user,
-		JoinSource source,
-		String displayName
-	) {
-		if (club == null || user == null || (source != JoinSource.JOIN_CODE && source != JoinSource.SEARCH)) {
-			throw new IllegalArgumentException("가입 신청 경로가 유효하지 않습니다.");
-		}
-		Membership membership = new Membership();
-		membership.club = club;
-		membership.user = user;
-		membership.joinSource = source;
-		membership.displayName = displayName;
-		membership.memberType = MemberType.REGULAR;
-		membership.role = MembershipRole.MEMBER;
-		membership.status = MembershipStatus.PENDING;
-		return membership;
-	}
-
 	/** 소속 초대한다 */
 	public static Membership invite(
 		Club club,
@@ -127,28 +106,6 @@ public class Membership extends BaseTimeEntity {
 		membership.status = MembershipStatus.INVITED;
 		membership.invitedAt = invitedAt;
 		return membership;
-	}
-
-	/** 소속 가입 신청을 다시 시작한다 */
-	public void restartApplication(
-		JoinSource source,
-		String displayName
-	) {
-		if (status != MembershipStatus.WITHDRAWN && status != MembershipStatus.REJECTED
-				&& status != MembershipStatus.DECLINED) {
-			throw new IllegalStateException("기존 소속을 재신청할 수 없습니다.");
-		}
-		if (source != JoinSource.JOIN_CODE && source != JoinSource.SEARCH) {
-			throw new IllegalArgumentException("가입 신청 경로가 유효하지 않습니다.");
-		}
-		this.joinSource = source;
-		this.displayName = displayName;
-		this.memberType = MemberType.REGULAR;
-		this.role = MembershipRole.MEMBER;
-		this.status = MembershipStatus.PENDING;
-		this.invitedAt = null;
-		this.approvedAt = null;
-		this.leftAt = null;
 	}
 
 	/** 소속 초대를 다시 시작한다 */

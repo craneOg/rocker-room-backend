@@ -1,5 +1,6 @@
 package com.crane.bandwebbackend.domain.membership.service;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -12,26 +13,44 @@ import com.crane.bandwebbackend.domain.club.entity.ClubStatus;
 import com.crane.bandwebbackend.domain.club.entity.ClubType;
 import com.crane.bandwebbackend.domain.membership.entity.Membership;
 import com.crane.bandwebbackend.domain.membership.entity.MembershipStatus;
-import com.crane.bandwebbackend.domain.participant.entity.PerformanceMember;
-import com.crane.bandwebbackend.domain.participant.entity.PerformanceMemberSource;
-import com.crane.bandwebbackend.domain.participant.entity.PerformanceMemberStatus;
-import com.crane.bandwebbackend.domain.participant.repository.PerformanceMemberRepository;
+import com.crane.bandwebbackend.domain.participant.service.ParticipationLookup;
 import com.crane.bandwebbackend.domain.performance.entity.Performance;
 import com.crane.bandwebbackend.domain.performance.entity.PerformanceStatus;
-import com.crane.bandwebbackend.domain.performance.repository.PerformanceRepository;
+import com.crane.bandwebbackend.domain.performance.service.PerformanceService;
+import com.crane.bandwebbackend.global.error.ApiErrorCode;
+import com.crane.bandwebbackend.global.error.ApiException;
 import jakarta.persistence.EntityManager;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 class MembershipDecisionServiceTest {
+	@Test
+	void rejectsDecisionForInactiveClub() {
+		MembershipService members = mock(MembershipService.class);
+		Membership member = mock(Membership.class);
+		Club club = mock(Club.class);
+		when(members.require(10L, 20L)).thenReturn(member);
+		when(member.getStatus()).thenReturn(MembershipStatus.PENDING);
+		when(member.getClub()).thenReturn(club);
+		when(club.getStatus()).thenReturn(ClubStatus.INACTIVE);
+		MembershipDecisionService service = new MembershipDecisionService(members,
+				mock(PerformanceService.class), mock(ParticipationLookup.class),
+				mock(EntityManager.class), mock(com.crane.bandwebbackend.global.audit.AuditRecorder.class));
+
+		assertThatThrownBy(() -> service.decide(10L, 20L, 30L, MembershipStatus.PENDING,
+				MembershipStatus.ACTIVE, null))
+				.isInstanceOfSatisfying(ApiException.class,
+						exception -> org.assertj.core.api.Assertions.assertThat(exception.getCode())
+								.isEqualTo(ApiErrorCode.STATE_CONFLICT));
+		verify(member, never()).transitionTo(any(), any());
+	}
 
 	@Test
 	void reactivatesEndedParticipationAndLeavesActiveParticipationUnchanged() {
 		MembershipService members = mock(MembershipService.class);
-		PerformanceRepository performances = mock(PerformanceRepository.class);
-		PerformanceMemberRepository participants = mock(PerformanceMemberRepository.class);
+		PerformanceService performances = mock(PerformanceService.class);
+		ParticipationLookup participants = mock(ParticipationLookup.class);
 		EntityManager entityManager = mock(EntityManager.class);
 		Membership member = mock(Membership.class);
 		Club club = mock(Club.class);
@@ -45,27 +64,17 @@ class MembershipDecisionServiceTest {
 		Performance rejectedPerformance = performance(2L, club);
 		Performance withdrawnPerformance = performance(3L, club);
 		Performance active = performance(4L, club);
-		when(performances.findByClub_Id(10L))
+		when(performances.list(10L, 30L))
 				.thenReturn(List.of(absent, rejectedPerformance, withdrawnPerformance, active));
-		PerformanceMember rejected = mock(PerformanceMember.class);
-		PerformanceMember withdrawn = mock(PerformanceMember.class);
-		PerformanceMember approved = mock(PerformanceMember.class);
-		when(rejected.getStatus()).thenReturn(PerformanceMemberStatus.REJECTED);
-		when(withdrawn.getStatus()).thenReturn(PerformanceMemberStatus.WITHDRAWN);
-		when(approved.getStatus()).thenReturn(PerformanceMemberStatus.APPROVED);
-		when(participants.findByPerformance_IdAndMembership_Id(1L, 20L)).thenReturn(Optional.empty());
-		when(participants.findByPerformance_IdAndMembership_Id(2L, 20L)).thenReturn(Optional.of(rejected));
-		when(participants.findByPerformance_IdAndMembership_Id(3L, 20L)).thenReturn(Optional.of(withdrawn));
-		when(participants.findByPerformance_IdAndMembership_Id(4L, 20L)).thenReturn(Optional.of(approved));
 		MembershipDecisionService service = new MembershipDecisionService(
-				members, performances, participants, entityManager);
+				members, performances, participants, entityManager,
+				mock(com.crane.bandwebbackend.global.audit.AuditRecorder.class));
 
 		service.decide(10L, 20L, 30L, MembershipStatus.PENDING, MembershipStatus.ACTIVE, null);
 
-		verify(participants).save(any(PerformanceMember.class));
-		verify(rejected).reapply(eq(PerformanceMemberSource.ADMIN), any(LocalDateTime.class));
-		verify(withdrawn).reapply(eq(PerformanceMemberSource.ADMIN), any(LocalDateTime.class));
-		verify(approved, never()).reapply(any(), any());
+		for (Performance performance : List.of(absent, rejectedPerformance, withdrawnPerformance, active)) {
+			verify(participants).ensureAdminParticipation(eq(performance), eq(member), any(LocalDateTime.class));
+		}
 	}
 
 	private static Performance performance(Long id, Club club) {

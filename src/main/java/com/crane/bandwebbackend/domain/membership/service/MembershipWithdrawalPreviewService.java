@@ -8,7 +8,7 @@ import com.crane.bandwebbackend.domain.membership.entity.MembershipStatus;
 import com.crane.bandwebbackend.domain.membership.repository.MembershipRepository;
 import com.crane.bandwebbackend.domain.participant.entity.PerformanceMember;
 import com.crane.bandwebbackend.domain.participant.entity.PerformanceMemberStatus;
-import com.crane.bandwebbackend.domain.participant.repository.PerformanceMemberRepository;
+import com.crane.bandwebbackend.domain.participant.service.ParticipationLookup;
 import com.crane.bandwebbackend.domain.performance.entity.PerformanceStatus;
 import jakarta.persistence.EntityManager;
 import java.util.ArrayList;
@@ -24,7 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class MembershipWithdrawalPreviewService {
 	private final MembershipService memberships;
 	private final MembershipRepository repository;
-	private final PerformanceMemberRepository participants;
+	private final ParticipationLookup participants;
 	private final EntityManager entityManager;
 
 	/** 소속 변경 영향을 미리 조회한다 */
@@ -61,7 +61,7 @@ public class MembershipWithdrawalPreviewService {
 		List<WithdrawalPreviewResponse.PerformanceImpact> impacts = new ArrayList<>();
 		List<WithdrawalPreviewResponse.TeamLeaderCandidates> teams = new ArrayList<>();
 		// 진행 중 공연의 유효 참여만 순회해 철회 영향을 계산한다.
-		for (PerformanceMember member : participants.findByMembership_Id(membershipId)) {
+		for (PerformanceMember member : participants.membersOfMembership(membershipId)) {
 			var performance = member.getPerformance();
 			if (performance.getStatus() != PerformanceStatus.DRAFT
 					&& performance.getStatus() != PerformanceStatus.ACTIVE
