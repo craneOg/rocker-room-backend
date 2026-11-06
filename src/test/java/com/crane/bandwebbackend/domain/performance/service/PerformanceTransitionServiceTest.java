@@ -11,8 +11,8 @@ import com.crane.bandwebbackend.domain.membership.service.MembershipService;
 import com.crane.bandwebbackend.domain.performance.entity.Performance;
 import com.crane.bandwebbackend.domain.performance.entity.PerformanceStatus;
 import com.crane.bandwebbackend.domain.performance.repository.PerformanceRepository;
-import com.crane.bandwebbackend.global.error.ApiErrorCode;
-import com.crane.bandwebbackend.global.error.ApiException;
+import com.crane.bandwebbackend.global.error.ErrorCode;
+import com.crane.bandwebbackend.global.error.BusinessException;
 import jakarta.persistence.EntityManager;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -36,8 +36,8 @@ class PerformanceTransitionServiceTest {
 
         assertThatThrownBy(() -> service.change(1L, 3L, 5L, null,
                 PerformanceStatus.FINISHED, "6", null))
-                .isInstanceOfSatisfying(ApiException.class, error ->
-                        assertThat(error.getCode()).isEqualTo(ApiErrorCode.VERSION_CONFLICT));
+                .isInstanceOfSatisfying(BusinessException.class, error ->
+                        assertThat(error.getCode()).isEqualTo(ErrorCode.VERSION_CONFLICT));
     }
 
     @Test
@@ -51,8 +51,8 @@ class PerformanceTransitionServiceTest {
 
         assertThatThrownBy(() -> service.change(1L, 3L, 5L, PerformanceStatus.CANCELED,
                 PerformanceStatus.DRAFT, "0", "복구"))
-                .isInstanceOfSatisfying(ApiException.class, error ->
-                        assertThat(error.getCode()).isEqualTo(ApiErrorCode.STATE_CONFLICT));
+                .isInstanceOfSatisfying(BusinessException.class, error ->
+                        assertThat(error.getCode()).isEqualTo(ErrorCode.STATE_CONFLICT));
     }
 
     @Test
@@ -66,7 +66,7 @@ class PerformanceTransitionServiceTest {
 
         assertThatThrownBy(() -> service.change(1L, 3L, 5L, PerformanceStatus.LOCKED,
                 PerformanceStatus.FINISHED, "0", null))
-                .isInstanceOfSatisfying(ApiException.class, error ->
-                        assertThat(error.getCode()).isEqualTo(ApiErrorCode.STATE_CONFLICT));
+                .isInstanceOfSatisfying(BusinessException.class, error ->
+                        assertThat(error.getCode()).isEqualTo(ErrorCode.STATE_CONFLICT));
     }
 }

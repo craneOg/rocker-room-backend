@@ -9,8 +9,8 @@ import com.crane.bandwebbackend.domain.performance.entity.PerformanceStatus;
 import com.crane.bandwebbackend.domain.performance.repository.PerformancePolicyRepository;
 import com.crane.bandwebbackend.domain.performance.repository.PerformanceRepository;
 import com.crane.bandwebbackend.global.audit.AuditRecorder;
-import com.crane.bandwebbackend.global.error.ApiErrorCode;
-import com.crane.bandwebbackend.global.error.ApiException;
+import com.crane.bandwebbackend.global.error.ErrorCode;
+import com.crane.bandwebbackend.global.error.BusinessException;
 import com.fasterxml.jackson.databind.JsonNode;
 import java.util.Map;
 import jakarta.persistence.EntityManager;
@@ -43,30 +43,30 @@ public class PerformanceBasicEditService {
 		// 관리자 권한과 요청 JSON·필수 버전 형식을 검증한다.
 		memberships.requireAdmin(clubId, actorUserId);
 		if (body == null || !body.isObject() || !body.hasNonNull("version")) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "version이 필요합니다.");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "version이 필요합니다.");
 		}
 		// 현재 공연을 조회해 동아리·상태·낙관적 버전 조건을 확인한다.
 		Performance performance = performances.findByIdAndClub_Id(performanceId, clubId)
-				.orElseThrow(() -> new ApiException(ApiErrorCode.NOT_FOUND, "공연을 찾을 수 없습니다."));
+				.orElseThrow(() -> BusinessException.of(ErrorCode.NOT_FOUND, "공연을 찾을 수 없습니다."));
 		if (performance.getClub().getStatus() != ClubStatus.ACTIVE) {
-			throw new ApiException(ApiErrorCode.STATE_CONFLICT, "비활성 동아리에서는 수정할 수 없습니다.",
+			throw BusinessException.of(ErrorCode.STATE_CONFLICT, "비활성 동아리에서는 수정할 수 없습니다.",
 					"CLUB_INACTIVE");
 		}
 		String version = body.path("version").asText();
 		if (!version.matches("[0-9]+")) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "version 형식이 유효하지 않습니다.");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "version 형식이 유효하지 않습니다.");
 		}
 		if (!version.equals(String.valueOf(performance.getVersion()))) {
-			throw new ApiException(ApiErrorCode.VERSION_CONFLICT, "공연 버전이 달라졌습니다.");
+			throw BusinessException.of(ErrorCode.VERSION_CONFLICT, "공연 버전이 달라졌습니다.");
 		}
 		if (performance.getStatus() == PerformanceStatus.FINISHED
 				|| performance.getStatus() == PerformanceStatus.CANCELED) {
-			throw new ApiException(ApiErrorCode.STATE_CONFLICT, "수정할 수 없는 공연입니다.", "INVALID_STATE");
+			throw BusinessException.of(ErrorCode.STATE_CONFLICT, "수정할 수 없는 공연입니다.", "INVALID_STATE");
 		}
 		// 확정 공연 수정에는 필수 사유를 요구하고 선택 필드는 기존 값으로 보완한다.
 		String reason = body.has("reason") ? string(body.get("reason"), 500, true) : null;
 		if (performance.getStatus() == PerformanceStatus.LOCKED && (reason == null || reason.isBlank())) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "확정 공연 수정에는 사유가 필요합니다.",
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "확정 공연 수정에는 사유가 필요합니다.",
 					"REASON_REQUIRED");
 		}
 		String title = body.has("title") ? string(body.get("title"), 200, false) : performance.getTitle();
@@ -77,7 +77,7 @@ public class PerformanceBasicEditService {
 		try {
 			performance.updateDetails(title, date, location);
 		} catch (IllegalArgumentException | IllegalStateException exception) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, exception.getMessage());
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, exception.getMessage());
 		}
 		// 일반 수정과 확정 공연 예외 수정을 각각 감사 로그에 기록한다.
 		auditRecorder.record(clubId, actorUserId, "PERFORMANCE_UPDATED", "PERFORMANCE", performanceId, reason, Map.of("version", version));
@@ -104,7 +104,7 @@ public class PerformanceBasicEditService {
 		}
 		if (!value.isTextual() || value.asText().length() > max
 				|| (!nullable && value.asText().isBlank())) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "문자열 필드가 유효하지 않습니다.");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "문자열 필드가 유효하지 않습니다.");
 		}
 		return value.asText();
 	}
@@ -115,12 +115,12 @@ public class PerformanceBasicEditService {
 			return null;
 		}
 		if (!value.isTextual()) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "performDate가 유효하지 않습니다.");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "performDate가 유효하지 않습니다.");
 		}
 		try {
 			return LocalDate.parse(value.asText());
 		} catch (DateTimeException exception) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "performDate가 유효하지 않습니다.");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "performDate가 유효하지 않습니다.");
 		}
 	}
 }

@@ -14,8 +14,8 @@ import com.crane.bandwebbackend.domain.performance.entity.Performance;
 import com.crane.bandwebbackend.domain.performance.entity.PerformanceStatus;
 import com.crane.bandwebbackend.domain.performance.repository.PerformancePolicyRepository;
 import com.crane.bandwebbackend.domain.performance.repository.PerformanceRepository;
-import com.crane.bandwebbackend.global.error.ApiErrorCode;
-import com.crane.bandwebbackend.global.error.ApiException;
+import com.crane.bandwebbackend.global.error.ErrorCode;
+import com.crane.bandwebbackend.global.error.BusinessException;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
@@ -39,8 +39,8 @@ class PerformanceServiceBoundaryTest {
         when(repository.findByIdAndClub_Id(2L, 1L)).thenReturn(Optional.of(performance));
 
         assertThatThrownBy(() -> service.detail(1L, 2L, 7L))
-                .isInstanceOfSatisfying(ApiException.class,
-                        exception -> assertThat(exception.getCode()).isEqualTo(ApiErrorCode.NOT_FOUND));
+                .isInstanceOfSatisfying(BusinessException.class,
+                        exception -> assertThat(exception.getCode()).isEqualTo(ErrorCode.NOT_FOUND));
     }
 
     @Test

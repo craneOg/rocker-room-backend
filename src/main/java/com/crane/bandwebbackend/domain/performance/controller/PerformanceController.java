@@ -16,8 +16,8 @@ import com.crane.bandwebbackend.domain.performance.service.PerformanceBasicEditS
 import com.crane.bandwebbackend.domain.performance.service.PerformancePolicyEditService;
 import com.crane.bandwebbackend.domain.performance.service.VoteMethodChangeService;
 import com.crane.bandwebbackend.domain.performance.service.PerformanceCreateService;
-import com.crane.bandwebbackend.global.error.ApiErrorCode;
-import com.crane.bandwebbackend.global.error.ApiException;
+import com.crane.bandwebbackend.global.error.ErrorCode;
+import com.crane.bandwebbackend.global.error.BusinessException;
 import com.crane.bandwebbackend.global.response.ApiIds;
 import com.crane.bandwebbackend.global.response.ApiResponse;
 import com.crane.bandwebbackend.global.response.PageResponse;
@@ -75,7 +75,7 @@ public class PerformanceController {
 		HttpServletRequest request
 	) {
 		if (page < 0 || size < 1 || size > 100) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "page 또는 size 범위가 유효하지 않습니다.");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "page 또는 size 범위가 유효하지 않습니다.");
 		}
 		Page<PerformanceListItem> result = listReader.page(ApiIds.positive(clubId, "clubId"),
 				currentActor.requireUserId(), status, preset, fromDate, toDate, sort, PageRequest.of(page, size));

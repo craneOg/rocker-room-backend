@@ -11,8 +11,8 @@ import com.crane.bandwebbackend.domain.performance.entity.PerformanceStatus;
 import com.crane.bandwebbackend.domain.performance.entity.PerformancePreset;
 import com.crane.bandwebbackend.domain.performance.repository.PerformancePolicyRepository;
 import com.crane.bandwebbackend.domain.performance.repository.PerformanceRepository;
-import com.crane.bandwebbackend.global.error.ApiErrorCode;
-import com.crane.bandwebbackend.global.error.ApiException;
+import com.crane.bandwebbackend.global.error.ErrorCode;
+import com.crane.bandwebbackend.global.error.BusinessException;
 import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
@@ -39,13 +39,13 @@ public class PerformanceService {
 	) {
 		// 동아리 ID를 조회 조건에 포함해 다른 동아리의 공연 ID를 숨긴다.
 		return repository.findByIdAndClub_Id(performanceId, clubId)
-				.orElseThrow(() -> new ApiException(ApiErrorCode.NOT_FOUND, "공연을 찾을 수 없습니다."));
+				.orElseThrow(() -> BusinessException.of(ErrorCode.NOT_FOUND, "공연을 찾을 수 없습니다."));
 	}
 
 	/** 변경 트랜잭션에서 공연 행을 잠근 채 동아리 경계를 확인한다. */
 	public Performance requireLocked(Long clubId, Long performanceId) {
 		return repository.findWithLockByIdAndClub_Id(performanceId, clubId)
-				.orElseThrow(() -> new ApiException(ApiErrorCode.NOT_FOUND, "공연을 찾을 수 없습니다."));
+				.orElseThrow(() -> BusinessException.of(ErrorCode.NOT_FOUND, "공연을 찾을 수 없습니다."));
 	}
 
 	@Transactional(readOnly = true)
@@ -110,7 +110,7 @@ public class PerformanceService {
 		Membership actor = membershipService.requireMember(clubId, actorUserId);
 		Performance performance = require(clubId, performanceId);
 		if (!visible(performance, actor)) {
-			throw new ApiException(ApiErrorCode.NOT_FOUND, "공연을 찾을 수 없습니다.");
+			throw BusinessException.of(ErrorCode.NOT_FOUND, "공연을 찾을 수 없습니다.");
 		}
 		return performance;
 	}
@@ -125,7 +125,7 @@ public class PerformanceService {
 		// 공연 상세 접근 권한을 재사용한 뒤 1:1 정책을 조회한다.
 		detail(clubId, performanceId, actorUserId);
 		return policyRepository.findById(performanceId)
-				.orElseThrow(() -> new ApiException(ApiErrorCode.NOT_FOUND, "공연 정책을 찾을 수 없습니다."));
+				.orElseThrow(() -> BusinessException.of(ErrorCode.NOT_FOUND, "공연 정책을 찾을 수 없습니다."));
 	}
 
 	/** 소속 유형과 참여 이력을 기준으로 공연 열람 가능 여부를 판단한다. */

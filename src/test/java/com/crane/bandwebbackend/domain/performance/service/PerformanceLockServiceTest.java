@@ -19,9 +19,8 @@ import com.crane.bandwebbackend.domain.performance.service.LockChecklistEvaluato
 import com.crane.bandwebbackend.domain.performance.service.LockChecklistEvaluator.Snapshot;
 import com.crane.bandwebbackend.domain.performance.service.LockChecklistEvaluator.SongRow;
 import com.crane.bandwebbackend.global.audit.AuditLog;
-import com.crane.bandwebbackend.global.error.ApiErrorCode;
-import com.crane.bandwebbackend.global.error.ApiException;
-import com.crane.bandwebbackend.global.error.ConfirmationRequiredException;
+import com.crane.bandwebbackend.global.error.ErrorCode;
+import com.crane.bandwebbackend.global.error.BusinessException;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.Query;
 import java.util.List;
@@ -52,7 +51,7 @@ class PerformanceLockServiceTest {
                 List.of(), List.of(), null));
 
         assertThatThrownBy(() -> service.lock(1L, 3L, 5L, "8", false))
-                .isInstanceOfSatisfying(ConfirmationRequiredException.class, error ->
+                .isInstanceOfSatisfying(BusinessException.class, error ->
                         assertThat(error.getWarnings()).hasSize(1));
         verify(performance, never()).transitionTo(PerformanceStatus.LOCKED);
         verify(entityManager, never()).persist(org.mockito.ArgumentMatchers.any(AuditLog.class));
@@ -71,8 +70,8 @@ class PerformanceLockServiceTest {
                 List.of(), List.of(), null));
 
         assertThatThrownBy(() -> service.lock(1L, 3L, 5L, "8", true))
-                .isInstanceOfSatisfying(ApiException.class, error -> {
-                    assertThat(error.getCode()).isEqualTo(ApiErrorCode.RULE_VIOLATION);
+                .isInstanceOfSatisfying(BusinessException.class, error -> {
+                    assertThat(error.getCode()).isEqualTo(ErrorCode.RULE_VIOLATION);
                     assertThat(error.getReason()).isEqualTo("LOCK_REQUIREMENTS_FAILED");
                 });
         verify(performance, never()).transitionTo(PerformanceStatus.LOCKED);
