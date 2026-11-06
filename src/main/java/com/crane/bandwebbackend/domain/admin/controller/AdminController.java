@@ -1,11 +1,19 @@
 package com.crane.bandwebbackend.domain.admin.controller;
 
+import com.crane.bandwebbackend.domain.admin.dto.AdminClubDetailResponse;
+import com.crane.bandwebbackend.domain.admin.dto.AdminClubResponse;
+import com.crane.bandwebbackend.domain.admin.dto.AdminOverviewResponse;
 import com.crane.bandwebbackend.domain.admin.dto.AdminUserResponse;
 import com.crane.bandwebbackend.domain.admin.dto.AuditLogResponse;
 import com.crane.bandwebbackend.domain.admin.dto.ForceLogoutRequest;
 import com.crane.bandwebbackend.domain.admin.dto.ForceLogoutResponse;
 import com.crane.bandwebbackend.domain.admin.service.AdminAuditLogService;
+import com.crane.bandwebbackend.domain.admin.service.AdminClubService;
+import com.crane.bandwebbackend.domain.admin.service.AdminOverviewService;
 import com.crane.bandwebbackend.domain.admin.service.AdminUserService;
+import com.crane.bandwebbackend.global.error.BusinessException;
+import com.crane.bandwebbackend.global.error.ErrorCode;
+import com.crane.bandwebbackend.global.error.ErrorDetail;
 import com.crane.bandwebbackend.global.response.PageResponse;
 import com.crane.bandwebbackend.global.security.AuthPrincipal;
 import jakarta.validation.Valid;
@@ -13,6 +21,7 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Pattern;
 import java.time.OffsetDateTime;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.MediaType;
@@ -35,6 +44,42 @@ public class AdminController {
 
     private final AdminUserService adminUserService;
     private final AdminAuditLogService adminAuditLogService;
+    private final AdminClubService adminClubService;
+    private final AdminOverviewService adminOverviewService;
+
+    // API 118: 전체 동아리. status·clubType은 쉼표로 여러 값, sort는 "키,asc|desc"
+    @GetMapping("/clubs")
+    public PageResponse<AdminClubResponse> clubs(
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String clubType,
+            @RequestParam(required = false) String q,
+            @RequestParam(defaultValue = "false") boolean noAdmin,
+            @RequestParam(defaultValue = "false") boolean inactiveOver180Days,
+            @RequestParam(required = false) String sort,
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
+        return adminClubService.search(status, clubType, q, noAdmin, inactiveOver180Days, sort, page, size);
+    }
+
+    // API 119: 조회하면 CLUB_DETAIL_VIEWED 감사 기록이 남는다
+    @GetMapping("/clubs/{clubId}")
+    public AdminClubDetailResponse clubDetail(
+            @AuthenticationPrincipal AuthPrincipal principal,
+            @PathVariable @Pattern(regexp = "^[1-9][0-9]*$") String clubId) {
+        return adminClubService.detail(principal.userId(), AdminUserService.parseId(clubId, "clubId"));
+    }
+
+    // API 141: periodDays는 7, 30, 90 중 하나(기본 30)
+    @GetMapping("/overview")
+    public AdminOverviewResponse overview(@RequestParam(defaultValue = "30") @Min(7) @Max(90) int periodDays) {
+        if (periodDays != 7 && periodDays != 30 && periodDays != 90) {
+            throw new BusinessException(
+                    ErrorCode.VALIDATION_ERROR,
+                    "요청 값이 올바르지 않습니다.",
+                    List.of(ErrorDetail.of("periodDays", "INVALID_VALUE")));
+        }
+        return adminOverviewService.overview(periodDays);
+    }
 
     // API 122: userId 또는 handle(정확 일치)로만 조회한다
     @GetMapping("/users")
