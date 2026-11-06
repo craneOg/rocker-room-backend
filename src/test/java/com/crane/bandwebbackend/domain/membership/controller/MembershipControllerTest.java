@@ -25,7 +25,7 @@ import com.crane.bandwebbackend.domain.membership.service.MembershipWithdrawalPr
 import com.crane.bandwebbackend.domain.membership.service.MembershipWithdrawalService;
 import com.crane.bandwebbackend.domain.part.service.MembershipPartReader;
 import com.crane.bandwebbackend.domain.user.entity.User;
-import com.crane.bandwebbackend.global.error.ApiExceptionHandler;
+import com.crane.bandwebbackend.global.error.GlobalExceptionHandler;
 import com.crane.bandwebbackend.global.config.RequestIdFilter;
 import com.crane.bandwebbackend.global.security.CurrentActor;
 import java.time.LocalDateTime;
@@ -49,7 +49,7 @@ class MembershipControllerTest {
                     new MembershipController(service, statusService, decisionService, partReader,
                             directory, withdrawalPreview, withdrawalService, actor))
             .addFilters(new RequestIdFilter())
-            .setControllerAdvice(new ApiExceptionHandler())
+            .setControllerAdvice(new GlobalExceptionHandler())
             .build();
 
     @BeforeEach

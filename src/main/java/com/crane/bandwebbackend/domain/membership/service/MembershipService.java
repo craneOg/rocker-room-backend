@@ -8,8 +8,8 @@ import com.crane.bandwebbackend.domain.membership.entity.MembershipRole;
 import com.crane.bandwebbackend.domain.membership.entity.MembershipStatus;
 import com.crane.bandwebbackend.domain.membership.repository.MembershipRepository;
 import com.crane.bandwebbackend.domain.user.entity.User;
-import com.crane.bandwebbackend.global.error.ApiErrorCode;
-import com.crane.bandwebbackend.global.error.ApiException;
+import com.crane.bandwebbackend.global.error.ErrorCode;
+import com.crane.bandwebbackend.global.error.BusinessException;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.ZoneId;
@@ -43,7 +43,7 @@ public class MembershipService {
 	) {
 		// 동아리 경계를 쿼리 조건에 포함해 다른 동아리의 소속 ID 접근을 숨긴다.
 		return repository.findByIdAndClub_Id(membershipId, clubId)
-				.orElseThrow(() -> new ApiException(ApiErrorCode.NOT_FOUND, "소속을 찾을 수 없습니다."));
+				.orElseThrow(() -> BusinessException.of(ErrorCode.NOT_FOUND, "소속을 찾을 수 없습니다."));
 	}
 
 	/** 소속 소속 여부를 확인한다 */
@@ -54,11 +54,11 @@ public class MembershipService {
 	) {
 		// 로그인 사용자의 동아리 소속을 조회한다.
 		Membership membership = repository.findByClub_IdAndUser_Id(clubId, actorUserId)
-				.orElseThrow(() -> new ApiException(ApiErrorCode.NOT_FOUND, "동아리 소속이 없습니다."));
+				.orElseThrow(() -> BusinessException.of(ErrorCode.NOT_FOUND, "동아리 소속이 없습니다."));
 		// 실제 기능을 사용할 수 있는 활동·휴학·졸업 소속만 통과시킨다.
 		if (membership.getStatus() != MembershipStatus.ACTIVE && membership.getStatus() != MembershipStatus.ON_LEAVE
 				&& membership.getStatus() != MembershipStatus.GRADUATED) {
-			throw new ApiException(ApiErrorCode.FORBIDDEN, "활동 가능한 동아리 소속이 아닙니다.");
+			throw BusinessException.of(ErrorCode.FORBIDDEN, "활동 가능한 동아리 소속이 아닙니다.");
 		}
 		return membership;
 	}
@@ -73,7 +73,7 @@ public class MembershipService {
 		Membership actor = requireMember(clubId, actorUserId);
 		if (actor.getRole() != MembershipRole.CLUB_ADMIN || actor.getMemberType() != MemberType.REGULAR
 				|| (actor.getStatus() != MembershipStatus.ACTIVE && actor.getStatus() != MembershipStatus.ON_LEAVE)) {
-			throw new ApiException(ApiErrorCode.FORBIDDEN, "동아리 관리자 권한이 필요합니다.");
+			throw BusinessException.of(ErrorCode.FORBIDDEN, "동아리 관리자 권한이 필요합니다.");
 		}
 		return actor;
 	}
@@ -94,12 +94,12 @@ public class MembershipService {
 					&& (actor.getStatus() == MembershipStatus.ACTIVE
 							|| actor.getStatus() == MembershipStatus.ON_LEAVE);
 			if (!admin && actor.getMemberType() != MemberType.REGULAR) {
-				throw new ApiException(ApiErrorCode.NOT_FOUND, "소속을 찾을 수 없습니다.");
+				throw BusinessException.of(ErrorCode.NOT_FOUND, "소속을 찾을 수 없습니다.");
 			}
 			if (!admin && target.getStatus() != MembershipStatus.ACTIVE
 					&& target.getStatus() != MembershipStatus.ON_LEAVE
 					&& target.getStatus() != MembershipStatus.GRADUATED) {
-				throw new ApiException(ApiErrorCode.NOT_FOUND, "소속을 찾을 수 없습니다.");
+				throw BusinessException.of(ErrorCode.NOT_FOUND, "소속을 찾을 수 없습니다.");
 			}
 		}
 		return target;
@@ -125,7 +125,7 @@ public class MembershipService {
 		// 공개 목록은 정회원에게만 허용해 객원의 동아리 전체 명단 접근을 막는다.
 		Membership actor = requireMember(clubId, actorUserId);
 		if (actor.getMemberType() != MemberType.REGULAR) {
-			throw new ApiException(ApiErrorCode.NOT_FOUND, "부원 목록을 찾을 수 없습니다.");
+			throw BusinessException.of(ErrorCode.NOT_FOUND, "부원 목록을 찾을 수 없습니다.");
 		}
 		// 가입 완료 상태만 남겨 대기·거절·탈퇴 기록을 공개하지 않는다.
 		return repository.findByClub_Id(clubId).stream()
@@ -148,11 +148,11 @@ public class MembershipService {
 		requireAdmin(clubId, actorUserId);
 		validateDisplayName(displayName);
 		if (type == null) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "소속 유형이 필요합니다.");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "소속 유형이 필요합니다.");
 		}
 		Club club = requireClub(clubId);
 		if (club.getStatus() != ClubStatus.ACTIVE) {
-			throw new ApiException(ApiErrorCode.STATE_CONFLICT, "비활성 동아리에는 직접 추가할 수 없습니다.",
+			throw BusinessException.of(ErrorCode.STATE_CONFLICT, "비활성 동아리에는 직접 추가할 수 없습니다.",
 					"CLUB_INACTIVE");
 		}
 		// 정확한 핸들로 활성 사용자를 찾고 기존 소속 이력을 확인한다.
@@ -163,14 +163,14 @@ public class MembershipService {
 			LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
 			if (existing.getStatus() == MembershipStatus.INVITED
 					&& now.isBefore(invitationExpiresAt(existing.getInvitedAt()))) {
-				throw new ApiException(ApiErrorCode.DUPLICATE, "유효한 초대가 이미 있습니다.");
+				throw BusinessException.of(ErrorCode.DUPLICATE, "유효한 초대가 이미 있습니다.");
 			}
 			try {
 				existing.restartInvitation(type, displayName, now);
 				repository.flush();
 				return existing;
 			} catch (IllegalStateException exception) {
-				throw new ApiException(ApiErrorCode.DUPLICATE, "이미 유효한 소속이 있습니다.");
+				throw BusinessException.of(ErrorCode.DUPLICATE, "이미 유효한 소속이 있습니다.");
 			}
 		}
 		return repository.saveAndFlush(Membership.invite(club, user, type, displayName, LocalDateTime.now(ZoneOffset.UTC)));
@@ -179,7 +179,7 @@ public class MembershipService {
 	/** 선택 표시명의 공백 여부와 최대 길이를 검증한다. */
 	private static void validateDisplayName(String displayName) {
 		if (displayName != null && (displayName.isBlank() || displayName.length() > 50)) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "표시명은 1~50자여야 합니다.");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "표시명은 1~50자여야 합니다.");
 		}
 	}
 
@@ -197,7 +197,7 @@ public class MembershipService {
 	/** 소속 초대 만료 시각을 계산한다 */
 	public LocalDateTime invitationExpiresAt(Membership membership) {
 		if (membership.getInvitedAt() == null) {
-			throw new ApiException(ApiErrorCode.STATE_CONFLICT, "초대 기록이 없습니다.");
+			throw BusinessException.of(ErrorCode.STATE_CONFLICT, "초대 기록이 없습니다.");
 		}
 		return invitationExpiresAt(membership.getInvitedAt());
 	}

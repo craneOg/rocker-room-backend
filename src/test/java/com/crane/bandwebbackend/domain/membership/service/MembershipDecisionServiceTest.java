@@ -17,8 +17,8 @@ import com.crane.bandwebbackend.domain.participant.service.ParticipationLookup;
 import com.crane.bandwebbackend.domain.performance.entity.Performance;
 import com.crane.bandwebbackend.domain.performance.entity.PerformanceStatus;
 import com.crane.bandwebbackend.domain.performance.service.PerformanceService;
-import com.crane.bandwebbackend.global.error.ApiErrorCode;
-import com.crane.bandwebbackend.global.error.ApiException;
+import com.crane.bandwebbackend.global.error.ErrorCode;
+import com.crane.bandwebbackend.global.error.BusinessException;
 import jakarta.persistence.EntityManager;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -40,9 +40,9 @@ class MembershipDecisionServiceTest {
 
 		assertThatThrownBy(() -> service.decide(10L, 20L, 30L, MembershipStatus.PENDING,
 				MembershipStatus.ACTIVE, null))
-				.isInstanceOfSatisfying(ApiException.class,
+				.isInstanceOfSatisfying(BusinessException.class,
 						exception -> org.assertj.core.api.Assertions.assertThat(exception.getCode())
-								.isEqualTo(ApiErrorCode.STATE_CONFLICT));
+								.isEqualTo(ErrorCode.STATE_CONFLICT));
 		verify(member, never()).transitionTo(any(), any());
 	}
 

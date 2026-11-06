@@ -11,8 +11,8 @@ import com.crane.bandwebbackend.domain.membership.entity.MembershipRole;
 import com.crane.bandwebbackend.domain.membership.entity.MembershipStatus;
 import com.crane.bandwebbackend.domain.membership.repository.MembershipRepository;
 import com.crane.bandwebbackend.domain.user.entity.User;
-import com.crane.bandwebbackend.global.error.ApiErrorCode;
-import com.crane.bandwebbackend.global.error.ApiException;
+import com.crane.bandwebbackend.global.error.ErrorCode;
+import com.crane.bandwebbackend.global.error.BusinessException;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
@@ -38,7 +38,7 @@ class MembershipDetailAccessTest {
 
         when(target.getStatus()).thenReturn(MembershipStatus.PENDING);
         assertThatThrownBy(() -> service.detail(1L, 10L, 7L))
-                .isInstanceOfSatisfying(ApiException.class,
-                        error -> assertThat(error.getCode()).isEqualTo(ApiErrorCode.NOT_FOUND));
+                .isInstanceOfSatisfying(BusinessException.class,
+                        error -> assertThat(error.getCode()).isEqualTo(ErrorCode.NOT_FOUND));
     }
 }

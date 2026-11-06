@@ -3,8 +3,8 @@ package com.crane.bandwebbackend.domain.membership.service;
 import com.crane.bandwebbackend.domain.club.entity.Club;
 import com.crane.bandwebbackend.domain.user.entity.User;
 import com.crane.bandwebbackend.domain.user.entity.UserStatus;
-import com.crane.bandwebbackend.global.error.ApiErrorCode;
-import com.crane.bandwebbackend.global.error.ApiException;
+import com.crane.bandwebbackend.global.error.ErrorCode;
+import com.crane.bandwebbackend.global.error.BusinessException;
 import jakarta.persistence.EntityManager;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -24,7 +24,7 @@ public class CoreEntityLookupService {
 		Club club = entityManager.find(Club.class, clubId);
 		// 존재하지 않는 식별자는 이후 서비스가 null을 다루지 않도록 즉시 404로 변환한다.
 		if (club == null) {
-			throw new ApiException(ApiErrorCode.NOT_FOUND, "동아리를 찾을 수 없습니다.");
+			throw BusinessException.of(ErrorCode.NOT_FOUND, "동아리를 찾을 수 없습니다.");
 		}
 		return club;
 	}
@@ -34,7 +34,7 @@ public class CoreEntityLookupService {
 		// 사용자 존재 여부와 서비스 탈퇴 여부를 한 번에 확인한다.
 		User user = entityManager.find(User.class, userId);
 		if (user == null || user.getStatus() != UserStatus.ACTIVE) {
-			throw new ApiException(ApiErrorCode.NOT_FOUND, "활성 사용자를 찾을 수 없습니다.");
+			throw BusinessException.of(ErrorCode.NOT_FOUND, "활성 사용자를 찾을 수 없습니다.");
 		}
 		return user;
 	}
@@ -43,7 +43,7 @@ public class CoreEntityLookupService {
 	public User byHandle(String handle) {
 		// 빈 핸들로 전체 사용자 검색이 수행되지 않도록 입력을 먼저 차단한다.
 		if (handle == null || handle.isBlank()) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "handle이 필요합니다.");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "handle이 필요합니다.");
 		}
 		// 고유 핸들과 ACTIVE 상태를 함께 조건으로 사용해 초대 가능한 사용자만 찾는다.
 		List<User> users = entityManager.createQuery("""
@@ -55,7 +55,7 @@ public class CoreEntityLookupService {
 				.setMaxResults(1)
 				.getResultList();
 		if (users.isEmpty()) {
-			throw new ApiException(ApiErrorCode.NOT_FOUND, "활성 사용자를 찾을 수 없습니다.");
+			throw BusinessException.of(ErrorCode.NOT_FOUND, "활성 사용자를 찾을 수 없습니다.");
 		}
 		return users.get(0);
 	}

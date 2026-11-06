@@ -11,8 +11,8 @@ import com.crane.bandwebbackend.domain.participant.service.ParticipationLookup;
 import com.crane.bandwebbackend.domain.participant.service.PerformanceMemberService;
 import com.crane.bandwebbackend.domain.performance.service.PerformanceService;
 import com.crane.bandwebbackend.global.audit.AuditRecorder;
-import com.crane.bandwebbackend.global.error.ApiErrorCode;
-import com.crane.bandwebbackend.global.error.ApiException;
+import com.crane.bandwebbackend.global.error.ErrorCode;
+import com.crane.bandwebbackend.global.error.BusinessException;
 import com.crane.bandwebbackend.global.response.ApiIds;
 import com.fasterxml.jackson.databind.JsonNode;
 import java.util.Map;
@@ -53,12 +53,12 @@ public class MembershipBulkService {
 				|| request.membershipIds().size() > 100 || request.action() == null || request.params() == null
 				|| !request.params().isObject() || (request.reason() != null
 				&& (request.reason().isBlank() || request.reason().length() > 500))) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "일괄 처리 요청이 유효하지 않습니다.");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "일괄 처리 요청이 유효하지 않습니다.");
 		}
 		List<Long> ids = request.membershipIds().stream()
 				.map(value -> ApiIds.positive(value, "membershipIds")).toList();
 		if (new HashSet<>(ids).size() != ids.size()) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "membershipIds가 중복됩니다.");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "membershipIds가 중복됩니다.");
 		}
 		// 작업 종류별 파라미터와 참조 엔티티를 전체 처리 전에 검증한다.
 		Params params = validateParams(clubId, request);
@@ -72,8 +72,8 @@ public class MembershipBulkService {
 			try {
 				Boolean skipped = tx.execute(status -> applyOne(clubId, actorUserId, id, request, params));
 				succeeded.add(new MembershipBulkResponse.Success(id.toString(), Boolean.TRUE.equals(skipped)));
-			} catch (ApiException exception) {
-				String reason = exception.getCode() == ApiErrorCode.NOT_FOUND ? "NOT_FOUND"
+			} catch (BusinessException exception) {
+				String reason = exception.getCode() == ErrorCode.NOT_FOUND ? "NOT_FOUND"
 						: exception.getReason() == null ? exception.getCode().name() : exception.getReason();
 				failed.add(new MembershipBulkResponse.Failure(id.toString(), reason));
 			} catch (DataIntegrityViolationException exception) {
@@ -95,35 +95,35 @@ public class MembershipBulkService {
 				MembershipStatus status;
 				try { status = MembershipStatus.valueOf(value); }
 				catch (IllegalArgumentException exception) {
-					throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "status가 유효하지 않습니다.");
+					throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "status가 유효하지 않습니다.");
 				}
 				if (status != MembershipStatus.ACTIVE && status != MembershipStatus.ON_LEAVE
 						&& status != MembershipStatus.GRADUATED) {
-					throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "status가 유효하지 않습니다.");
+					throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "status가 유효하지 않습니다.");
 				}
 				yield new Params(status, null, List.of(), null);
 			}
 			case CHANGE_PARTS -> {
 				String mode = requiredText(node, "mode");
 				if (!mode.equals("ADD") && !mode.equals("REMOVE")) {
-					throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "mode가 유효하지 않습니다.");
+					throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "mode가 유효하지 않습니다.");
 				}
 				JsonNode values = node.get("partIds");
 				if (values == null || !values.isArray() || values.isEmpty() || values.size() > 20) {
-					throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "partIds는 1~20개여야 합니다.");
+					throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "partIds는 1~20개여야 합니다.");
 				}
 				List<Long> partIds = new ArrayList<>();
 				for (JsonNode value : values) {
 					partIds.add(ApiIds.positive(value.asText(), "partIds"));
 				}
 				if (new HashSet<>(partIds).size() != partIds.size()) {
-					throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "partIds가 중복됩니다.");
+					throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "partIds가 중복됩니다.");
 				}
 				for (Long id : partIds) {
 					Part part = parts.findByIdAndClub_Id(id, clubId)
-							.orElseThrow(() -> new ApiException(ApiErrorCode.NOT_FOUND, "파트를 찾을 수 없습니다."));
+							.orElseThrow(() -> BusinessException.of(ErrorCode.NOT_FOUND, "파트를 찾을 수 없습니다."));
 					if (mode.equals("ADD") && !part.isActive()) {
-						throw new ApiException(ApiErrorCode.RULE_VIOLATION, "사용 중지 파트는 추가할 수 없습니다.",
+						throw BusinessException.of(ErrorCode.RULE_VIOLATION, "사용 중지 파트는 추가할 수 없습니다.",
 								"PART_INACTIVE");
 					}
 				}
@@ -145,7 +145,7 @@ public class MembershipBulkService {
 		if (member.getStatus() != MembershipStatus.ACTIVE
 				&& member.getStatus() != MembershipStatus.ON_LEAVE
 				&& member.getStatus() != MembershipStatus.GRADUATED) {
-			throw new ApiException(ApiErrorCode.STATE_CONFLICT, "처리할 수 없는 소속 상태입니다.",
+			throw BusinessException.of(ErrorCode.STATE_CONFLICT, "처리할 수 없는 소속 상태입니다.",
 					"INVALID_MEMBERSHIP_STATUS");
 		}
 		// 상태 변경은 단건 서비스에 위임해 동일한 상태·감사 규칙을 재사용한다.
@@ -158,9 +158,9 @@ public class MembershipBulkService {
 			for (Long partId : params.partIds()) {
 				if (params.mode().equals("ADD")) {
 					Part current = parts.findByIdAndClub_Id(partId, clubId)
-							.orElseThrow(() -> new ApiException(ApiErrorCode.NOT_FOUND, "파트를 찾을 수 없습니다."));
+							.orElseThrow(() -> BusinessException.of(ErrorCode.NOT_FOUND, "파트를 찾을 수 없습니다."));
 					if (!current.isActive()) {
-						throw new ApiException(ApiErrorCode.RULE_VIOLATION,
+						throw BusinessException.of(ErrorCode.RULE_VIOLATION,
 								"사용 중지 파트는 추가할 수 없습니다.", "PART_INACTIVE");
 					}
 					entityManager.createNativeQuery("""
@@ -192,7 +192,7 @@ public class MembershipBulkService {
 	private static String requiredText(JsonNode node, String field) {
 		JsonNode value = node.get(field);
 		if (value == null || !value.isTextual() || value.asText().isBlank()) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, field + "가 필요합니다.");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, field + "가 필요합니다.");
 		}
 		return value.asText();
 	}

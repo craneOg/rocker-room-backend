@@ -11,8 +11,8 @@ import com.crane.bandwebbackend.domain.membership.entity.Membership;
 import com.crane.bandwebbackend.domain.membership.entity.MembershipRole;
 import com.crane.bandwebbackend.domain.membership.repository.MembershipRepository;
 import com.crane.bandwebbackend.domain.part.service.MembershipPartReader;
-import com.crane.bandwebbackend.global.error.ApiErrorCode;
-import com.crane.bandwebbackend.global.error.ApiException;
+import com.crane.bandwebbackend.global.error.ErrorCode;
+import com.crane.bandwebbackend.global.error.BusinessException;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.domain.PageRequest;
 
@@ -32,8 +32,8 @@ class MemberDirectoryServiceTest {
 				memberships, repository, partReader, entityLookup);
 
 		assertThatThrownBy(() -> service.list(1L, 7L, null, null, null, null, null, PageRequest.of(0, 20)))
-				.isInstanceOfSatisfying(ApiException.class,
-						exception -> assertThat(exception.getCode()).isEqualTo(ApiErrorCode.NOT_FOUND));
+				.isInstanceOfSatisfying(BusinessException.class,
+						exception -> assertThat(exception.getCode()).isEqualTo(ErrorCode.NOT_FOUND));
 		verifyNoInteractions(repository, partReader);
 	}
 }

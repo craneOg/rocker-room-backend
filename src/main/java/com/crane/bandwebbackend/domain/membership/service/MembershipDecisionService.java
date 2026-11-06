@@ -8,8 +8,8 @@ import com.crane.bandwebbackend.domain.participant.service.ParticipationLookup;
 import com.crane.bandwebbackend.domain.performance.entity.PerformanceStatus;
 import com.crane.bandwebbackend.domain.performance.service.PerformanceService;
 import com.crane.bandwebbackend.global.audit.AuditRecorder;
-import com.crane.bandwebbackend.global.error.ApiErrorCode;
-import com.crane.bandwebbackend.global.error.ApiException;
+import com.crane.bandwebbackend.global.error.ErrorCode;
+import com.crane.bandwebbackend.global.error.BusinessException;
 import java.util.Map;
 import jakarta.persistence.EntityManager;
 import java.time.LocalDateTime;
@@ -42,23 +42,23 @@ public class MembershipDecisionService {
 		// 요청자가 기대한 원본 상태와 현재 데이터가 같은지 먼저 확인한다.
 		Membership member = members.require(clubId, membershipId);
 		if (member.getStatus() != expectedSource) {
-			throw new ApiException(ApiErrorCode.STATE_CONFLICT, "처리할 수 없는 소속 상태입니다.", "INVALID_STATE");
+			throw BusinessException.of(ErrorCode.STATE_CONFLICT, "처리할 수 없는 소속 상태입니다.", "INVALID_STATE");
 		}
 		if (member.getClub().getStatus() != ClubStatus.ACTIVE) {
-			throw new ApiException(ApiErrorCode.STATE_CONFLICT, "비활성 동아리에서는 처리할 수 없습니다.",
+			throw BusinessException.of(ErrorCode.STATE_CONFLICT, "비활성 동아리에서는 처리할 수 없습니다.",
 					"CLUB_INACTIVE");
 		}
 		// 초대 수락·거절은 본인만, 가입 신청 승인·거절은 관리자만 수행한다.
 		if (target == MembershipStatus.ACTIVE && member.getStatus() == MembershipStatus.INVITED) {
 			if (!member.getUser().getId().equals(actorUserId)) {
-				throw new ApiException(ApiErrorCode.FORBIDDEN, "초대받은 본인만 수락할 수 있습니다.");
+				throw BusinessException.of(ErrorCode.FORBIDDEN, "초대받은 본인만 수락할 수 있습니다.");
 			}
 			if (!LocalDateTime.now(ZoneOffset.UTC).isBefore(members.invitationExpiresAt(member))) {
-				throw new ApiException(ApiErrorCode.STATE_CONFLICT, "초대가 만료되었습니다.", "INVITATION_EXPIRED");
+				throw BusinessException.of(ErrorCode.STATE_CONFLICT, "초대가 만료되었습니다.", "INVITATION_EXPIRED");
 			}
 		} else if (target == MembershipStatus.DECLINED && member.getStatus() == MembershipStatus.INVITED) {
 			if (!member.getUser().getId().equals(actorUserId)) {
-				throw new ApiException(ApiErrorCode.FORBIDDEN, "초대받은 본인만 거절할 수 있습니다.");
+				throw BusinessException.of(ErrorCode.FORBIDDEN, "초대받은 본인만 거절할 수 있습니다.");
 			}
 		} else {
 			members.requireAdmin(clubId, actorUserId);
@@ -69,7 +69,7 @@ public class MembershipDecisionService {
 				|| (member.getStatus() == MembershipStatus.INVITED
 						&& (target == MembershipStatus.ACTIVE || target == MembershipStatus.DECLINED));
 		if (!allowed) {
-			throw new ApiException(ApiErrorCode.STATE_CONFLICT, "처리할 수 없는 소속 상태입니다.", "INVALID_STATE");
+			throw BusinessException.of(ErrorCode.STATE_CONFLICT, "처리할 수 없는 소속 상태입니다.", "INVALID_STATE");
 		}
 		// 상태를 전이하고 감사 로그용 이전 상태와 현재 시각을 보존한다.
 		MembershipStatus before = member.getStatus();

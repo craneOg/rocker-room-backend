@@ -10,8 +10,8 @@ import com.crane.bandwebbackend.domain.membership.repository.MembershipRepositor
 import com.crane.bandwebbackend.domain.part.dto.PartResponse;
 import com.crane.bandwebbackend.domain.part.service.MembershipPartReader;
 import com.crane.bandwebbackend.domain.user.entity.User;
-import com.crane.bandwebbackend.global.error.ApiErrorCode;
-import com.crane.bandwebbackend.global.error.ApiException;
+import com.crane.bandwebbackend.global.error.ErrorCode;
+import com.crane.bandwebbackend.global.error.BusinessException;
 import com.crane.bandwebbackend.global.response.ApiIds;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -68,13 +68,13 @@ public class MemberDirectoryService {
 		Membership actor = membershipService.requireMember(clubId, actorUserId);
 		boolean admin = actor.getRole() == MembershipRole.CLUB_ADMIN;
 		if (!admin && actor.getMemberType() != MemberType.REGULAR) {
-			throw new ApiException(ApiErrorCode.NOT_FOUND, "부원 목록을 찾을 수 없습니다.");
+			throw BusinessException.of(ErrorCode.NOT_FOUND, "부원 목록을 찾을 수 없습니다.");
 		}
 		if (!admin && statuses != null) {
-			throw new ApiException(ApiErrorCode.FORBIDDEN, "부원은 상태 필터를 사용할 수 없습니다.");
+			throw BusinessException.of(ErrorCode.FORBIDDEN, "부원은 상태 필터를 사용할 수 없습니다.");
 		}
 		if (q != null && q.length() > 100) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "q는 100자 이하여야 합니다.");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "q는 100자 이하여야 합니다.");
 		}
 		// 관리자와 일반 부원에게 서로 다른 기본 상태 범위를 적용한다.
 		Set<MembershipStatus> statusFilter = admin
@@ -120,7 +120,7 @@ public class MemberDirectoryService {
 		// 직접 초대에 사용되는 사용자 검색이므로 관리자에게만 허용한다.
 		membershipService.requireAdmin(clubId, actorUserId);
 		if (handle == null || handle.isBlank()) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "handle이 필요합니다.");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "handle이 필요합니다.");
 		}
 		// 활성 사용자를 찾고 현재 동아리의 재사용 가능한 소속 상태를 함께 조회한다.
 		User user = entityLookup.byHandle(handle);
@@ -136,14 +136,14 @@ public class MemberDirectoryService {
 	/** 쉼표로 전달된 소속 상태 필터를 검증해 집합으로 변환한다. */
 	private static Set<MembershipStatus> parseStatuses(String raw) {
 		if (raw.isBlank()) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "status가 비어 있습니다.");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "status가 비어 있습니다.");
 		}
 		try {
 			EnumSet<MembershipStatus> result = EnumSet.noneOf(MembershipStatus.class);
 			Arrays.stream(raw.split(",", -1)).forEach(value -> result.add(MembershipStatus.valueOf(value)));
 			return result;
 		} catch (IllegalArgumentException exception) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "status가 유효하지 않습니다.");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "status가 유효하지 않습니다.");
 		}
 	}
 

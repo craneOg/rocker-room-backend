@@ -15,8 +15,8 @@ import com.crane.bandwebbackend.domain.part.service.MembershipPartReader;
 import com.crane.bandwebbackend.domain.participant.service.ParticipationLookup;
 import com.crane.bandwebbackend.domain.schedule.service.ScheduleLookup;
 import com.crane.bandwebbackend.domain.user.entity.User;
-import com.crane.bandwebbackend.global.error.ApiErrorCode;
-import com.crane.bandwebbackend.global.error.ApiException;
+import com.crane.bandwebbackend.global.error.ErrorCode;
+import com.crane.bandwebbackend.global.error.BusinessException;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
 import org.junit.jupiter.api.Test;
@@ -45,8 +45,8 @@ class MembershipWithdrawalServiceTest {
 				entityManager, mock(com.crane.bandwebbackend.global.audit.AuditRecorder.class));
 
 		assertThatThrownBy(() -> service.withdraw(1L, 2L, 7L, null))
-				.isInstanceOfSatisfying(ApiException.class,
-						error -> assertThat(error.getCode()).isEqualTo(ApiErrorCode.STATE_CONFLICT));
+				.isInstanceOfSatisfying(BusinessException.class,
+						error -> assertThat(error.getCode()).isEqualTo(ErrorCode.STATE_CONFLICT));
 
 		var order = inOrder(entityManager, memberships);
 		order.verify(entityManager).find(Club.class, 1L, LockModeType.PESSIMISTIC_WRITE);

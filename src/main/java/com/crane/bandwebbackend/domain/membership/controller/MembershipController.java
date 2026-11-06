@@ -20,8 +20,8 @@ import com.crane.bandwebbackend.domain.membership.service.MembershipStatusServic
 import com.crane.bandwebbackend.domain.membership.service.MembershipDecisionService;
 import com.crane.bandwebbackend.domain.membership.entity.MembershipStatus;
 import com.crane.bandwebbackend.domain.part.service.MembershipPartReader;
-import com.crane.bandwebbackend.global.error.ApiErrorCode;
-import com.crane.bandwebbackend.global.error.ApiException;
+import com.crane.bandwebbackend.global.error.ErrorCode;
+import com.crane.bandwebbackend.global.error.BusinessException;
 import com.crane.bandwebbackend.global.response.ApiIds;
 import com.crane.bandwebbackend.global.response.ApiResponse;
 import com.crane.bandwebbackend.global.response.PageResponse;
@@ -82,7 +82,7 @@ public class MembershipController {
 		HttpServletRequest request
 	) {
 		if (page < 0 || size < 1 || size > 100) {
-			throw new ApiException(ApiErrorCode.VALIDATION_ERROR, "page 또는 size가 유효하지 않습니다.");
+			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "page 또는 size가 유효하지 않습니다.");
 		}
 		Long actorId = currentActor.requireUserId();
 		Page<Object> items = directory.list(ApiIds.positive(clubId, "clubId"), actorId, q, status, role,
