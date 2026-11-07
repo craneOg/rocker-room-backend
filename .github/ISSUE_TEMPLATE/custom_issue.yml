@@ -1,0 +1,60 @@
+name: "📌 Custom Issue"
+description: "기타 논의할 사항을 기록"
+labels: [ "custom" ]
+body:
+  - type: textarea
+    attributes:
+      label: 📌 피처 개요
+      description: 해당 이슈의 주요 개요를 설명해 주세요.
+      placeholder: |
+        예) 소속 상태 전이 공통 서비스의 소유와 합의 방식
+    validations:
+      required: true
+
+  - type: dropdown
+    attributes:
+      label: ✅ 중요도
+      description: 해당 이슈의 중요도를 선택해 주세요.
+      options:
+        - A (높음)
+        - B (보통)
+        - C (낮음)
+    validations:
+      required: true
+
+  - type: dropdown
+    attributes:
+      label: ✅ 난이도
+      description: 해당 이슈의 난이도를 선택해 주세요.
+      options:
+        - 상 (어려움)
+        - 중 (보통)
+        - 하 (쉬움)
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: ✅ 피처 설명
+      description: 구현할 기능 또는 논의할 사항에 대한 설명을 작성해 주세요.
+      placeholder: |
+        - 두 사람이 같은 membership 엔티티를 쓰므로 상태 전이 규칙을 한 곳에 둔다.
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: ✅ 체크리스트
+      description: 할 일을 체크박스 형태로 작성해 주세요.
+      placeholder: |
+        - [ ] 담당자 합의
+        - [ ] 구현
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: ✅ 관련 정보
+      description: 관련 API ID, 검증 규칙 ID, 화면 ID, 문서, 참고 자료가 있다면 추가해 주세요.
+      placeholder: |
+        - API 14, 28 / 규칙 C-06, C-09 / docs/plan_next_user_club_batch.md

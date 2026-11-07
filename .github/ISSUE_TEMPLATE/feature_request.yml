@@ -1,0 +1,31 @@
+name: "✨ Feature"
+description: "새로운 기능 추가"
+labels: [ "feature" ]
+body:
+  - type: textarea
+    attributes:
+      label: 📄 설명
+      description: 새로운 기능에 대한 설명을 작성해 주세요.
+      placeholder: 자세히 적을수록 좋습니다!
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: 🔗 관련 ID
+      description: 관련 API ID, 검증 규칙 ID, 화면 ID를 적어 주세요.
+      placeholder: "예) API 10, 140 / 규칙 C-06 / 화면 HOME-002"
+    validations:
+      required: false
+  - type: textarea
+    attributes:
+      label: ✅ 작업할 내용
+      description: 할 일을 체크박스 형태로 작성해주세요.
+      placeholder: |
+        - [ ] 컨트롤러·서비스·저장소 구현
+        - [ ] 성공 1건 + 규칙 위반 1건 이상의 테스트
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: 🙋🏻 참고 자료
+      description: 참고 자료가 있다면 작성해 주세요.
