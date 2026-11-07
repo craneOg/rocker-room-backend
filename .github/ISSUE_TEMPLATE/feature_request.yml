@@ -3,6 +3,7 @@ description: "새로운 기능 추가"
 labels: [ "feature" ]
 body:
   - type: textarea
+    id: description
     attributes:
       label: 📄 설명
       description: 새로운 기능에 대한 설명을 작성해 주세요.
@@ -10,6 +11,7 @@ body:
     validations:
       required: true
   - type: input
+    id: related_ids
     attributes:
       label: 🔗 관련 ID
       description: 관련 API ID, 검증 규칙 ID, 화면 ID를 적어 주세요.
@@ -17,6 +19,7 @@ body:
     validations:
       required: false
   - type: textarea
+    id: tasks
     attributes:
       label: ✅ 작업할 내용
       description: 할 일을 체크박스 형태로 작성해주세요.
@@ -26,6 +29,7 @@ body:
     validations:
       required: true
   - type: textarea
+    id: references
     attributes:
       label: 🙋🏻 참고 자료
       description: 참고 자료가 있다면 작성해 주세요.

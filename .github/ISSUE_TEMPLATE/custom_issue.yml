@@ -3,6 +3,7 @@ description: "기타 논의할 사항을 기록"
 labels: [ "custom" ]
 body:
   - type: textarea
+    id: overview
     attributes:
       label: 📌 피처 개요
       description: 해당 이슈의 주요 개요를 설명해 주세요.
@@ -12,6 +13,7 @@ body:
       required: true
 
   - type: dropdown
+    id: importance
     attributes:
       label: ✅ 중요도
       description: 해당 이슈의 중요도를 선택해 주세요.
@@ -23,6 +25,7 @@ body:
       required: true
 
   - type: dropdown
+    id: difficulty
     attributes:
       label: ✅ 난이도
       description: 해당 이슈의 난이도를 선택해 주세요.
@@ -34,6 +37,7 @@ body:
       required: true
 
   - type: textarea
+    id: description
     attributes:
       label: ✅ 피처 설명
       description: 구현할 기능 또는 논의할 사항에 대한 설명을 작성해 주세요.
@@ -43,6 +47,7 @@ body:
       required: true
 
   - type: textarea
+    id: checklist
     attributes:
       label: ✅ 체크리스트
       description: 할 일을 체크박스 형태로 작성해 주세요.
@@ -53,6 +58,7 @@ body:
       required: true
 
   - type: textarea
+    id: related_info
     attributes:
       label: ✅ 관련 정보
       description: 관련 API ID, 검증 규칙 ID, 화면 ID, 문서, 참고 자료가 있다면 추가해 주세요.
