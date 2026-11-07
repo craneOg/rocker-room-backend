@@ -142,14 +142,12 @@ public class AdminClubService {
         return changeStatus(actorUserId, clubId, ClubStatus.ACTIVE, "CLUB_REACTIVATED", reason);
     }
 
-    // 행을 잠근 뒤 처리하므로 두 운영자가 동시에 같은 전환을 해도 한 번만 바뀌고, 나중 요청도 최신 상태를 돌려받는다
+    // 조건부 UPDATE(`status <> :status`)가 행을 잠그므로 두 운영자가 동시에 같은 전환을 해도 한 번만 바뀐다.
+    // 없는 동아리는 UPDATE가 0행이고 아래 조회가 비어 404가 된다. 조회는 UPDATE 뒤라 최신 값을 읽는다
     private AdminClubDetailResponse.ClubInfo changeStatus(
             long actorUserId, long clubId, ClubStatus target, String action, String reason) {
-        if (!clubs.lockClub(clubId)) {
-            throw notFound();
-        }
-        ClubRow before = clubs.findClub(clubId).orElseThrow(AdminClubService::notFound);
-        if (!target.name().equals(before.getStatus()) && clubs.updateStatus(clubId, target.name()) == 1) {
+        if (clubs.updateStatus(clubId, target.name()) == 1) {
+            String from = target == ClubStatus.ACTIVE ? ClubStatus.INACTIVE.name() : ClubStatus.ACTIVE.name();
             auditRecorder.record(
                     clubId,
                     actorUserId,
@@ -157,7 +155,7 @@ public class AdminClubService {
                     "CLUB",
                     clubId,
                     reason.strip(),
-                    Map.of("from", before.getStatus(), "to", target.name()));
+                    Map.of("from", from, "to", target.name()));
         }
         return toClubInfo(clubs.findClub(clubId).orElseThrow(AdminClubService::notFound));
     }
