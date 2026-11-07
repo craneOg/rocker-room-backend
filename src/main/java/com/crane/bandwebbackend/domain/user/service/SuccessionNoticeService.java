@@ -26,7 +26,7 @@ public class SuccessionNoticeService {
     // 확인은 되돌릴 수 없고 멱등이다. 타인의 안내·없는 안내는 같은 404(G-04)
     @Transactional
     public SuccessionNoticeResponse confirm(long userId, long noticeId) {
-        notices.findOwned(noticeId, userId).orElseThrow(SuccessionNoticeService::notFound);
+        // UPDATE(현재 읽기)를 먼저 실행해야 동시 확인에서 낡은 스냅샷을 읽지 않는다
         notices.confirm(noticeId, userId);
         return SuccessionNoticeResponse.of(
                 notices.findOwned(noticeId, userId).orElseThrow(SuccessionNoticeService::notFound));
