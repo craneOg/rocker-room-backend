@@ -7,7 +7,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-// API 120·159 요청: 사유는 필수(1~500자)이며 감사 로그에 기록한다
+// API 120·159 요청: 사유는 필수(1~500자)이며 감사 로그에 기록한다. confirmed는 159에서 관리자 0명 경고를 확인했을 때만 쓴다
 @Getter
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public class ClubStatusChangeRequest {
@@ -17,4 +17,6 @@ public class ClubStatusChangeRequest {
     @Pattern(regexp = "(?sU).*\\S.*")
     @Size(max = 500)
     private String reason;
+
+    private boolean confirmed;
 }

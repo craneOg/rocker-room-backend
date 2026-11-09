@@ -87,7 +87,10 @@ public class AdminController {
             @PathVariable @Pattern(regexp = "^[1-9][0-9]*$") String clubId,
             @Valid @RequestBody ClubStatusChangeRequest request) {
         return adminClubService.reactivate(
-                principal.userId(), AdminUserService.parseId(clubId, "clubId"), request.getReason());
+                principal.userId(),
+                AdminUserService.parseId(clubId, "clubId"),
+                request.getReason(),
+                request.isConfirmed());
     }
 
     // API 141: periodDays는 7, 30, 90 중 하나(기본 30)

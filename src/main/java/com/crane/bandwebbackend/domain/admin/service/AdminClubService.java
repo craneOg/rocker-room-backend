@@ -11,6 +11,7 @@ import com.crane.bandwebbackend.global.error.BusinessException;
 import com.crane.bandwebbackend.global.error.ErrorCode;
 import com.crane.bandwebbackend.global.error.ErrorDetail;
 import com.crane.bandwebbackend.global.response.PageResponse;
+import com.crane.bandwebbackend.global.response.Warning;
 import com.crane.bandwebbackend.global.time.KstTime;
 import java.time.Clock;
 import java.time.Duration;
@@ -136,9 +137,20 @@ public class AdminClubService {
         return changeStatus(actorUserId, clubId, ClubStatus.INACTIVE, "CLUB_DEACTIVATED", reason);
     }
 
-    // API 159: 이미 활성이면 200으로 그대로 돌려주고 감사 기록도 남기지 않는다
+    // API 159: 이미 활성이면 200으로 그대로 돌려주고 감사 기록도 남기지 않는다.
+    // 관리자(ACTIVE·ON_LEAVE)가 0명인 비활성 동아리는 confirmed=true 없이는 409 CONFIRMATION_REQUIRED (이슈 #29 방안 C)
     @Transactional
-    public AdminClubDetailResponse.ClubInfo reactivate(long actorUserId, long clubId, String reason) {
+    public AdminClubDetailResponse.ClubInfo reactivate(
+            long actorUserId, long clubId, String reason, boolean confirmed) {
+        ClubRow club = clubs.findClub(clubId).orElseThrow(AdminClubService::notFound);
+        if (!confirmed && ClubStatus.INACTIVE.name().equals(club.getStatus()) && club.getAdminCount() == 0) {
+            throw BusinessException.confirmationRequired(
+                    "관리자가 없는 동아리입니다. 재활성하면 임원 기능을 쓸 사람이 없습니다.",
+                    Warning.toMaps(List.of(Warning.builder()
+                            .type("NO_CLUB_ADMIN")
+                            .message("동아리 관리자가 0명입니다. 재활성 후 긴급 관리자 교체가 필요합니다.")
+                            .build())));
+        }
         return changeStatus(actorUserId, clubId, ClubStatus.ACTIVE, "CLUB_REACTIVATED", reason);
     }
 

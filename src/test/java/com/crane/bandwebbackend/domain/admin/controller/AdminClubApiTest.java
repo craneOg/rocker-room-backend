@@ -476,6 +476,27 @@ class AdminClubApiTest {
     }
 
     @Test
+    @DisplayName("API 159: 관리자 0명인 비활성 동아리는 confirmed 없이 409 CONFIRMATION_REQUIRED, confirmed=true면 재활성")
+    void reactivateWithoutAdminNeedsConfirmation() throws Exception {
+        long creator = user("생성자", "noadmin_creator", false, "ACTIVE", ts(2));
+        long id = club("Orphan Band", "BAND", "INACTIVE", creator, "ZYXWVUTS23");
+        member(id, creator, "MEMBER", "ACTIVE", "REGULAR", "CLUB_CREATOR");
+        String path = "/api/v1/admin/clubs/" + id + "/reactivate";
+
+        mockMvc.perform(clubStatus(admin, path, "{\"reason\":\"복구\"}", true))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("CONFIRMATION_REQUIRED"))
+                .andExpect(jsonPath("$.error.warnings[0].type").value("NO_CLUB_ADMIN"));
+        assertThat(clubStatusColumn(id)).isEqualTo("INACTIVE");
+        assertThat(count("SELECT COUNT(*) FROM audit_log")).isZero();
+
+        mockMvc.perform(clubStatus(admin, path, "{\"reason\":\"복구\",\"confirmed\":true}", true))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("ACTIVE"));
+        assertThat(clubStatusColumn(id)).isEqualTo("ACTIVE");
+    }
+
+    @Test
     @DisplayName("API 120·159: 이미 그 상태면 200으로 그대로 돌려주고 감사 기록은 남기지 않는다")
     void alreadyInState() throws Exception {
         long id = alpha();
