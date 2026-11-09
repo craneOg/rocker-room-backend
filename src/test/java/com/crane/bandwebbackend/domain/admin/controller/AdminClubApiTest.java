@@ -3,6 +3,7 @@ package com.crane.bandwebbackend.domain.admin.controller;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -20,9 +21,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 @Import(TestcontainersConfiguration.class)
 @ActiveProfiles("test")
@@ -421,5 +424,146 @@ class AdminClubApiTest {
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
         }
+    }
+
+    // ---- API 120·159 ----
+
+    private MockHttpServletRequestBuilder clubStatus(long caller, String path, String body, boolean withHeader) {
+        MockHttpServletRequestBuilder req =
+                post(path).contentType(MediaType.APPLICATION_JSON).content(body).cookie(access(caller));
+        return withHeader ? req.header("X-Requested-With", "XMLHttpRequest") : req;
+    }
+
+    private String clubStatusColumn(long clubId) {
+        return jdbc.queryForObject("SELECT status FROM club WHERE id = ?", String.class, clubId);
+    }
+
+    @Test
+    @DisplayName("API 120·159: 비활성·재활성으로 상태를 바꾸고 Club을 돌려주며 사유와 전·후 상태를 감사 기록한다")
+    void deactivateAndReactivate() throws Exception {
+        long id = alpha();
+        String base = "/api/v1/admin/clubs/" + id;
+
+        mockMvc.perform(clubStatus(admin, base + "/deactivate", "{\"reason\":\"  운영 정책 위반  \"}", true))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id").value(String.valueOf(id)))
+                .andExpect(jsonPath("$.data.status").value("INACTIVE"))
+                .andExpect(jsonPath("$.data.name").value("Alpha Band"))
+                .andExpect(jsonPath("$.data.isSearchable").value(false))
+                .andExpect(jsonPath("$.data.joinCode").doesNotExist())
+                .andExpect(jsonPath("$.meta.requestId").exists());
+        assertThat(clubStatusColumn(id)).isEqualTo("INACTIVE");
+        assertThat(jdbc.queryForObject(
+                        "SELECT reason FROM audit_log WHERE action = 'CLUB_DEACTIVATED' AND club_id = ? AND"
+                                + " actor_user_id = ? AND target_type = 'CLUB' AND target_id = ?",
+                        String.class,
+                        id,
+                        admin,
+                        id))
+                .isEqualTo("운영 정책 위반");
+        assertThat(jdbc.queryForObject(
+                        "SELECT JSON_UNQUOTE(JSON_EXTRACT(detail, '$.to')) FROM audit_log WHERE action ="
+                                + " 'CLUB_DEACTIVATED'",
+                        String.class))
+                .isEqualTo("INACTIVE");
+
+        mockMvc.perform(clubStatus(admin, base + "/reactivate", "{\"reason\":\"소명 확인\"}", true))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("ACTIVE"));
+        assertThat(clubStatusColumn(id)).isEqualTo("ACTIVE");
+        assertThat(count("SELECT COUNT(*) FROM audit_log WHERE action = 'CLUB_REACTIVATED' AND club_id = ?", id))
+                .isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("API 159: 관리자 0명인 비활성 동아리는 confirmed 없이 409 CONFIRMATION_REQUIRED, confirmed=true면 재활성")
+    void reactivateWithoutAdminNeedsConfirmation() throws Exception {
+        long creator = user("생성자", "noadmin_creator", false, "ACTIVE", ts(2));
+        long id = club("Orphan Band", "BAND", "INACTIVE", creator, "ZYXWVUTS23");
+        member(id, creator, "MEMBER", "ACTIVE", "REGULAR", "CLUB_CREATOR");
+        String path = "/api/v1/admin/clubs/" + id + "/reactivate";
+
+        mockMvc.perform(clubStatus(admin, path, "{\"reason\":\"복구\"}", true))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("CONFIRMATION_REQUIRED"))
+                .andExpect(jsonPath("$.error.warnings[0].type").value("NO_CLUB_ADMIN"));
+        assertThat(clubStatusColumn(id)).isEqualTo("INACTIVE");
+        assertThat(count("SELECT COUNT(*) FROM audit_log")).isZero();
+
+        mockMvc.perform(clubStatus(admin, path, "{\"reason\":\"복구\",\"confirmed\":true}", true))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("ACTIVE"));
+        assertThat(clubStatusColumn(id)).isEqualTo("ACTIVE");
+    }
+
+    @Test
+    @DisplayName("API 120·159: 이미 그 상태면 200으로 그대로 돌려주고 감사 기록은 남기지 않는다")
+    void alreadyInState() throws Exception {
+        long id = alpha();
+        String base = "/api/v1/admin/clubs/" + id;
+        mockMvc.perform(clubStatus(admin, base + "/reactivate", "{\"reason\":\"확인\"}", true))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("ACTIVE"));
+        mockMvc.perform(clubStatus(admin, base + "/deactivate", "{\"reason\":\"1\"}", true))
+                .andExpect(status().isOk());
+        mockMvc.perform(clubStatus(admin, base + "/deactivate", "{\"reason\":\"2\"}", true))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("INACTIVE"));
+
+        assertThat(count("SELECT COUNT(*) FROM audit_log WHERE action = 'CLUB_REACTIVATED'"))
+                .isZero();
+        assertThat(count("SELECT COUNT(*) FROM audit_log WHERE action = 'CLUB_DEACTIVATED'"))
+                .isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("API 120·159: 사유가 없거나 비었거나 500자를 넘으면 400, 없는 동아리 404, 변경은 일어나지 않는다")
+    void statusChangeValidation() throws Exception {
+        long id = alpha();
+        String path = "/api/v1/admin/clubs/" + id + "/deactivate";
+        for (String body : new String[] {
+            "{}",
+            "{\"reason\":null}",
+            "{\"reason\":\"   \"}",
+            "{\"reason\":\"\u2003\u2003\"}",
+            "{\"reason\":\"" + "가".repeat(501) + "\"}"
+        }) {
+            mockMvc.perform(clubStatus(admin, path, body, true))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+        }
+        mockMvc.perform(clubStatus(admin, "/api/v1/admin/clubs/999999/deactivate", "{\"reason\":\"x\"}", true))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error.code").value("NOT_FOUND"));
+        mockMvc.perform(clubStatus(admin, "/api/v1/admin/clubs/abc/deactivate", "{\"reason\":\"x\"}", true))
+                .andExpect(status().isBadRequest());
+        assertThat(clubStatusColumn(id)).isEqualTo("ACTIVE");
+        assertThat(count("SELECT COUNT(*) FROM audit_log")).isZero();
+    }
+
+    @Test
+    @DisplayName("API 120·159: Super Admin만, X-Requested-With 필수(없으면 403), 비로그인 401")
+    void statusChangeGuards() throws Exception {
+        long id = alpha();
+        String path = "/api/v1/admin/clubs/" + id + "/deactivate";
+        mockMvc.perform(clubStatus(normal, path, "{\"reason\":\"x\"}", true)).andExpect(status().isForbidden());
+        mockMvc.perform(clubStatus(admin, path, "{\"reason\":\"x\"}", false)).andExpect(status().isForbidden());
+        mockMvc.perform(post(path)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\":\"x\"}")
+                        .header("X-Requested-With", "XMLHttpRequest"))
+                .andExpect(status().isUnauthorized());
+        assertThat(clubStatusColumn(id)).isEqualTo("ACTIVE");
+    }
+
+    @Test
+    @DisplayName("API 120: 비활성 전환은 118 목록의 status 필터에 바로 반영된다")
+    void deactivateShowsInList() throws Exception {
+        long id = alpha();
+        mockMvc.perform(clubStatus(admin, "/api/v1/admin/clubs/" + id + "/deactivate", "{\"reason\":\"x\"}", true))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/admin/clubs").param("status", "INACTIVE").cookie(access(admin)))
+                .andExpect(jsonPath("$.data.items", hasSize(1)))
+                .andExpect(jsonPath("$.data.items[0].id").value(String.valueOf(id)));
     }
 }
