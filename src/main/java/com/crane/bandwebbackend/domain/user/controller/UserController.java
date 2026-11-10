@@ -15,12 +15,12 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Positive;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -34,7 +34,6 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
-@Validated
 @RestController
 @RequestMapping("/api/v1")
 @RequiredArgsConstructor
@@ -88,8 +87,7 @@ public class UserController {
     // API 140: 본문 없음. 동아리 전환(HOME-002) 때 호출해 last_viewed_at만 갱신한다(updated_at 불변)
     @PutMapping("/me/memberships/{membershipId}/last-viewed")
     public LastViewedResponse touchLastViewed(
-            @AuthenticationPrincipal AuthPrincipal principal,
-            @PathVariable @Pattern(regexp = "^[1-9][0-9]{0,17}$") String membershipId) {
-        return myMembershipService.touchLastViewed(principal.userId(), Long.parseLong(membershipId));
+            @AuthenticationPrincipal AuthPrincipal principal, @PathVariable @Positive Long membershipId) {
+        return myMembershipService.touchLastViewed(principal.userId(), membershipId);
     }
 }

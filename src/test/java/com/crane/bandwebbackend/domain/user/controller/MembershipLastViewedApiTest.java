@@ -132,10 +132,12 @@ class MembershipLastViewedApiTest {
         LocalDateTime before = updatedAt(id);
 
         mockMvc.perform(touch(id).cookie(access())).andExpect(status().isOk());
-        LocalDateTime first = lastViewed(id);
+        // 두 번째 호출이 실제로 시각을 갱신하는지 보려고 과거 값으로 되돌려 둔다
+        LocalDateTime past = LocalDateTime.of(2026, 1, 1, 0, 0);
+        jdbc.update("UPDATE membership SET last_viewed_at = ?, updated_at = updated_at WHERE id = ?", past, id);
         mockMvc.perform(touch(id).cookie(access())).andExpect(status().isOk());
 
-        assertThat(lastViewed(id)).isAfterOrEqualTo(first);
+        assertThat(lastViewed(id)).isAfter(past);
         assertThat(updatedAt(id)).isEqualTo(before);
     }
 
@@ -191,6 +193,6 @@ class MembershipLastViewedApiTest {
         mockMvc.perform(touch(id).cookie(access()))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"))
-                .andExpect(jsonPath("$.error.details[0].field").value(endsWith("membershipId")));
+                .andExpect(jsonPath("$.error.details[0].field").value("membershipId"));
     }
 }
