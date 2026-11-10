@@ -147,6 +147,7 @@ class SuccessionNoticeApiTest {
                 .andExpect(jsonPath("$.data.items[0].confirmedAt").doesNotExist())
                 .andExpect(jsonPath("$.data.items[1].id").value(String.valueOf(leader)))
                 .andExpect(jsonPath("$.data.items[1].type").value("TEAM_LEADER"))
+                .andExpect(jsonPath("$.data.items[1].createdAt").value("2026-07-02T01:30:00+09:00"))
                 .andExpect(jsonPath("$.data.items[1].teamName").value("1팀"))
                 .andExpect(jsonPath("$.data.items[1].performanceName").value("2026 가을 공연"))
                 .andExpect(jsonPath("$.meta.requestId").value(matchesPattern("req-[a-z0-9]{12}")));
