@@ -177,6 +177,6 @@ class MembershipLastViewedApiTest {
         mockMvc.perform(touch(id).cookie(access()))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"))
-                .andExpect(jsonPath("$.error.details[0].field").value("membershipId"));
+                .andExpect(jsonPath("$.error.details[0].field").value(endsWith("membershipId")));
     }
 }

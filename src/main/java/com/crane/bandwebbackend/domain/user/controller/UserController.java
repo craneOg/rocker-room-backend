@@ -3,6 +3,7 @@ package com.crane.bandwebbackend.domain.user.controller;
 import com.crane.bandwebbackend.domain.membership.entity.MembershipStatus;
 import com.crane.bandwebbackend.domain.user.dto.HandleAvailabilityResponse;
 import com.crane.bandwebbackend.domain.user.dto.ImageUploadResponse;
+import com.crane.bandwebbackend.domain.user.dto.LastViewedResponse;
 import com.crane.bandwebbackend.domain.user.dto.MyMembershipsResponse;
 import com.crane.bandwebbackend.domain.user.dto.UpdateProfileRequest;
 import com.crane.bandwebbackend.domain.user.dto.UserProfileResponse;
@@ -22,7 +23,9 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -80,5 +83,13 @@ public class UserController {
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "100") @Min(1) @Max(100) int size) {
         return myMembershipService.list(principal.userId(), status, page, size);
+    }
+
+    // API 140: 본문 없음. 동아리 전환(HOME-002) 때 호출해 last_viewed_at만 갱신한다(updated_at 불변)
+    @PutMapping("/me/memberships/{membershipId}/last-viewed")
+    public LastViewedResponse touchLastViewed(
+            @AuthenticationPrincipal AuthPrincipal principal,
+            @PathVariable @Pattern(regexp = "^[1-9][0-9]{0,17}$") String membershipId) {
+        return myMembershipService.touchLastViewed(principal.userId(), Long.parseLong(membershipId));
     }
 }
