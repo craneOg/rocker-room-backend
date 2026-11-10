@@ -15,6 +15,7 @@ import com.crane.bandwebbackend.global.time.KstTime;
 import jakarta.servlet.http.Cookie;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -177,7 +178,7 @@ class MyMembershipApiTest {
         mockMvc.perform(get(URL).param("status", "INVITED").cookie(access(me)))
                 .andExpect(jsonPath("$.data.items", hasSize(1)))
                 .andExpect(jsonPath("$.data.items[0].invitationExpiresAt")
-                        .value(InvitationExpiry.expiresAt(invitedAt).toString()))
+                        .value(DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(InvitationExpiry.expiresAt(invitedAt))))
                 .andExpect(jsonPath("$.data.items[0].requestedAt").value((Object) null));
         mockMvc.perform(get(URL).param("status", "PENDING").cookie(access(me)))
                 .andExpect(jsonPath("$.data.items", hasSize(1)))
