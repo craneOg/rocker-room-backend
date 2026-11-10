@@ -67,10 +67,19 @@ class PerformanceFlowTest {
         // API-154 T-07
         send(get(BASE + "/teams/default-name"), MEMBER, null)
                 .andExpect(jsonPath("$.data.name").value("2팀"));
+        // API-062 팀원 자격 없음(탈퇴) → 409 INELIGIBLE_TEAM_MEMBER(#30)
+        send(post(BASE + "/teams"), ADMIN, """
+                        {"name":"탈퇴팀","members":[{"membershipId":"4"}]}""")
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("STATE_CONFLICT"))
+                .andExpect(jsonPath("$.error.details[0].reason").value("INELIGIBLE_TEAM_MEMBER"));
         // API-061·063
         send(get(BASE + "/teams"), ADMIN, null)
-                .andExpect(jsonPath("$.data.statusCounts.APPROVED").value(1));
+                .andExpect(jsonPath("$.data.statusCounts.APPROVED").value(1))
+                .andExpect(jsonPath("$.data.content[0].performanceId").value("1"));
         send(get(BASE + "/teams/" + teamId), MEMBER, null)
+                .andExpect(jsonPath("$.data.team.performanceId").value("1"))
+                .andExpect(jsonPath("$.data.members[0].teamId").value(teamId))
                 .andExpect(jsonPath("$.data.members.length()").value(2))
                 .andExpect(jsonPath("$.data.members[0].isRegisteredPart").value(true));
 
@@ -161,8 +170,22 @@ class PerformanceFlowTest {
                 .andExpect(jsonPath("$.data.sessions[0].isSupport").value(false))
                 .andExpect(jsonPath("$.data.schedules.length()").value(0));
 
+        // API-063 담당곡 항목 필드(#30)
+        send(get(BASE + "/teams/" + teamId), MEMBER, null)
+                .andExpect(jsonPath("$.data.songs[0].performanceId").value("1"))
+                .andExpect(jsonPath("$.data.songs[0].status").value("CONFIRMED"))
+                .andExpect(jsonPath("$.data.songs[0].assignedTeamId").value(teamId))
+                .andExpect(jsonPath("$.data.songs[0].candidateTeamId").value(teamId))
+                .andExpect(jsonPath("$.data.songs[0].setlistOrder").value(1));
+
         // API-087·088
         Object songVersion = JsonPath.read(confirmed, "$.data.song.version");
+        // 선정곡이 빠진 목록 → 409 STATE_CONFLICT SETLIST_CHANGED(#30)
+        send(put(BASE + "/setlist/order"), ADMIN, """
+                        {"version":"0","items":[]}""")
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("STATE_CONFLICT"))
+                .andExpect(jsonPath("$.error.details[0].reason").value("SETLIST_CHANGED"));
         send(put(BASE + "/setlist/order"), ADMIN, """
                         {"version":"0","items":[{"songId":"%s","order":null,"version":"%s"}]}""".formatted(songId, songVersion))
                 .andExpect(jsonPath("$.data[0].song.setlistOrder").doesNotExist());
