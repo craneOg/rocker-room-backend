@@ -1,14 +1,20 @@
 package com.crane.bandwebbackend.domain.user.controller;
 
+import com.crane.bandwebbackend.domain.membership.entity.MembershipStatus;
 import com.crane.bandwebbackend.domain.user.dto.HandleAvailabilityResponse;
 import com.crane.bandwebbackend.domain.user.dto.ImageUploadResponse;
+import com.crane.bandwebbackend.domain.user.dto.MyMembershipsResponse;
 import com.crane.bandwebbackend.domain.user.dto.UpdateProfileRequest;
 import com.crane.bandwebbackend.domain.user.dto.UserProfileResponse;
+import com.crane.bandwebbackend.domain.user.service.MyMembershipService;
 import com.crane.bandwebbackend.domain.user.service.ProfileImageService;
 import com.crane.bandwebbackend.domain.user.service.UserProfileService;
 import com.crane.bandwebbackend.global.security.AuthPrincipal;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Pattern;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -33,6 +39,7 @@ public class UserController {
 
     private final UserProfileService userProfileService;
     private final ProfileImageService profileImageService;
+    private final MyMembershipService myMembershipService;
 
     // API 7
     @GetMapping("/me")
@@ -63,5 +70,15 @@ public class UserController {
             @AuthenticationPrincipal AuthPrincipal principal,
             @RequestParam @Pattern(regexp = "^[a-z0-9_]{5,30}$") String handle) {
         return userProfileService.checkHandle(principal.userId(), handle);
+    }
+
+    // API 10: status는 쉼표로 여러 값(없으면 전체)
+    @GetMapping("/me/memberships")
+    public MyMembershipsResponse myMemberships(
+            @AuthenticationPrincipal AuthPrincipal principal,
+            @RequestParam(required = false) Set<MembershipStatus> status,
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "100") @Min(1) @Max(100) int size) {
+        return myMembershipService.list(principal.userId(), status, page, size);
     }
 }
