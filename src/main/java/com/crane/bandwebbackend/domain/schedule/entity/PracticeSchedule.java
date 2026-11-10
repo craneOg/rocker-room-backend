@@ -26,10 +26,9 @@ import lombok.NoArgsConstructor;
 @Entity
 @Table(
         name = "practice_schedule",
-        uniqueConstraints =
-                @UniqueConstraint(
-                        name = "uk_practice_schedule_id_performance",
-                        columnNames = {"id", "performance_id"}))
+        uniqueConstraints = @UniqueConstraint(
+                name = "uk_practice_schedule_id_performance",
+                columnNames = {"id", "performance_id"}))
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class PracticeSchedule extends BaseTimeEntity {
 

@@ -25,10 +25,9 @@ import lombok.NoArgsConstructor;
 @Entity
 @Table(
         name = "performance",
-        uniqueConstraints =
-                @UniqueConstraint(
-                        name = "uk_performance_id_club",
-                        columnNames = {"id", "club_id"}))
+        uniqueConstraints = @UniqueConstraint(
+                name = "uk_performance_id_club",
+                columnNames = {"id", "club_id"}))
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Performance extends BaseTimeEntity {
 

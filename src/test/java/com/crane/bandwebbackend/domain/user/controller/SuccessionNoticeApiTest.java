@@ -224,7 +224,8 @@ class SuccessionNoticeApiTest {
     void confirmInvalidId(String id) throws Exception {
         mockMvc.perform(confirm(me, id))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+                .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.error.details[0].field").value("noticeId"));
     }
 
     @Test

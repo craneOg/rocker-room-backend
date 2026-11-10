@@ -4,17 +4,15 @@ import com.crane.bandwebbackend.domain.user.dto.SuccessionNoticeListResponse;
 import com.crane.bandwebbackend.domain.user.dto.SuccessionNoticeResponse;
 import com.crane.bandwebbackend.domain.user.service.SuccessionNoticeService;
 import com.crane.bandwebbackend.global.security.AuthPrincipal;
-import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-@Validated
 @RestController
 @RequestMapping("/api/v1/me/succession-notices")
 @RequiredArgsConstructor
@@ -31,8 +29,7 @@ public class SuccessionNoticeController {
     // API 136: 요청 본문은 없거나 {}
     @PostMapping("/{noticeId}/confirm")
     public SuccessionNoticeResponse confirm(
-            @AuthenticationPrincipal AuthPrincipal principal,
-            @PathVariable @Pattern(regexp = "^[1-9][0-9]{0,17}$") String noticeId) {
-        return service.confirm(principal.userId(), Long.parseLong(noticeId));
+            @AuthenticationPrincipal AuthPrincipal principal, @PathVariable @Positive Long noticeId) {
+        return service.confirm(principal.userId(), noticeId);
     }
 }
