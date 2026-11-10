@@ -16,6 +16,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -204,7 +206,7 @@ class SuccessionNoticeApiTest {
     }
 
     @Test
-    @DisplayName("API 136: 타인의 안내·없는 안내·숫자가 아닌 ID는 모두 404이고 타인의 안내는 확인되지 않는다")
+    @DisplayName("API 136: 타인의 안내·없는 안내는 404이고 타인의 안내는 확인되지 않는다")
     void confirmNotFound() throws Exception {
         long others = adminNotice(other);
 
@@ -212,9 +214,17 @@ class SuccessionNoticeApiTest {
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.error.code").value("NOT_FOUND"));
         mockMvc.perform(confirm(me, "999999")).andExpect(status().isNotFound());
-        mockMvc.perform(confirm(me, "abc")).andExpect(status().isNotFound());
 
         mockMvc.perform(get(BASE).cookie(access(other))).andExpect(jsonPath("$.data.items", hasSize(1)));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"abc", "0", "-1", "99999999999999999999"})
+    @DisplayName("API 136: noticeId가 양의 10진 문자열이 아니면 400 VALIDATION_ERROR")
+    void confirmInvalidId(String id) throws Exception {
+        mockMvc.perform(confirm(me, id))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
     }
 
     @Test
