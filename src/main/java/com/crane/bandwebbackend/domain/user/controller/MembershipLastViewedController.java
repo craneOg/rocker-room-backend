@@ -3,6 +3,7 @@ package com.crane.bandwebbackend.domain.user.controller;
 import com.crane.bandwebbackend.domain.user.dto.LastViewedResponse;
 import com.crane.bandwebbackend.domain.user.service.MembershipLastViewedService;
 import com.crane.bandwebbackend.global.security.AuthPrincipal;
+import jakarta.validation.constraints.Pattern;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -20,7 +21,8 @@ public class MembershipLastViewedController {
     // API 140: 본문 없음. 동아리 전환(HOME-002) 때 호출해 last_viewed_at만 갱신한다(updated_at 불변)
     @PutMapping("/me/memberships/{membershipId}/last-viewed")
     public LastViewedResponse touch(
-            @AuthenticationPrincipal AuthPrincipal principal, @PathVariable String membershipId) {
-        return service.touch(principal.userId(), membershipId);
+            @AuthenticationPrincipal AuthPrincipal principal,
+            @PathVariable @Pattern(regexp = "^[1-9][0-9]{0,17}$") String membershipId) {
+        return service.touch(principal.userId(), Long.parseLong(membershipId));
     }
 }

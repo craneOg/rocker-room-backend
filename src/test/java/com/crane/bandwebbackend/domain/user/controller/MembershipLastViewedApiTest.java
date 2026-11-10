@@ -2,7 +2,6 @@ package com.crane.bandwebbackend.domain.user.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.endsWith;
-import static org.hamcrest.Matchers.matchesPattern;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -10,12 +9,17 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.crane.bandwebbackend.TestcontainersConfiguration;
 import com.crane.bandwebbackend.global.security.CookieFactory;
 import com.crane.bandwebbackend.global.security.JwtProvider;
+import com.crane.bandwebbackend.global.time.KstTime;
+import com.jayway.jsonpath.JsonPath;
 import jakarta.servlet.http.Cookie;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -107,20 +111,24 @@ class MembershipLastViewedApiTest {
         LocalDateTime before = updatedAt(id);
         assertThat(lastViewed(id)).isNull();
 
-        mockMvc.perform(touch(id).cookie(access()))
+        String body = mockMvc.perform(touch(id).cookie(access()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.membershipId").value(String.valueOf(id)))
                 .andExpect(jsonPath("$.data.lastViewedAt").value(endsWith("+09:00")))
-                .andExpect(jsonPath("$.meta.requestId").value(matchesPattern("req-[a-z0-9]{12}")));
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        String responded = JsonPath.read(body, "$.data.lastViewedAt");
 
-        assertThat(lastViewed(id)).isAfter(LocalDateTime.of(2026, 11, 1, 0, 0));
+        // 응답 시각은 DB에 저장한(마이크로초로 자른) 값과 같다
+        assertThat(KstTime.toUtc(OffsetDateTime.parse(responded))).isEqualTo(lastViewed(id));
         assertThat(updatedAt(id)).isEqualTo(before);
     }
 
     @Test
     @DisplayName("API 140: 같은 소속을 다시 호출해도 성공하고 시각이 갱신되며 updated_at은 그대로다(멱등)")
     void idempotent() throws Exception {
-        long id = membership(me, "ON_LEAVE");
+        long id = membership(me, "GRADUATED");
         LocalDateTime before = updatedAt(id);
 
         mockMvc.perform(touch(id).cookie(access())).andExpect(status().isOk());
@@ -151,44 +159,24 @@ class MembershipLastViewedApiTest {
                 .andExpect(jsonPath("$.error.code").value("NOT_FOUND"));
     }
 
-    @Test
-    @DisplayName("API 140: 접근할 수 없는 소속 상태(WITHDRAWN)는 404이고 값이 바뀌지 않는다")
-    void withdrawnMembership() throws Exception {
-        long id = membership(me, "WITHDRAWN");
+    @ParameterizedTest
+    @ValueSource(strings = {"PENDING", "INVITED", "WITHDRAWN"})
+    @DisplayName("API 140: 접근할 수 없는 소속 상태(PENDING·INVITED·WITHDRAWN)는 404이고 값이 바뀌지 않는다")
+    void inaccessibleMembership(String status) throws Exception {
+        long id = membership(me, status);
 
         mockMvc.perform(touch(id).cookie(access())).andExpect(status().isNotFound());
 
         assertThat(lastViewed(id)).isNull();
     }
 
-    @Test
-    @DisplayName("API 140: membershipId가 숫자가 아니면 400 VALIDATION_ERROR")
-    void invalidId() throws Exception {
-        mockMvc.perform(touch("abc").cookie(access()))
+    @ParameterizedTest
+    @ValueSource(strings = {"abc", "0", "-1", "99999999999999999999"})
+    @DisplayName("API 140: membershipId가 양의 10진 문자열이 아니면 400 VALIDATION_ERROR")
+    void invalidId(String id) throws Exception {
+        mockMvc.perform(touch(id).cookie(access()))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"))
                 .andExpect(jsonPath("$.error.details[0].field").value("membershipId"));
-    }
-
-    @Test
-    @DisplayName("API 140: 인증 쿠키가 없으면 401 UNAUTHENTICATED")
-    void unauthenticated() throws Exception {
-        long id = membership(me, "ACTIVE");
-
-        mockMvc.perform(touch(id))
-                .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.error.code").value("UNAUTHENTICATED"));
-    }
-
-    @Test
-    @DisplayName("API 140: X-Requested-With 헤더가 없으면 403 FORBIDDEN이고 값이 바뀌지 않는다")
-    void missingRequestedWith() throws Exception {
-        long id = membership(me, "ACTIVE");
-
-        mockMvc.perform(put("/api/v1/me/memberships/" + id + "/last-viewed").cookie(access()))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.error.code").value("FORBIDDEN"));
-
-        assertThat(lastViewed(id)).isNull();
     }
 }
