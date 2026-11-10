@@ -15,6 +15,9 @@ public class TeamMemberResponse {
     private final Long id;
 
     @IdString
+    private final Long teamId;
+
+    @IdString
     private final Long membershipId;
 
     @IdString

@@ -135,6 +135,7 @@ public class TeamService {
         PerformanceMember leader = team.getLeader();
         return TeamResponse.builder()
                 .id(team.getId())
+                .performanceId(team.getPerformance().getId())
                 .name(team.getName())
                 .status(team.getStatus())
                 .source(team.getSource())
@@ -177,6 +178,7 @@ public class TeamService {
                     Part part = m.getPart();
                     return TeamMemberResponse.builder()
                             .id(m.getId())
+                            .teamId(team.getId())
                             .membershipId(ms.getId())
                             .performanceMemberId(pm.getId())
                             .displayName(PerformanceAccessService.displayName(ms))
@@ -721,7 +723,7 @@ public class TeamService {
                 ? ELIGIBLE.contains(m.getStatus())
                 : m.getMemberType() == MemberType.REGULAR && SELF_ELIGIBLE.contains(m.getStatus());
         if (!ok) {
-            throw new BusinessException(ErrorCode.RULE_VIOLATION, "MEMBER_NOT_ELIGIBLE", "팀원으로 지정할 수 없는 부원입니다.");
+            throw new BusinessException(ErrorCode.STATE_CONFLICT, "INELIGIBLE_TEAM_MEMBER", "팀원으로 지정할 수 없는 부원입니다.");
         }
     }
 

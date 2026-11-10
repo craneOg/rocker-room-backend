@@ -41,8 +41,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class AvailabilityService {
 
     private static final Duration SLOT = Duration.ofMinutes(30);
-    // ponytail: 한 요청 기간 상한(시즌 전체 반복 허용). 시즌이 더 길면 늘림
-    private static final Duration MAX_RANGE = Duration.ofDays(400);
+    // 100·101·103 한 요청 기간 상한(#30). 31일 × 48칸 = 1488칸이라 슬롯 상한 2000 안에 들어감
+    private static final Duration MAX_RANGE = Duration.ofDays(31);
 
     private final AvailableSlotRepository slotRepository;
     private final PerformanceAccessService accessService;

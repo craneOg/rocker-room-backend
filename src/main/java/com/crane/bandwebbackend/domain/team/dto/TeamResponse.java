@@ -17,6 +17,9 @@ public class TeamResponse {
     @IdString
     private final Long id;
 
+    @IdString
+    private final Long performanceId;
+
     private final String name;
     private final TeamStatus status;
     private final TeamSource source;
