@@ -148,12 +148,10 @@ public class MyMembershipQueryRepository {
     }
 
     // API 140 전용 UPDATE. Membership 엔티티를 거치면 updated_at이 바뀌므로 네이티브로 처리한다.
-    // 동시 호출에서 늦게 저장되는 오래된 시각이 최근 값을 덮어쓰지 않도록 GREATEST로 저장한다.
     // 홈을 열 수 있는 상태만 기록한다(PENDING·INVITED·REJECTED·DECLINED·WITHDRAWN은 접근 불가). 갱신된 행 수를 돌려준다
     public int touchLastViewed(long membershipId, long userId, LocalDateTime utcNow) {
         return jdbc.update(
-                "UPDATE membership SET last_viewed_at = GREATEST(COALESCE(last_viewed_at, :at), :at),"
-                        + " updated_at = updated_at"
+                "UPDATE membership SET last_viewed_at = :at, updated_at = updated_at"
                         + " WHERE id = :id AND user_id = :userId AND status IN ('ACTIVE','ON_LEAVE','GRADUATED')",
                 new MapSqlParameterSource("at", utcNow)
                         .addValue("id", membershipId)
