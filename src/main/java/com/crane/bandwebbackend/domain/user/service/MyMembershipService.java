@@ -87,15 +87,14 @@ public class MyMembershipService {
     // API 140: 타인·없는 소속은 모두 404로 같게 보여 존재를 숨긴다(G-04)
     @Transactional
     public LastViewedResponse touchLastViewed(long userId, long membershipId) {
-        // DATETIME(6)에 맞춰 마이크로초로 자른 값을 저장한다
+        // DATETIME(6)에 맞춰 마이크로초로 자른 값을 저장하고 그대로 응답한다
         LocalDateTime now = LocalDateTime.now(clock.withZone(ZoneOffset.UTC)).truncatedTo(ChronoUnit.MICROS);
         if (repository.touchLastViewed(membershipId, userId, now) == 0) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "요청한 리소스를 찾을 수 없습니다.");
         }
-        // GREATEST로 더 늦은 기존 값이 유지됐을 수 있어 요청 시각이 아니라 저장된 값을 응답한다
         return LastViewedResponse.builder()
                 .membershipId(membershipId)
-                .lastViewedAt(KstTime.toKst(repository.findLastViewedAt(membershipId, userId)))
+                .lastViewedAt(KstTime.toKst(now))
                 .build();
     }
 }
