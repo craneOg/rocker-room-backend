@@ -128,6 +128,9 @@ class SuccessionNoticeApiTest {
         adminNotice(other);
         long confirmed = adminNotice(me);
         jdbc.update("UPDATE succession_notice SET confirmed_at = UTC_TIMESTAMP(6) WHERE id = ?", confirmed);
+        // 고정 UTC 값으로 KST 변환(날짜가 바뀜)을 검사한다
+        jdbc.update("UPDATE succession_notice SET created_at = '2026-07-01 15:30:00' WHERE id = ?", admin);
+        jdbc.update("UPDATE succession_notice SET created_at = '2026-07-01 16:30:00' WHERE id = ?", leader);
 
         mockMvc.perform(get(BASE).cookie(access(me)))
                 .andExpect(status().isOk())
@@ -140,10 +143,11 @@ class SuccessionNoticeApiTest {
                 .andExpect(jsonPath("$.data.items[0].teamName").isEmpty())
                 .andExpect(jsonPath("$.data.items[0].performanceId").isEmpty())
                 .andExpect(jsonPath("$.data.items[0].performanceName").isEmpty())
-                .andExpect(jsonPath("$.data.items[0].createdAt").value(endsWith("+09:00")))
+                .andExpect(jsonPath("$.data.items[0].createdAt").value("2026-07-02T00:30:00+09:00"))
                 .andExpect(jsonPath("$.data.items[0].confirmedAt").doesNotExist())
                 .andExpect(jsonPath("$.data.items[1].id").value(String.valueOf(leader)))
                 .andExpect(jsonPath("$.data.items[1].type").value("TEAM_LEADER"))
+                .andExpect(jsonPath("$.data.items[1].createdAt").value("2026-07-02T01:30:00+09:00"))
                 .andExpect(jsonPath("$.data.items[1].teamName").value("1팀"))
                 .andExpect(jsonPath("$.data.items[1].performanceName").value("2026 가을 공연"))
                 .andExpect(jsonPath("$.meta.requestId").value(matchesPattern("req-[a-z0-9]{12}")));
