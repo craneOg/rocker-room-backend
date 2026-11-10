@@ -115,7 +115,7 @@ public class AvailabilityService {
             List<Long> teamIds,
             List<Long> songIds,
             boolean forAllParticipants) {
-        validateRange(from, to);
+        validateRange(from, to, MAX_RANGE);
         PerformanceAccess access = accessService.get(ref);
         Long pid = access.performanceId();
         List<Long> teams = teamIds == null ? List.of() : teamIds;
@@ -226,7 +226,7 @@ public class AvailabilityService {
             List<OffsetDateTime[]> intervals,
             LocalDate seasonStart,
             LocalDate seasonEnd) {
-        validateRange(from, to);
+        validateRange(from, to, MAX_RANGE);
         TreeSet<LocalDateTime> result = new TreeSet<>();
         for (OffsetDateTime[] interval : intervals) {
             OffsetDateTime start = interval[0];
@@ -289,10 +289,6 @@ public class AvailabilityService {
                 .to(to == null ? null : to.withOffsetSameInstant(KstTime.KST))
                 .slots(merge(utcStarts))
                 .build();
-    }
-
-    private static void validateRange(OffsetDateTime from, OffsetDateTime to) {
-        validateRange(from, to, MAX_RANGE);
     }
 
     private static void validateRange(OffsetDateTime from, OffsetDateTime to, Duration maxRange) {

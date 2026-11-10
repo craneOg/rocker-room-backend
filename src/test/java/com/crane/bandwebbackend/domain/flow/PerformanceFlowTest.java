@@ -217,6 +217,25 @@ class PerformanceFlowTest {
         send(common().param("teamIds", teamId), MEMBER, null)
                 .andExpect(jsonPath("$.data.participants").doesNotExist());
 
+        // #30 기간 상한: 100·103은 31일, 102(임원 조회)는 기존 400일 유지
+        String from = "2026-12-01T00:00:00+09:00";
+        String over31 = "2027-01-02T00:00:00+09:00";
+        send(get(BASE + "/availability/me").param("from", from).param("to", over31), MEMBER, null)
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.details[0].reason").value("INVALID_RANGE"));
+        send(
+                        get(BASE + "/availability/common")
+                                .param("forAllParticipants", "true")
+                                .param("from", from)
+                                .param("to", over31),
+                        ADMIN,
+                        null)
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.details[0].reason").value("INVALID_RANGE"));
+        send(get(BASE + "/availability/members/2").param("from", from).param("to", over31), ADMIN, null)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.slots.length()").value(1));
+
         // G-04 다른 동아리 경로는 404
         send(get("/api/v1/clubs/999/performances/1/songs"), ADMIN, null).andExpect(status().isNotFound());
     }

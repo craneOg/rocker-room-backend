@@ -89,7 +89,7 @@ class AvailabilitySlotRulesTest {
     }
 
     @Test
-    @DisplayName("기간은 31일까지, 넘으면 400 INVALID_RANGE")
+    @DisplayName("API-101 #30: 기간은 31일까지, 넘으면 400 INVALID_RANGE")
     void limitsRangeTo31Days() {
         assertThat(AvailabilityService.toUtcSlots(FROM, FROM.plusDays(31), List.of(), null, null))
                 .isEmpty();
