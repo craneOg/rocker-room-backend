@@ -140,6 +140,17 @@ class MembershipLastViewedApiTest {
     }
 
     @Test
+    @DisplayName("API 140: 이미 더 늦은 시각이 저장돼 있으면 과거 시각으로 덮어쓰지 않는다")
+    void doesNotMoveBackwards() throws Exception {
+        long id = membership(me, "ACTIVE");
+        jdbc.update("UPDATE membership SET last_viewed_at = '2099-01-01 00:00:00' WHERE id = ?", id);
+
+        mockMvc.perform(touch(id).cookie(access())).andExpect(status().isOk());
+
+        assertThat(lastViewed(id)).isEqualTo(LocalDateTime.of(2099, 1, 1, 0, 0));
+    }
+
+    @Test
     @DisplayName("API 140: 타인의 소속은 404이고 값이 바뀌지 않는다(존재 비노출)")
     void othersMembership() throws Exception {
         long id = membership(other, "ACTIVE");
