@@ -1,24 +1,24 @@
 package com.crane.bandwebbackend.domain.user.dto;
 
+import com.crane.bandwebbackend.global.response.PageResponse;
 import com.crane.bandwebbackend.global.serialization.IdString;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonUnwrapped;
 import java.time.OffsetDateTime;
 import java.util.List;
 import lombok.Builder;
 import lombok.Getter;
 
-// API 10 응답 data. 페이지 응답에 PENDING·INVITED 건수가 더해진 모양이라 공통 PageResponse를 쓰지 않는다
+// API 10 응답 data. 공통 페이지 응답에 PENDING·INVITED 건수를 더한다
 @Getter
 @Builder
 public class MyMembershipsResponse {
 
-    private final List<Item> items;
+    @JsonUnwrapped
+    private final PageResponse<Item> page;
+
     private final long pendingCount;
     private final long invitedCount;
-    private final int page;
-    private final int size;
-    private final long totalElements;
-    private final int totalPages;
 
     @Getter
     @Builder

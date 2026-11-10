@@ -1,6 +1,8 @@
 package com.crane.bandwebbackend.domain.user.repository;
 
+import com.crane.bandwebbackend.domain.user.dto.MyMembershipsResponse;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -42,16 +44,6 @@ public class MyMembershipQueryRepository {
         private final LocalDateTime lastViewedAt;
         private final LocalDateTime createdAt;
         private final LocalDateTime updatedAt;
-    }
-
-    @Getter
-    @Builder
-    public static class PartRow {
-        private final Long membershipId;
-        private final Long id;
-        private final String name;
-        private final int displayOrder;
-        private final boolean active;
     }
 
     // 최근 본 순(last_viewed_at 내림차순, 값이 없는 소속은 뒤). 같으면 나중에 만든 소속 먼저
@@ -97,36 +89,46 @@ public class MyMembershipQueryRepository {
                 "SELECT COUNT(*) FROM membership m" + where(statuses), params(userId, statuses), Long.class);
     }
 
-    // 필터와 무관하게 본인의 PENDING·INVITED 전체 건수(배지용). key = 상태
-    public Map<String, Long> pendingAndInvitedCounts(long userId) {
-        Map<String, Long> out = new HashMap<>();
-        jdbc.query(
-                "SELECT status, COUNT(*) AS n FROM membership WHERE user_id = :userId"
-                        + " AND status IN ('PENDING','INVITED') GROUP BY status",
-                new MapSqlParameterSource("userId", userId),
-                rs -> {
-                    out.put(rs.getString("status"), rs.getLong("n"));
-                });
-        return out;
+    @Getter
+    @Builder
+    public static class BadgeCounts {
+        private final long pending;
+        private final long invited;
     }
 
-    // 보유 파트. 사용 중지(is_active = false)된 파트도 포함한다(C-12)
-    public List<PartRow> findParts(Collection<Long> membershipIds) {
+    // 필터와 무관하게 본인의 PENDING·INVITED 전체 건수(배지용)
+    public BadgeCounts badgeCounts(long userId) {
+        return jdbc.queryForObject(
+                "SELECT COALESCE(SUM(status = 'PENDING'), 0) AS pending, COALESCE(SUM(status = 'INVITED'), 0) AS invited"
+                        + " FROM membership WHERE user_id = :userId",
+                new MapSqlParameterSource("userId", userId),
+                (rs, i) -> BadgeCounts.builder()
+                        .pending(rs.getLong("pending"))
+                        .invited(rs.getLong("invited"))
+                        .build());
+    }
+
+    // 보유 파트(membershipId별). 사용 중지(is_active = false)된 파트도 포함한다(C-12)
+    public Map<Long, List<MyMembershipsResponse.PartInfo>> findParts(Collection<Long> membershipIds) {
         if (membershipIds.isEmpty()) {
-            return List.of();
+            return Map.of();
         }
-        return jdbc.query(
+        Map<Long, List<MyMembershipsResponse.PartInfo>> out = new HashMap<>();
+        jdbc.query(
                 "SELECT mp.membership_id, p.id, p.name, p.display_order, p.is_active FROM membership_part mp"
                         + " JOIN part p ON p.id = mp.part_id WHERE mp.membership_id IN (:ids)"
                         + " ORDER BY p.display_order, p.id",
                 new MapSqlParameterSource("ids", membershipIds),
-                (rs, i) -> PartRow.builder()
-                        .membershipId(rs.getLong("membership_id"))
-                        .id(rs.getLong("id"))
-                        .name(rs.getString("name"))
-                        .displayOrder(rs.getInt("display_order"))
-                        .active(rs.getBoolean("is_active"))
-                        .build());
+                rs -> {
+                    out.computeIfAbsent(rs.getLong("membership_id"), k -> new ArrayList<>())
+                            .add(MyMembershipsResponse.PartInfo.builder()
+                                    .id(rs.getLong("id"))
+                                    .name(rs.getString("name"))
+                                    .displayOrder(rs.getInt("display_order"))
+                                    .active(rs.getBoolean("is_active"))
+                                    .build());
+                });
+        return out;
     }
 
     private static String where(List<String> statuses) {

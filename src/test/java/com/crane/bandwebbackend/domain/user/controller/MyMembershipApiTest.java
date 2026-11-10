@@ -226,6 +226,23 @@ class MyMembershipApiTest {
     }
 
     @Test
+    @DisplayName("API 10: last_viewed_at이 같거나 없으면 id 내림차순이라 페이지 경계에서 빠지거나 겹치지 않는다")
+    void tieBreakAcrossPages() throws Exception {
+        long viewed = member(club("A", "ACTIVE"), me, "ACTIVE", "2026-10-01 00:00:00");
+        long n1 = member(club("B", "ACTIVE"), me, "ACTIVE", null);
+        long n2 = member(club("C", "ACTIVE"), me, "ACTIVE", null);
+        long n3 = member(club("D", "ACTIVE"), me, "ACTIVE", null);
+
+        // 기대 순서: 값이 있는 소속, 그 뒤 값이 없는 소속은 id 내림차순
+        mockMvc.perform(get(URL).param("size", "2").param("page", "0").cookie(access(me)))
+                .andExpect(jsonPath("$.data.items[0].id").value(String.valueOf(viewed)))
+                .andExpect(jsonPath("$.data.items[1].id").value(String.valueOf(n3)));
+        mockMvc.perform(get(URL).param("size", "2").param("page", "1").cookie(access(me)))
+                .andExpect(jsonPath("$.data.items[0].id").value(String.valueOf(n2)))
+                .andExpect(jsonPath("$.data.items[1].id").value(String.valueOf(n1)));
+    }
+
+    @Test
     @DisplayName("API 10: 잘못된 status·size는 400 VALIDATION_ERROR")
     void invalidParams() throws Exception {
         mockMvc.perform(get(URL).param("status", "ACTIVE,NOPE").cookie(access(me)))
