@@ -5,6 +5,7 @@ import com.crane.bandwebbackend.domain.admin.dto.AdminClubResponse;
 import com.crane.bandwebbackend.domain.admin.dto.AdminOverviewResponse;
 import com.crane.bandwebbackend.domain.admin.dto.AdminUserResponse;
 import com.crane.bandwebbackend.domain.admin.dto.AuditLogResponse;
+import com.crane.bandwebbackend.domain.admin.dto.ClubStatusChangeRequest;
 import com.crane.bandwebbackend.domain.admin.dto.ForceLogoutRequest;
 import com.crane.bandwebbackend.domain.admin.dto.ForceLogoutResponse;
 import com.crane.bandwebbackend.domain.admin.service.AdminAuditLogService;
@@ -67,6 +68,29 @@ public class AdminController {
             @AuthenticationPrincipal AuthPrincipal principal,
             @PathVariable @Pattern(regexp = "^[1-9][0-9]*$") String clubId) {
         return adminClubService.detail(principal.userId(), AdminUserService.parseId(clubId, "clubId"));
+    }
+
+    // API 120: 비활성(INACTIVE)으로 전환. 사유 필수
+    @PostMapping(value = "/clubs/{clubId}/deactivate", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public AdminClubDetailResponse.ClubInfo deactivateClub(
+            @AuthenticationPrincipal AuthPrincipal principal,
+            @PathVariable @Pattern(regexp = "^[1-9][0-9]*$") String clubId,
+            @Valid @RequestBody ClubStatusChangeRequest request) {
+        return adminClubService.deactivate(
+                principal.userId(), AdminUserService.parseId(clubId, "clubId"), request.getReason());
+    }
+
+    // API 159: 활성(ACTIVE)으로 되돌림. 사유 필수
+    @PostMapping(value = "/clubs/{clubId}/reactivate", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public AdminClubDetailResponse.ClubInfo reactivateClub(
+            @AuthenticationPrincipal AuthPrincipal principal,
+            @PathVariable @Pattern(regexp = "^[1-9][0-9]*$") String clubId,
+            @Valid @RequestBody ClubStatusChangeRequest request) {
+        return adminClubService.reactivate(
+                principal.userId(),
+                AdminUserService.parseId(clubId, "clubId"),
+                request.getReason(),
+                request.isConfirmed());
     }
 
     // API 141: periodDays는 7, 30, 90 중 하나(기본 30)

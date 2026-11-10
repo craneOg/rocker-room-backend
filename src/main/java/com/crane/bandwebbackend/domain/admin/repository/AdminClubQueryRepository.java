@@ -168,6 +168,13 @@ public class AdminClubQueryRepository {
                 .findFirst();
     }
 
+    // 이미 같은 상태면 0행이다. updated_at은 DB의 ON UPDATE가 갱신한다
+    public int updateStatus(long clubId, String status) {
+        return jdbc.update(
+                "UPDATE club SET status = :status WHERE id = :id AND status <> :status",
+                new MapSqlParameterSource("status", status).addValue("id", clubId));
+    }
+
     public boolean joinCodeEnabled(long clubId) {
         return Boolean.TRUE.equals(jdbc.queryForObject(
                 "SELECT join_code IS NOT NULL FROM club WHERE id = :id",

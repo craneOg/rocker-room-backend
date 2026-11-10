@@ -1,0 +1,44 @@
+name: "🐞 Bug Report"
+description: "버그 발생 시 제보"
+labels: [ "bug" ]
+body:
+  - type: textarea
+    id: bug_description
+    attributes:
+      label: 🐛 버그 설명
+      description: 어떤 버그인지 자세히 작성해 주세요.
+      placeholder: 예) 특정 API가 정상 요청에 500을 반환합니다.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction_steps
+    attributes:
+      label: 🎯 재현 방법
+      description: 버그가 발생하는 과정을 단계별로 설명해 주세요. 요청 경로와 본문, 응답 코드를 함께 적어 주세요.
+      placeholder: |
+        1. 로그인 후 POST /api/v1/... 호출
+        2. 본문: { ... }
+        3. 기대: 200, 실제: 500 (requestId: ...)
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: 🖥 환경 정보
+      description: 실행 환경을 작성해 주세요. 비밀값(토큰, 키)은 적지 마세요.
+      placeholder: |
+        - 환경: local / staging
+        - 브랜치 또는 커밋:
+        - OS: macOS 14.1
+        - Java: 17
+        - DB: MySQL 8.4
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs_and_screenshots
+    attributes:
+      label: 📸 로그·스크린샷 (선택)
+      description: 가능하다면 로그나 스크린샷을 첨부해 주세요. 이메일·토큰 같은 개인정보는 가려 주세요.
