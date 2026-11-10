@@ -87,4 +87,16 @@ class AvailabilitySlotRulesTest {
                 .extracting(e -> ((BusinessException) e).getDetails().get(0).getReason())
                 .isEqualTo("OUTSIDE_PRACTICE_SEASON");
     }
+
+    @Test
+    @DisplayName("API-101 #30: 기간은 31일까지, 넘으면 400 INVALID_RANGE")
+    void limitsRangeTo31Days() {
+        assertThat(AvailabilityService.toUtcSlots(FROM, FROM.plusDays(31), List.of(), null, null))
+                .isEmpty();
+        assertThatThrownBy(() ->
+                        AvailabilityService.toUtcSlots(FROM, FROM.plusDays(31).plusMinutes(30), List.of(), null, null))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getDetails().get(0).getReason())
+                .isEqualTo("INVALID_RANGE");
+    }
 }

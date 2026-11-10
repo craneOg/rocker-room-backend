@@ -41,8 +41,10 @@ import org.springframework.transaction.annotation.Transactional;
 public class AvailabilityService {
 
     private static final Duration SLOT = Duration.ofMinutes(30);
-    // ponytail: 한 요청 기간 상한(시즌 전체 반복 허용). 시즌이 더 길면 늘림
-    private static final Duration MAX_RANGE = Duration.ofDays(400);
+    // 100·101·103 한 요청 기간 상한(#30). 31일 × 48칸 = 1488칸이라 슬롯 상한 2000 안에 들어감
+    private static final Duration MAX_RANGE = Duration.ofDays(31);
+    // API-102 임원 조회는 #30 합의 대상이 아니라 기존 상한 유지
+    private static final Duration ADMIN_MAX_RANGE = Duration.ofDays(400);
 
     private final AvailableSlotRepository slotRepository;
     private final PerformanceAccessService accessService;
@@ -56,7 +58,7 @@ public class AvailabilityService {
         if (pm == null) {
             throw new BusinessException(ErrorCode.FORBIDDEN, "공연 참여자만 조회할 수 있습니다.");
         }
-        return read(pm.getId(), from, to);
+        return read(pm.getId(), from, to, MAX_RANGE);
     }
 
     // API-102 임원의 원본 조회. 대리 쓰기 API는 없음
@@ -69,7 +71,8 @@ public class AvailabilityService {
                         .getMember(access.performanceId(), performanceMemberId)
                         .getId(),
                 from,
-                to);
+                to,
+                ADMIN_MAX_RANGE);
     }
 
     /**
@@ -112,7 +115,7 @@ public class AvailabilityService {
             List<Long> teamIds,
             List<Long> songIds,
             boolean forAllParticipants) {
-        validateRange(from, to);
+        validateRange(from, to, MAX_RANGE);
         PerformanceAccess access = accessService.get(ref);
         Long pid = access.performanceId();
         List<Long> teams = teamIds == null ? List.of() : teamIds;
@@ -201,14 +204,14 @@ public class AvailabilityService {
                 .build();
     }
 
-    private AvailabilityResponse read(Long memberId, OffsetDateTime from, OffsetDateTime to) {
+    private AvailabilityResponse read(Long memberId, OffsetDateTime from, OffsetDateTime to, Duration maxRange) {
         if ((from == null) != (to == null)) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "INVALID_RANGE", "from과 to는 함께 보내야 합니다.");
         }
         if (from == null) {
             return response(memberId, null, null, slotRepository.findStarts(memberId));
         }
-        validateRange(from, to);
+        validateRange(from, to, maxRange);
         return response(
                 memberId, from, to, slotRepository.findStartsInRange(memberId, KstTime.toUtc(from), KstTime.toUtc(to)));
     }
@@ -223,7 +226,7 @@ public class AvailabilityService {
             List<OffsetDateTime[]> intervals,
             LocalDate seasonStart,
             LocalDate seasonEnd) {
-        validateRange(from, to);
+        validateRange(from, to, MAX_RANGE);
         TreeSet<LocalDateTime> result = new TreeSet<>();
         for (OffsetDateTime[] interval : intervals) {
             OffsetDateTime start = interval[0];
@@ -288,13 +291,13 @@ public class AvailabilityService {
                 .build();
     }
 
-    private static void validateRange(OffsetDateTime from, OffsetDateTime to) {
+    private static void validateRange(OffsetDateTime from, OffsetDateTime to, Duration maxRange) {
         if (from == null || to == null) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "INVALID_RANGE", "from과 to가 필요합니다.");
         }
         requireAligned(from);
         requireAligned(to);
-        if (!from.isBefore(to) || Duration.between(from, to).compareTo(MAX_RANGE) > 0) {
+        if (!from.isBefore(to) || Duration.between(from, to).compareTo(maxRange) > 0) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "INVALID_RANGE", "기간이 올바르지 않습니다.");
         }
     }

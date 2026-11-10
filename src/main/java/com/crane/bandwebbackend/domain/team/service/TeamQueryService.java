@@ -122,8 +122,12 @@ public class TeamQueryService {
                 .songs(assigned.stream()
                         .map(s -> TeamDetailResponse.AssignedSong.builder()
                                 .id(s.getId())
+                                .performanceId(pid)
                                 .title(s.getTitle())
                                 .artist(s.getArtist())
+                                .status(s.getStatus())
+                                .assignedTeamId(teamIdOf(s.getAssignedTeam()))
+                                .candidateTeamId(teamIdOf(s.getCandidateTeam()))
                                 .setlistOrder(s.getSetlistOrder())
                                 .sessionCount(sessions.getOrDefault(s.getId(), List.of())
                                         .size())
@@ -138,14 +142,23 @@ public class TeamQueryService {
                                 ? candidates.stream()
                                         .map(s -> TeamDetailResponse.CandidateSong.builder()
                                                 .id(s.getId())
+                                                .performanceId(pid)
                                                 .title(s.getTitle())
                                                 .artist(s.getArtist())
+                                                .status(s.getStatus())
+                                                .assignedTeamId(teamIdOf(s.getAssignedTeam()))
+                                                .candidateTeamId(teamIdOf(s.getCandidateTeam()))
+                                                .setlistOrder(s.getSetlistOrder())
                                                 .evaluation(snap.summary(s))
                                                 .version(s.getVersion())
                                                 .build())
                                         .toList()
                                 : List.of())
                 .build();
+    }
+
+    private static Long teamIdOf(Team team) {
+        return team == null ? null : team.getId();
     }
 
     private static Set<Long> memberIds(Map<Long, List<TeamMember>> members, Team team) {

@@ -93,14 +93,14 @@ public class SetlistService {
             Song song = confirmed.get(item.getSongId());
             if (song == null || orders.containsKey(song)) {
                 throw new BusinessException(
-                        ErrorCode.VERSION_CONFLICT, "SETLIST_CHANGED", "선정곡 목록이 바뀌었습니다. 새로고침 후 다시 저장해 주세요.");
+                        ErrorCode.STATE_CONFLICT, "SETLIST_CHANGED", "선정곡 목록이 바뀌었습니다. 새로고침 후 다시 저장해 주세요.");
             }
             song.verifyVersion(item.getVersion());
             orders.put(song, item.getOrder());
         }
         if (orders.size() != confirmed.size()) {
             throw new BusinessException(
-                    ErrorCode.VERSION_CONFLICT, "SETLIST_CHANGED", "선정곡 목록이 바뀌었습니다. 새로고침 후 다시 저장해 주세요.");
+                    ErrorCode.STATE_CONFLICT, "SETLIST_CHANGED", "선정곡 목록이 바뀌었습니다. 새로고침 후 다시 저장해 주세요.");
         }
         List<Integer> assigned =
                 orders.values().stream().filter(Objects::nonNull).sorted().toList();

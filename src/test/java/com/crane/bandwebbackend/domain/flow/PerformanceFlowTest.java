@@ -67,10 +67,19 @@ class PerformanceFlowTest {
         // API-154 T-07
         send(get(BASE + "/teams/default-name"), MEMBER, null)
                 .andExpect(jsonPath("$.data.name").value("2팀"));
+        // API-062 팀원 자격 없음(탈퇴) → 409 INELIGIBLE_TEAM_MEMBER(#30)
+        send(post(BASE + "/teams"), ADMIN, """
+                        {"name":"탈퇴팀","members":[{"membershipId":"4"}]}""")
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("STATE_CONFLICT"))
+                .andExpect(jsonPath("$.error.details[0].reason").value("INELIGIBLE_TEAM_MEMBER"));
         // API-061·063
         send(get(BASE + "/teams"), ADMIN, null)
-                .andExpect(jsonPath("$.data.statusCounts.APPROVED").value(1));
+                .andExpect(jsonPath("$.data.statusCounts.APPROVED").value(1))
+                .andExpect(jsonPath("$.data.content[0].performanceId").value("1"));
         send(get(BASE + "/teams/" + teamId), MEMBER, null)
+                .andExpect(jsonPath("$.data.team.performanceId").value("1"))
+                .andExpect(jsonPath("$.data.members[0].teamId").value(teamId))
                 .andExpect(jsonPath("$.data.members.length()").value(2))
                 .andExpect(jsonPath("$.data.members[0].isRegisteredPart").value(true));
 
@@ -161,8 +170,22 @@ class PerformanceFlowTest {
                 .andExpect(jsonPath("$.data.sessions[0].isSupport").value(false))
                 .andExpect(jsonPath("$.data.schedules.length()").value(0));
 
+        // API-063 담당곡 항목 필드(#30)
+        send(get(BASE + "/teams/" + teamId), MEMBER, null)
+                .andExpect(jsonPath("$.data.songs[0].performanceId").value("1"))
+                .andExpect(jsonPath("$.data.songs[0].status").value("CONFIRMED"))
+                .andExpect(jsonPath("$.data.songs[0].assignedTeamId").value(teamId))
+                .andExpect(jsonPath("$.data.songs[0].candidateTeamId").value(teamId))
+                .andExpect(jsonPath("$.data.songs[0].setlistOrder").value(1));
+
         // API-087·088
         Object songVersion = JsonPath.read(confirmed, "$.data.song.version");
+        // 선정곡이 빠진 목록 → 409 STATE_CONFLICT SETLIST_CHANGED(#30)
+        send(put(BASE + "/setlist/order"), ADMIN, """
+                        {"version":"0","items":[]}""")
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("STATE_CONFLICT"))
+                .andExpect(jsonPath("$.error.details[0].reason").value("SETLIST_CHANGED"));
         send(put(BASE + "/setlist/order"), ADMIN, """
                         {"version":"0","items":[{"songId":"%s","order":null,"version":"%s"}]}""".formatted(songId, songVersion))
                 .andExpect(jsonPath("$.data[0].song.setlistOrder").doesNotExist());
@@ -193,6 +216,25 @@ class PerformanceFlowTest {
                 .andExpect(jsonPath("$.error.details[0].reason").value("TARGET_NOT_ALLOWED"));
         send(common().param("teamIds", teamId), MEMBER, null)
                 .andExpect(jsonPath("$.data.participants").doesNotExist());
+
+        // #30 기간 상한: 100·103은 31일, 102(임원 조회)는 기존 400일 유지
+        String from = "2026-12-01T00:00:00+09:00";
+        String over31 = "2027-01-02T00:00:00+09:00";
+        send(get(BASE + "/availability/me").param("from", from).param("to", over31), MEMBER, null)
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.details[0].reason").value("INVALID_RANGE"));
+        send(
+                        get(BASE + "/availability/common")
+                                .param("forAllParticipants", "true")
+                                .param("from", from)
+                                .param("to", over31),
+                        ADMIN,
+                        null)
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.details[0].reason").value("INVALID_RANGE"));
+        send(get(BASE + "/availability/members/2").param("from", from).param("to", over31), ADMIN, null)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.slots.length()").value(1));
 
         // G-04 다른 동아리 경로는 404
         send(get("/api/v1/clubs/999/performances/1/songs"), ADMIN, null).andExpect(status().isNotFound());
