@@ -1,6 +1,7 @@
 package com.crane.bandwebbackend.domain.user.repository;
 
 import com.crane.bandwebbackend.domain.user.dto.MyMembershipsResponse;
+import com.crane.bandwebbackend.global.time.InvitationExpiry;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -47,9 +48,9 @@ public class MyMembershipQueryRepository {
     }
 
     // 최근 본 순(last_viewed_at 내림차순, 값이 없는 소속은 뒤). 같으면 나중에 만든 소속 먼저
-    public List<Row> find(long userId, List<String> statuses, long offset, int size) {
+    public List<Row> find(long userId, List<String> statuses, LocalDateTime utcNow, long offset, int size) {
         MapSqlParameterSource p =
-                params(userId, statuses).addValue("offset", offset).addValue("size", size);
+                params(userId, statuses, utcNow).addValue("offset", offset).addValue("size", size);
         return jdbc.query(
                 "SELECT m.id, m.club_id, c.name AS club_name, c.club_type, c.status AS club_status,"
                         + " c.profile_image_url, c.theme_color, m.user_id,"
@@ -84,9 +85,9 @@ public class MyMembershipQueryRepository {
                         .build());
     }
 
-    public long count(long userId, List<String> statuses) {
+    public long count(long userId, List<String> statuses, LocalDateTime utcNow) {
         return jdbc.queryForObject(
-                "SELECT COUNT(*) FROM membership m" + where(statuses), params(userId, statuses), Long.class);
+                "SELECT COUNT(*) FROM membership m" + where(statuses), params(userId, statuses, utcNow), Long.class);
     }
 
     @Getter
@@ -96,12 +97,12 @@ public class MyMembershipQueryRepository {
         private final long invited;
     }
 
-    // 필터와 무관하게 본인의 PENDING·INVITED 전체 건수(배지용)
-    public BadgeCounts badgeCounts(long userId) {
+    // 필터와 무관하게 본인의 PENDING·INVITED 전체 건수(배지용). 만료된 초대는 뺀다
+    public BadgeCounts badgeCounts(long userId, LocalDateTime utcNow) {
         return jdbc.queryForObject(
-                "SELECT COALESCE(SUM(status = 'PENDING'), 0) AS pending, COALESCE(SUM(status = 'INVITED'), 0) AS invited"
-                        + " FROM membership WHERE user_id = :userId",
-                new MapSqlParameterSource("userId", userId),
+                "SELECT COALESCE(SUM(m.status = 'PENDING'), 0) AS pending, COALESCE(SUM(m.status = 'INVITED'), 0) AS invited"
+                        + " FROM membership m" + where(List.of()),
+                params(userId, List.of(), utcNow),
                 (rs, i) -> BadgeCounts.builder()
                         .pending(rs.getLong("pending"))
                         .invited(rs.getLong("invited"))
@@ -131,12 +132,15 @@ public class MyMembershipQueryRepository {
         return out;
     }
 
+    // 만료된 초대(invited_at + 1개월, KST 달력)는 배지·목록 모두에서 뺀다
     private static String where(List<String> statuses) {
-        return " WHERE m.user_id = :userId" + (statuses.isEmpty() ? "" : " AND m.status IN (:statuses)");
+        return " WHERE m.user_id = :userId AND (m.status <> 'INVITED' OR "
+                + InvitationExpiry.expiresAtUtcSql("m.invited_at") + " > :now)"
+                + (statuses.isEmpty() ? "" : " AND m.status IN (:statuses)");
     }
 
-    private static MapSqlParameterSource params(long userId, List<String> statuses) {
-        MapSqlParameterSource p = new MapSqlParameterSource("userId", userId);
+    private static MapSqlParameterSource params(long userId, List<String> statuses, LocalDateTime utcNow) {
+        MapSqlParameterSource p = new MapSqlParameterSource("userId", userId).addValue("now", utcNow);
         if (!statuses.isEmpty()) {
             p.addValue("statuses", statuses);
         }

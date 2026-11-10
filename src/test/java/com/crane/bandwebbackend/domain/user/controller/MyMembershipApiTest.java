@@ -1,5 +1,6 @@
 package com.crane.bandwebbackend.domain.user.controller;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.endsWith;
 import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -9,7 +10,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.crane.bandwebbackend.TestcontainersConfiguration;
 import com.crane.bandwebbackend.global.security.CookieFactory;
 import com.crane.bandwebbackend.global.security.JwtProvider;
+import com.crane.bandwebbackend.global.time.InvitationExpiry;
+import com.crane.bandwebbackend.global.time.KstTime;
 import jakarta.servlet.http.Cookie;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -78,6 +84,10 @@ class MyMembershipApiTest {
         return jdbc.queryForObject("SELECT id FROM club WHERE name = ?", Long.class, name);
     }
 
+    // 만료되지 않은 초대(10일 전). 초 단위로 맞춘다
+    private final LocalDateTime invitedAt =
+            LocalDateTime.now(ZoneOffset.UTC).minusDays(10).truncatedTo(ChronoUnit.SECONDS);
+
     // lastViewed는 UTC 문자열 또는 null, invitedAt은 INVITED일 때만 채운다
     private long member(long clubId, long userId, String status, String lastViewed) {
         jdbc.update(
@@ -87,7 +97,7 @@ class MyMembershipApiTest {
                 userId,
                 status,
                 "INVITED".equals(status) ? "ADMIN_ADDED" : "JOIN_CODE",
-                "INVITED".equals(status) ? "2026-10-01 00:00:00" : null,
+                "INVITED".equals(status) ? invitedAt : null,
                 lastViewed);
         return jdbc.queryForObject(
                 "SELECT id FROM membership WHERE club_id = ? AND user_id = ?", Long.class, clubId, userId);
@@ -166,13 +176,42 @@ class MyMembershipApiTest {
 
         mockMvc.perform(get(URL).param("status", "INVITED").cookie(access(me)))
                 .andExpect(jsonPath("$.data.items", hasSize(1)))
-                // invited_at 2026-10-01 00:00 UTC = 09:00 KST
-                .andExpect(jsonPath("$.data.items[0].invitationExpiresAt").value("2026-11-01T09:00:00+09:00"))
+                .andExpect(jsonPath("$.data.items[0].invitationExpiresAt")
+                        .value(InvitationExpiry.expiresAt(invitedAt).toString()))
                 .andExpect(jsonPath("$.data.items[0].requestedAt").value((Object) null));
         mockMvc.perform(get(URL).param("status", "PENDING").cookie(access(me)))
                 .andExpect(jsonPath("$.data.items", hasSize(1)))
                 .andExpect(jsonPath("$.data.items[0].invitationExpiresAt").value((Object) null))
                 .andExpect(jsonPath("$.data.items[0].requestedAt").value(endsWith("+09:00")));
+    }
+
+    @Test
+    @DisplayName("API 10: 만료된 초대(invited_at+1개월)는 배지 건수·목록·전체 건수에서 모두 빠진다")
+    void expiredInvitationExcluded() throws Exception {
+        long valid = member(club("A", "ACTIVE"), me, "INVITED", null);
+        long expired = member(club("B", "ACTIVE"), me, "INVITED", null);
+        jdbc.update(
+                "UPDATE membership SET invited_at = DATE_SUB(UTC_TIMESTAMP(6), INTERVAL 40 DAY) WHERE id = ?", expired);
+
+        mockMvc.perform(get(URL).cookie(access(me)))
+                .andExpect(jsonPath("$.data.items", hasSize(1)))
+                .andExpect(jsonPath("$.data.items[0].id").value(String.valueOf(valid)))
+                .andExpect(jsonPath("$.data.totalElements").value(1))
+                .andExpect(jsonPath("$.data.invitedCount").value(1));
+        mockMvc.perform(get(URL).param("status", "INVITED").cookie(access(me)))
+                .andExpect(jsonPath("$.data.items", hasSize(1)));
+    }
+
+    @Test
+    @DisplayName("초대 만료는 KST 달력으로 센다: SQL 식과 Java 계산이 같고 UTC 달력과는 다르다")
+    void expiryUsesKstCalendar() {
+        // KST 01-31 01:00에 초대 → KST 달력으로 02-28 01:00 = UTC 02-27 16:00 (UTC 달력이면 02-28 16:00)
+        LocalDateTime invited = LocalDateTime.of(2026, 1, 30, 16, 0);
+        LocalDateTime sql = jdbc.queryForObject(
+                "SELECT " + InvitationExpiry.expiresAtUtcSql("CAST(? AS DATETIME)"), LocalDateTime.class, invited);
+
+        assertThat(sql).isEqualTo(LocalDateTime.of(2026, 2, 27, 16, 0));
+        assertThat(KstTime.toUtc(InvitationExpiry.expiresAt(invited))).isEqualTo(sql);
     }
 
     @Test

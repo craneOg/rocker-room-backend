@@ -6,8 +6,11 @@ import com.crane.bandwebbackend.domain.user.repository.MyMembershipQueryReposito
 import com.crane.bandwebbackend.domain.user.repository.MyMembershipQueryRepository.BadgeCounts;
 import com.crane.bandwebbackend.domain.user.repository.MyMembershipQueryRepository.Row;
 import com.crane.bandwebbackend.global.response.PageResponse;
+import com.crane.bandwebbackend.global.time.InvitationExpiry;
 import com.crane.bandwebbackend.global.time.KstTime;
-import java.time.OffsetDateTime;
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -23,16 +26,18 @@ import org.springframework.transaction.annotation.Transactional;
 public class MyMembershipService {
 
     private final MyMembershipQueryRepository repository;
+    private final Clock clock;
 
     @Transactional(readOnly = true)
     public MyMembershipsResponse list(long userId, Set<MembershipStatus> status, int page, int size) {
         List<String> statuses =
                 status == null ? List.of() : status.stream().map(Enum::name).toList();
-        long total = repository.count(userId, statuses);
-        List<Row> rows = repository.find(userId, statuses, (long) page * size, size);
+        LocalDateTime now = LocalDateTime.now(clock.withZone(ZoneOffset.UTC));
+        long total = repository.count(userId, statuses, now);
+        List<Row> rows = repository.find(userId, statuses, now, (long) page * size, size);
         Map<Long, List<MyMembershipsResponse.PartInfo>> parts =
                 repository.findParts(rows.stream().map(Row::getId).toList());
-        BadgeCounts counts = repository.badgeCounts(userId);
+        BadgeCounts counts = repository.badgeCounts(userId, now);
         List<MyMembershipsResponse.Item> items = rows.stream()
                 .map(r -> toItem(r, parts.getOrDefault(r.getId(), List.of())))
                 .toList();
@@ -66,18 +71,12 @@ public class MyMembershipService {
                 .approvedAt(KstTime.toKst(r.getApprovedAt()))
                 .leftAt(KstTime.toKst(r.getLeftAt()))
                 .lastViewedAt(KstTime.toKst(r.getLastViewedAt()))
-                .invitationExpiresAt(invited ? invitationExpiresAt(r) : null)
+                .invitationExpiresAt(invited ? InvitationExpiry.expiresAt(r.getInvitedAt()) : null)
                 // requestedAt은 PENDING인 동안 membership.updated_at과 같다(명세)
                 .requestedAt(pending ? KstTime.toKst(r.getUpdatedAt()) : null)
                 .parts(parts)
                 .createdAt(KstTime.toKst(r.getCreatedAt()))
                 .updatedAt(KstTime.toKst(r.getUpdatedAt()))
                 .build();
-    }
-
-    // invitedAt + 1개월(KST 달력 기준). INVITED는 invited_at이 필수(CHECK)
-    private static OffsetDateTime invitationExpiresAt(Row r) {
-        OffsetDateTime invitedAt = KstTime.toKst(r.getInvitedAt());
-        return invitedAt == null ? null : invitedAt.plusMonths(1);
     }
 }
