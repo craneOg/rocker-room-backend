@@ -11,6 +11,7 @@ import com.crane.bandwebbackend.global.error.BusinessException;
 import com.crane.bandwebbackend.global.error.ErrorCode;
 import com.crane.bandwebbackend.global.error.ErrorDetail;
 import com.crane.bandwebbackend.global.response.PageResponse;
+import com.crane.bandwebbackend.global.response.Warning;
 import com.crane.bandwebbackend.global.time.KstTime;
 import java.time.Clock;
 import java.time.Duration;
@@ -88,17 +89,7 @@ public class AdminClubService {
         Map<String, Long> performances = clubs.performanceStatusCounts(clubId);
         auditRecorder.record(clubId, actorUserId, "CLUB_DETAIL_VIEWED", "CLUB", clubId, null, null);
         return AdminClubDetailResponse.builder()
-                .club(AdminClubDetailResponse.ClubInfo.builder()
-                        .id(club.getId())
-                        .name(club.getName())
-                        .description(club.getDescription())
-                        .clubType(club.getClubType())
-                        .status(club.getStatus())
-                        .searchable(club.isSearchable())
-                        .createdByUserId(club.getCreatedBy())
-                        .createdAt(KstTime.toKst(club.getCreatedAt()))
-                        .updatedAt(KstTime.toKst(club.getUpdatedAt()))
-                        .build())
+                .club(toClubInfo(club))
                 .creator(AdminClubDetailResponse.Creator.builder()
                         .userId(club.getCreatedBy())
                         .name(
@@ -140,8 +131,63 @@ public class AdminClubService {
                 .build();
     }
 
+    // API 120: 이미 비활성이면 200으로 그대로 돌려주고 감사 기록도 남기지 않는다
+    @Transactional
+    public AdminClubDetailResponse.ClubInfo deactivate(long actorUserId, long clubId, String reason) {
+        return changeStatus(actorUserId, clubId, ClubStatus.INACTIVE, "CLUB_DEACTIVATED", reason);
+    }
+
+    // API 159: 이미 활성이면 200으로 그대로 돌려주고 감사 기록도 남기지 않는다.
+    // 관리자(ACTIVE·ON_LEAVE)가 0명인 비활성 동아리는 confirmed=true 없이는 409 CONFIRMATION_REQUIRED (이슈 #29 방안 C)
+    @Transactional
+    public AdminClubDetailResponse.ClubInfo reactivate(
+            long actorUserId, long clubId, String reason, boolean confirmed) {
+        ClubRow club = clubs.findClub(clubId).orElseThrow(AdminClubService::notFound);
+        if (!confirmed && ClubStatus.INACTIVE.name().equals(club.getStatus()) && club.getAdminCount() == 0) {
+            throw BusinessException.confirmationRequired(
+                    "관리자가 없는 동아리입니다. 재활성하면 임원 기능을 쓸 사람이 없습니다.",
+                    Warning.toMaps(List.of(Warning.builder()
+                            .type("NO_CLUB_ADMIN")
+                            .message("동아리 관리자가 0명입니다. 재활성 후 긴급 관리자 교체가 필요합니다.")
+                            .build())));
+        }
+        return changeStatus(actorUserId, clubId, ClubStatus.ACTIVE, "CLUB_REACTIVATED", reason);
+    }
+
+    // 조건부 UPDATE(`status <> :status`)가 행을 잠그므로 두 운영자가 동시에 같은 전환을 해도 한 번만 바뀐다.
+    // 없는 동아리는 UPDATE가 0행이고 아래 조회가 비어 404가 된다. 조회는 UPDATE 뒤라 최신 값을 읽는다
+    private AdminClubDetailResponse.ClubInfo changeStatus(
+            long actorUserId, long clubId, ClubStatus target, String action, String reason) {
+        if (clubs.updateStatus(clubId, target.name()) == 1) {
+            String from = target == ClubStatus.ACTIVE ? ClubStatus.INACTIVE.name() : ClubStatus.ACTIVE.name();
+            auditRecorder.record(
+                    clubId,
+                    actorUserId,
+                    action,
+                    "CLUB",
+                    clubId,
+                    reason.strip(),
+                    Map.of("from", from, "to", target.name()));
+        }
+        return toClubInfo(clubs.findClub(clubId).orElseThrow(AdminClubService::notFound));
+    }
+
     private LocalDateTime inactiveCutoff() {
         return LocalDateTime.now(clock.withZone(ZoneOffset.UTC)).minus(Duration.ofDays(INACTIVE_DAYS));
+    }
+
+    private static AdminClubDetailResponse.ClubInfo toClubInfo(ClubRow club) {
+        return AdminClubDetailResponse.ClubInfo.builder()
+                .id(club.getId())
+                .name(club.getName())
+                .description(club.getDescription())
+                .clubType(club.getClubType())
+                .status(club.getStatus())
+                .searchable(club.isSearchable())
+                .createdByUserId(club.getCreatedBy())
+                .createdAt(KstTime.toKst(club.getCreatedAt()))
+                .updatedAt(KstTime.toKst(club.getUpdatedAt()))
+                .build();
     }
 
     private static AdminClubResponse toResponse(ClubRow c) {

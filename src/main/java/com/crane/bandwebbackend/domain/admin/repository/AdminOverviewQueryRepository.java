@@ -1,5 +1,6 @@
 package com.crane.bandwebbackend.domain.admin.repository;
 
+import com.crane.bandwebbackend.global.time.InvitationExpiry;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -96,8 +97,8 @@ public class AdminOverviewQueryRepository {
     public long invitationExpired(LocalDateTime start, LocalDateTime now) {
         return one(
                 "SELECT COUNT(*) FROM membership WHERE status = 'INVITED'"
-                        + " AND DATE_ADD(invited_at, INTERVAL 1 MONTH) >= :start"
-                        + " AND DATE_ADD(invited_at, INTERVAL 1 MONTH) < :now",
+                        + " AND " + InvitationExpiry.expiresAtUtcSql("invited_at") + " >= :start"
+                        + " AND " + InvitationExpiry.expiresAtUtcSql("invited_at") + " < :now",
                 new MapSqlParameterSource("start", start).addValue("now", now));
     }
 
