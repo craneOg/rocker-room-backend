@@ -1,16 +1,20 @@
 package com.crane.bandwebbackend.domain.user.service;
 
 import com.crane.bandwebbackend.domain.membership.entity.MembershipStatus;
+import com.crane.bandwebbackend.domain.user.dto.LastViewedResponse;
 import com.crane.bandwebbackend.domain.user.dto.MyMembershipsResponse;
 import com.crane.bandwebbackend.domain.user.repository.MyMembershipQueryRepository;
 import com.crane.bandwebbackend.domain.user.repository.MyMembershipQueryRepository.BadgeCounts;
 import com.crane.bandwebbackend.domain.user.repository.MyMembershipQueryRepository.Row;
+import com.crane.bandwebbackend.global.error.BusinessException;
+import com.crane.bandwebbackend.global.error.ErrorCode;
 import com.crane.bandwebbackend.global.response.PageResponse;
 import com.crane.bandwebbackend.global.time.InvitationExpiry;
 import com.crane.bandwebbackend.global.time.KstTime;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -77,6 +81,20 @@ public class MyMembershipService {
                 .parts(parts)
                 .createdAt(KstTime.toKst(r.getCreatedAt()))
                 .updatedAt(KstTime.toKst(r.getUpdatedAt()))
+                .build();
+    }
+
+    // API 140: 타인·없는 소속은 모두 404로 같게 보여 존재를 숨긴다(G-04)
+    @Transactional
+    public LastViewedResponse touchLastViewed(long userId, long membershipId) {
+        // DATETIME(6)에 맞춰 마이크로초로 자른 값을 저장하고 그대로 응답한다
+        LocalDateTime now = LocalDateTime.now(clock.withZone(ZoneOffset.UTC)).truncatedTo(ChronoUnit.MICROS);
+        if (repository.touchLastViewed(membershipId, userId, now) == 0) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "요청한 리소스를 찾을 수 없습니다.");
+        }
+        return LastViewedResponse.builder()
+                .membershipId(membershipId)
+                .lastViewedAt(KstTime.toKst(now))
                 .build();
     }
 }
