@@ -159,4 +159,12 @@ public class MyMembershipQueryRepository {
                         .addValue("id", membershipId)
                         .addValue("userId", userId));
     }
+
+    // API 140이 방금 저장(또는 유지)한 값. 같은 트랜잭션에서 읽는다
+    public LocalDateTime findLastViewedAt(long membershipId, long userId) {
+        return jdbc.queryForObject(
+                "SELECT last_viewed_at FROM membership WHERE id = :id AND user_id = :userId",
+                new MapSqlParameterSource("id", membershipId).addValue("userId", userId),
+                LocalDateTime.class);
+    }
 }

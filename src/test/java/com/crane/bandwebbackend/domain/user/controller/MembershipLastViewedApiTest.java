@@ -145,7 +145,10 @@ class MembershipLastViewedApiTest {
         long id = membership(me, "ACTIVE");
         jdbc.update("UPDATE membership SET last_viewed_at = '2099-01-01 00:00:00' WHERE id = ?", id);
 
-        mockMvc.perform(touch(id).cookie(access())).andExpect(status().isOk());
+        // 응답도 요청 시각이 아니라 저장된(유지된) 값이다
+        mockMvc.perform(touch(id).cookie(access()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.lastViewedAt").value("2099-01-01T09:00:00+09:00"));
 
         assertThat(lastViewed(id)).isEqualTo(LocalDateTime.of(2099, 1, 1, 0, 0));
     }
