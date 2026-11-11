@@ -41,47 +41,64 @@ public class PartController {
 
     /** 동아리 파트 목록을 활성 상태 필터와 함께 조회한다. */
     @GetMapping
-    public ApiResponse<PartListResponse> list(@PathVariable String clubId,
-            @RequestParam(defaultValue = "true") boolean includeInactive, HttpServletRequest request) {
-        var items = service.list(ApiIds.positive(clubId, "clubId"), currentActor.requireUserId(), includeInactive)
-                .stream().map(PartResponse::from).toList();
+    public ApiResponse<PartListResponse> list(
+            @PathVariable String clubId,
+            @RequestParam(defaultValue = "true") boolean includeInactive,
+            HttpServletRequest request) {
+        var items =
+                service.list(ApiIds.positive(clubId, "clubId"), currentActor.requireUserId(), includeInactive).stream()
+                        .map(PartResponse::from)
+                        .toList();
         return ApiResponse.ok(new PartListResponse(items));
     }
 
     /** 동아리에 새 파트를 생성한다. */
     @PostMapping
-    public ResponseEntity<ApiResponse<PartResponse>> create(@PathVariable String clubId,
+    public ResponseEntity<ApiResponse<PartResponse>> create(
+            @PathVariable String clubId,
             @Valid @RequestBody PartCreateRequest body,
             @RequestHeader("Idempotency-Key") UUID idempotencyKey,
-            @RequestHeader("X-Requested-With") String requestedWith,
             HttpServletRequest request) {
-        PartResponse result = PartResponse.from(service.create(ApiIds.positive(clubId, "clubId"),
-                currentActor.requireUserId(), body.getName(), body.getDisplayOrder()));
-        return ResponseEntity.status(HttpStatus.CREATED).eTag(result.getRevision())
+        PartResponse result = PartResponse.from(service.create(
+                ApiIds.positive(clubId, "clubId"),
+                currentActor.requireUserId(),
+                body.getName(),
+                body.getDisplayOrder()));
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .eTag(result.getRevision())
                 .body(ApiResponse.ok(result));
     }
 
     /** 파트 이름과 표시 순서를 수정한다. */
     @PatchMapping("/{partId}")
-    public ResponseEntity<ApiResponse<PartResponse>> update(@PathVariable String clubId,
-            @PathVariable String partId, @Valid @RequestBody PartUpdateRequest body,
-            @RequestHeader("X-Requested-With") String requestedWith, HttpServletRequest request) {
-        PartResponse result = PartResponse.from(service.update(ApiIds.positive(clubId, "clubId"),
-                ApiIds.positive(partId, "partId"), currentActor.requireUserId(),
-                body.getExpectedRevision(), body.getName(), body.getDisplayOrder()));
-        return ResponseEntity.ok().eTag(result.getRevision())
-                .body(ApiResponse.ok(result));
+    public ResponseEntity<ApiResponse<PartResponse>> update(
+            @PathVariable String clubId,
+            @PathVariable String partId,
+            @Valid @RequestBody PartUpdateRequest body,
+            HttpServletRequest request) {
+        PartResponse result = PartResponse.from(service.update(
+                ApiIds.positive(clubId, "clubId"),
+                ApiIds.positive(partId, "partId"),
+                currentActor.requireUserId(),
+                body.getExpectedRevision(),
+                body.getName(),
+                body.getDisplayOrder()));
+        return ResponseEntity.ok().eTag(result.getRevision()).body(ApiResponse.ok(result));
     }
 
     /** 파트의 활성 여부를 변경한다. */
     @PutMapping("/{partId}/status")
-    public ResponseEntity<ApiResponse<PartResponse>> setStatus(@PathVariable String clubId,
-            @PathVariable String partId, @Valid @RequestBody PartStatusRequest body,
-            @RequestHeader("X-Requested-With") String requestedWith, HttpServletRequest request) {
-        PartResponse result = PartResponse.from(service.setActive(ApiIds.positive(clubId, "clubId"),
-                ApiIds.positive(partId, "partId"), currentActor.requireUserId(),
-                body.getExpectedRevision(), body.getIsActive()));
-        return ResponseEntity.ok().eTag(result.getRevision())
-                .body(ApiResponse.ok(result));
+    public ResponseEntity<ApiResponse<PartResponse>> setStatus(
+            @PathVariable String clubId,
+            @PathVariable String partId,
+            @Valid @RequestBody PartStatusRequest body,
+            HttpServletRequest request) {
+        PartResponse result = PartResponse.from(service.setActive(
+                ApiIds.positive(clubId, "clubId"),
+                ApiIds.positive(partId, "partId"),
+                currentActor.requireUserId(),
+                body.getExpectedRevision(),
+                body.getIsActive()));
+        return ResponseEntity.ok().eTag(result.getRevision()).body(ApiResponse.ok(result));
     }
 }

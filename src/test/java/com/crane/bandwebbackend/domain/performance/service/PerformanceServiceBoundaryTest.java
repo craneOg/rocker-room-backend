@@ -14,8 +14,8 @@ import com.crane.bandwebbackend.domain.performance.entity.Performance;
 import com.crane.bandwebbackend.domain.performance.entity.PerformanceStatus;
 import com.crane.bandwebbackend.domain.performance.repository.PerformancePolicyRepository;
 import com.crane.bandwebbackend.domain.performance.repository.PerformanceRepository;
-import com.crane.bandwebbackend.global.error.ErrorCode;
 import com.crane.bandwebbackend.global.error.BusinessException;
+import com.crane.bandwebbackend.global.error.ErrorCode;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
@@ -24,8 +24,8 @@ class PerformanceServiceBoundaryTest {
     private final PerformancePolicyRepository policyRepository = mock(PerformancePolicyRepository.class);
     private final MembershipService membershipService = mock(MembershipService.class);
     private final ParticipationLookup participationLookup = mock(ParticipationLookup.class);
-    private final PerformanceService service = new PerformanceService(
-            repository, policyRepository, membershipService, participationLookup);
+    private final PerformanceService service =
+            new PerformanceService(repository, policyRepository, membershipService, participationLookup);
 
     @Test
     void perf03DoesNotRevealAnotherPerformanceToGuest() {
@@ -39,8 +39,9 @@ class PerformanceServiceBoundaryTest {
         when(repository.findByIdAndClub_Id(2L, 1L)).thenReturn(Optional.of(performance));
 
         assertThatThrownBy(() -> service.detail(1L, 2L, 7L))
-                .isInstanceOfSatisfying(BusinessException.class,
-                        exception -> assertThat(exception.getCode()).isEqualTo(ErrorCode.NOT_FOUND));
+                .isInstanceOfSatisfying(
+                        BusinessException.class,
+                        exception -> assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.NOT_FOUND));
     }
 
     @Test

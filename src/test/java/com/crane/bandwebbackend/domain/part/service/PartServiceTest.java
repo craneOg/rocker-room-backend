@@ -5,24 +5,24 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import com.crane.bandwebbackend.domain.club.entity.Club;
-import com.crane.bandwebbackend.domain.membership.entity.Membership;
 import com.crane.bandwebbackend.domain.membership.entity.MemberType;
+import com.crane.bandwebbackend.domain.membership.entity.Membership;
 import com.crane.bandwebbackend.domain.membership.service.MembershipService;
 import com.crane.bandwebbackend.domain.part.entity.Part;
 import com.crane.bandwebbackend.domain.part.repository.PartRepository;
 import com.crane.bandwebbackend.domain.participant.service.ParticipationLookup;
-import com.crane.bandwebbackend.global.error.ErrorCode;
 import com.crane.bandwebbackend.global.error.BusinessException;
+import com.crane.bandwebbackend.global.error.ErrorCode;
 import com.crane.bandwebbackend.global.response.RevisionTag;
 import jakarta.persistence.EntityManager;
 import java.time.LocalDateTime;
-import java.util.Optional;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 class PartServiceTest {
@@ -30,7 +30,8 @@ class PartServiceTest {
     private final MembershipService membershipService = mock(MembershipService.class);
     private final ParticipationLookup participationLookup = mock(ParticipationLookup.class);
     private final EntityManager entityManager = mock(EntityManager.class);
-    private final PartService service = new PartService(repository, membershipService, participationLookup, entityManager);
+    private final PartService service =
+            new PartService(repository, membershipService, participationLookup, entityManager);
 
     @Test
     void part03RejectsStaleRevisionAfterLock() {
@@ -44,8 +45,9 @@ class PartServiceTest {
         when(part.getUpdatedAt()).thenReturn(LocalDateTime.of(2026, 11, 1, 0, 0));
 
         assertThatThrownBy(() -> service.update(1L, 2L, 7L, "old-revision", "베이스", null))
-                .isInstanceOfSatisfying(BusinessException.class,
-                        exception -> assertThat(exception.getCode()).isEqualTo(ErrorCode.VERSION_CONFLICT));
+                .isInstanceOfSatisfying(
+                        BusinessException.class,
+                        exception -> assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.VERSION_CONFLICT));
     }
 
     @Test
@@ -125,8 +127,9 @@ class PartServiceTest {
         when(guest.getId()).thenReturn(3L);
 
         assertThatThrownBy(() -> service.list(1L, 7L, true))
-                .isInstanceOfSatisfying(BusinessException.class,
-                        exception -> assertThat(exception.getCode()).isEqualTo(ErrorCode.NOT_FOUND));
+                .isInstanceOfSatisfying(
+                        BusinessException.class,
+                        exception -> assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.NOT_FOUND));
         verify(repository, never()).findHistoricallyReferencedPartIds(3L);
     }
 }

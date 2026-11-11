@@ -72,9 +72,6 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(MissingRequestHeaderException.class)
     public ResponseEntity<ErrorResponse> handle(MissingRequestHeaderException e) {
-        if ("X-Requested-With".equalsIgnoreCase(e.getHeaderName())) {
-            return respond(ErrorCode.FORBIDDEN, "요청 헤더가 필요합니다.");
-        }
         return respondValidation(INVALID_REQUEST, List.of(ErrorDetail.of(e.getHeaderName(), INVALID_VALUE)));
     }
 
@@ -147,7 +144,7 @@ public class GlobalExceptionHandler {
     }
 
     private ResponseEntity<ErrorResponse> respond(
-            ErrorCode code, String message, List<ErrorDetail> details, List<?> warnings) {
+            ErrorCode code, String message, List<ErrorDetail> details, List<Map<String, Object>> warnings) {
         HttpStatusCode status = code.getStatus();
         return ResponseEntity.status(status).body(ErrorResponse.of(code, message, details, warnings));
     }

@@ -12,7 +12,6 @@ import com.crane.bandwebbackend.domain.membership.entity.Membership;
 import com.crane.bandwebbackend.domain.membership.service.MembershipService;
 import com.crane.bandwebbackend.domain.participant.service.ParticipationLookup;
 import com.crane.bandwebbackend.domain.performance.service.PerformanceService;
-import com.crane.bandwebbackend.domain.schedule.entity.PracticeSchedule;
 import com.crane.bandwebbackend.domain.schedule.repository.PracticeScheduleRepository;
 import com.crane.bandwebbackend.domain.schedule.repository.PracticeScheduleSongRepository;
 import com.crane.bandwebbackend.domain.schedule.repository.PracticeScheduleTeamRepository;
@@ -29,8 +28,8 @@ class PracticeScheduleServiceBoundaryTest {
     private final ParticipationLookup participationLookup = mock(ParticipationLookup.class);
     private final PracticeScheduleTeamRepository teamRepository = mock(PracticeScheduleTeamRepository.class);
     private final PracticeScheduleSongRepository songRepository = mock(PracticeScheduleSongRepository.class);
-    private final PracticeScheduleService service = new PracticeScheduleService(repository, membershipService,
-            performanceService, participationLookup, teamRepository, songRepository);
+    private final PracticeScheduleService service = new PracticeScheduleService(
+            repository, membershipService, performanceService, participationLookup, teamRepository, songRepository);
 
     @Test
     void sch01GuestWithoutApprovedParticipationGetsEmptyPageWithoutAudienceQuery() {
@@ -41,9 +40,17 @@ class PracticeScheduleServiceBoundaryTest {
         when(participationLookup.approvedMemberId(2L, 3L)).thenReturn(Optional.empty());
         var pageable = PageRequest.of(0, 20);
 
-        var result = service.page(1L, 2L, 7L,
-                LocalDateTime.of(2026, 11, 1, 0, 0), LocalDateTime.of(2026, 11, 2, 0, 0),
-                null, null, null, null, pageable);
+        var result = service.page(
+                1L,
+                2L,
+                7L,
+                LocalDateTime.of(2026, 11, 1, 0, 0),
+                LocalDateTime.of(2026, 11, 2, 0, 0),
+                null,
+                null,
+                null,
+                null,
+                pageable);
 
         assertThat(result.getTotalElements()).isZero();
         verify(performanceService).detail(1L, 2L, 7L);

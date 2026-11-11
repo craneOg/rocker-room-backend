@@ -6,15 +6,14 @@ import com.crane.bandwebbackend.domain.membership.service.JoinBulkDecisionServic
 import com.crane.bandwebbackend.global.response.ApiIds;
 import com.crane.bandwebbackend.global.response.ApiResponse;
 import com.crane.bandwebbackend.global.security.CurrentActor;
-import jakarta.validation.Valid;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.ResponseEntity;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -23,17 +22,14 @@ import org.springframework.web.bind.annotation.RestController;
 @ConditionalOnProperty(prefix = "rocker.api-v1", name = "enabled", havingValue = "true")
 @RequiredArgsConstructor
 public class JoinBulkDecisionController {
-	private final JoinBulkDecisionService service;
-	private final CurrentActor actor;
+    private final JoinBulkDecisionService service;
+    private final CurrentActor actor;
 
-	/** 소속 신청을 승인하거나 거절한다 */
-	@PostMapping
-	public ResponseEntity<ApiResponse<JoinBulkDecisionResponse>> decide(
-		@PathVariable String clubId,
-		@Valid @RequestBody JoinBulkDecisionRequest body,
-		@RequestHeader("X-Requested-With") String requestedWith,
-		HttpServletRequest request
-	) {
-		return ResponseEntity.ok(ApiResponse.ok(service.decide(ApiIds.positive(clubId, "clubId"), actor.requireUserId(), body)));
-	}
+    /** 소속 신청을 승인하거나 거절한다 */
+    @PostMapping
+    public ResponseEntity<ApiResponse<JoinBulkDecisionResponse>> decide(
+            @PathVariable String clubId, @Valid @RequestBody JoinBulkDecisionRequest body, HttpServletRequest request) {
+        return ResponseEntity.ok(
+                ApiResponse.ok(service.decide(ApiIds.positive(clubId, "clubId"), actor.requireUserId(), body)));
+    }
 }

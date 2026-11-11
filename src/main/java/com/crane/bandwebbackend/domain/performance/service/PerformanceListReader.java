@@ -7,8 +7,8 @@ import com.crane.bandwebbackend.domain.performance.entity.Performance;
 import com.crane.bandwebbackend.domain.performance.entity.PerformancePreset;
 import com.crane.bandwebbackend.domain.performance.entity.PerformanceStatus;
 import com.crane.bandwebbackend.domain.performance.repository.PerformancePolicyRepository;
-import com.crane.bandwebbackend.global.error.ErrorCode;
 import com.crane.bandwebbackend.global.error.BusinessException;
+import com.crane.bandwebbackend.global.error.ErrorCode;
 import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -26,70 +26,76 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 @RequiredArgsConstructor
 public class PerformanceListReader {
-	private final PerformanceService performances;
-	private final MembershipService memberships;
-	private final PerformancePolicyRepository policies;
-	private final ParticipationLookup participants;
+    private final PerformanceService performances;
+    private final MembershipService memberships;
+    private final PerformancePolicyRepository policies;
+    private final ParticipationLookup participants;
 
-	/** 공연 페이지를 조회한다 */
-	@Transactional(readOnly = true)
-	public Page<PerformanceListItem> page(
-		Long clubId,
-		Long actorUserId,
-		String status,
-		PerformancePreset preset,
-		LocalDate from,
-		LocalDate to,
-		String sort,
-		Pageable pageable
-	) {
-		// 날짜 범위와 상태·정렬 문자열을 검증해 내부 필터로 변환한다.
-		if (from != null && to != null && from.isAfter(to)) {
-			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "날짜 범위가 유효하지 않습니다.");
-		}
-		Set<PerformanceStatus> statuses = status == null ? EnumSet.allOf(PerformanceStatus.class)
-				: parse(status);
-		Comparator<Performance> comparator = switch (sort) {
-			case "performDate,asc" -> Comparator.comparing(Performance::getPerformDate,
-					Comparator.nullsLast(Comparator.naturalOrder()));
-			case "performDate,desc" -> Comparator.comparing(Performance::getPerformDate,
-					Comparator.nullsLast(Comparator.reverseOrder()));
-			case "createdAt,desc" -> Comparator.comparing(Performance::getCreatedAt).reversed();
-			default -> throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "sort가 유효하지 않습니다.");
-		};
-		// 권한으로 제한된 공연 목록에 상태·프리셋·날짜 필터와 정렬을 적용한다.
-		List<Performance> selected = performances.list(clubId, actorUserId).stream()
-				.filter(item -> statuses.contains(item.getStatus()))
-				.filter(item -> preset == null || item.getPreset() == preset)
-				.filter(item -> from == null || (item.getPerformDate() != null
-						&& !item.getPerformDate().isBefore(from)))
-				.filter(item -> to == null || (item.getPerformDate() != null
-						&& !item.getPerformDate().isAfter(to)))
-				.sorted(comparator.thenComparing(Performance::getId)).toList();
-		int start = (int) Math.min((long) pageable.getPageNumber() * pageable.getPageSize(), selected.size());
-		int end = Math.min(start + pageable.getPageSize(), selected.size());
-		// 현재 페이지의 각 공연에 정책과 본인 참여 상태를 결합한다.
-		Long membershipId = memberships.requireMember(clubId, actorUserId).getId();
-		List<PerformanceListItem> items = selected.subList(start, end).stream().map(performance -> {
-			var policy = policies.findById(performance.getId())
-					.orElseThrow(() -> BusinessException.of(ErrorCode.NOT_FOUND, "공연 정책을 찾을 수 없습니다."));
-			var participation = participants.status(performance.getId(), membershipId).orElse(null);
-			return PerformanceListItem.from(performance, policy, participation);
-		}).toList();
-		return new PageImpl<>(items, pageable, selected.size());
-	}
+    /** 공연 페이지를 조회한다 */
+    @Transactional(readOnly = true)
+    public Page<PerformanceListItem> page(
+            Long clubId,
+            Long actorUserId,
+            String status,
+            PerformancePreset preset,
+            LocalDate from,
+            LocalDate to,
+            String sort,
+            Pageable pageable) {
+        // 날짜 범위와 상태·정렬 문자열을 검증해 내부 필터로 변환한다.
+        if (from != null && to != null && from.isAfter(to)) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "날짜 범위가 유효하지 않습니다.");
+        }
+        Set<PerformanceStatus> statuses = status == null ? EnumSet.allOf(PerformanceStatus.class) : parse(status);
+        Comparator<Performance> comparator = switch (sort) {
+            case "performDate,asc" ->
+                Comparator.comparing(Performance::getPerformDate, Comparator.nullsLast(Comparator.naturalOrder()));
+            case "performDate,desc" ->
+                Comparator.comparing(Performance::getPerformDate, Comparator.nullsLast(Comparator.reverseOrder()));
+            case "createdAt,desc" ->
+                Comparator.comparing(Performance::getCreatedAt).reversed();
+            default -> throw new BusinessException(ErrorCode.VALIDATION_ERROR, "sort가 유효하지 않습니다.");
+        };
+        // 권한으로 제한된 공연 목록에 상태·프리셋·날짜 필터와 정렬을 적용한다.
+        List<Performance> selected = performances.list(clubId, actorUserId).stream()
+                .filter(item -> statuses.contains(item.getStatus()))
+                .filter(item -> preset == null || item.getPreset() == preset)
+                .filter(item -> from == null
+                        || (item.getPerformDate() != null
+                                && !item.getPerformDate().isBefore(from)))
+                .filter(item -> to == null
+                        || (item.getPerformDate() != null
+                                && !item.getPerformDate().isAfter(to)))
+                .sorted(comparator.thenComparing(Performance::getId))
+                .toList();
+        int start = (int) Math.min((long) pageable.getPageNumber() * pageable.getPageSize(), selected.size());
+        int end = Math.min(start + pageable.getPageSize(), selected.size());
+        // 현재 페이지의 각 공연에 정책과 본인 참여 상태를 결합한다.
+        Long membershipId = memberships.requireMember(clubId, actorUserId).getId();
+        List<PerformanceListItem> items = selected.subList(start, end).stream()
+                .map(performance -> {
+                    var policy = policies.findById(performance.getId())
+                            .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "공연 정책을 찾을 수 없습니다."));
+                    var participation = participants
+                            .status(performance.getId(), membershipId)
+                            .orElse(null);
+                    return PerformanceListItem.from(performance, policy, participation);
+                })
+                .toList();
+        return new PageImpl<>(items, pageable, selected.size());
+    }
 
-	/** 쉼표로 전달된 공연 상태 필터를 검증해 집합으로 변환한다. */
-	private static Set<PerformanceStatus> parse(String raw) {
-		try {
-			EnumSet<PerformanceStatus> result = EnumSet.noneOf(PerformanceStatus.class);
-			Arrays.stream(raw.split(",", -1)).forEach(item -> result.add(PerformanceStatus.valueOf(item)));
-			if (result.isEmpty()) {
-				throw new IllegalArgumentException();
-			}
-			return result;
-		} catch (IllegalArgumentException exception) {
-			throw BusinessException.of(ErrorCode.VALIDATION_ERROR, "status가 유효하지 않습니다.");
-		}
-	}
+    /** 쉼표로 전달된 공연 상태 필터를 검증해 집합으로 변환한다. */
+    private static Set<PerformanceStatus> parse(String raw) {
+        try {
+            EnumSet<PerformanceStatus> result = EnumSet.noneOf(PerformanceStatus.class);
+            Arrays.stream(raw.split(",", -1)).forEach(item -> result.add(PerformanceStatus.valueOf(item)));
+            if (result.isEmpty()) {
+                throw new IllegalArgumentException();
+            }
+            return result;
+        } catch (IllegalArgumentException exception) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "status가 유효하지 않습니다.");
+        }
+    }
 }

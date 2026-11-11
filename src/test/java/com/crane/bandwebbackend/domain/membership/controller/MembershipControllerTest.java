@@ -10,23 +10,23 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.crane.bandwebbackend.domain.club.entity.Club;
+import com.crane.bandwebbackend.domain.membership.dto.MembershipPublicItem;
+import com.crane.bandwebbackend.domain.membership.dto.MembershipResponse;
 import com.crane.bandwebbackend.domain.membership.entity.JoinSource;
 import com.crane.bandwebbackend.domain.membership.entity.MemberType;
 import com.crane.bandwebbackend.domain.membership.entity.Membership;
 import com.crane.bandwebbackend.domain.membership.entity.MembershipRole;
 import com.crane.bandwebbackend.domain.membership.entity.MembershipStatus;
-import com.crane.bandwebbackend.domain.membership.dto.MembershipPublicItem;
-import com.crane.bandwebbackend.domain.membership.dto.MembershipResponse;
+import com.crane.bandwebbackend.domain.membership.service.MemberDirectoryService;
+import com.crane.bandwebbackend.domain.membership.service.MembershipDecisionService;
 import com.crane.bandwebbackend.domain.membership.service.MembershipService;
 import com.crane.bandwebbackend.domain.membership.service.MembershipStatusService;
-import com.crane.bandwebbackend.domain.membership.service.MembershipDecisionService;
-import com.crane.bandwebbackend.domain.membership.service.MemberDirectoryService;
 import com.crane.bandwebbackend.domain.membership.service.MembershipWithdrawalPreviewService;
 import com.crane.bandwebbackend.domain.membership.service.MembershipWithdrawalService;
 import com.crane.bandwebbackend.domain.part.service.MembershipPartReader;
 import com.crane.bandwebbackend.domain.user.entity.User;
-import com.crane.bandwebbackend.global.error.GlobalExceptionHandler;
 import com.crane.bandwebbackend.global.config.RequestIdFilter;
+import com.crane.bandwebbackend.global.error.GlobalExceptionHandler;
 import com.crane.bandwebbackend.global.security.CurrentActor;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -45,10 +45,19 @@ class MembershipControllerTest {
     private final MembershipWithdrawalPreviewService withdrawalPreview = mock(MembershipWithdrawalPreviewService.class);
     private final MembershipWithdrawalService withdrawalService = mock(MembershipWithdrawalService.class);
     private final CurrentActor actor = mock(CurrentActor.class);
-    private final MockMvc mvc = MockMvcBuilders.standaloneSetup(
-                    new MembershipController(service, statusService, decisionService, partReader,
-                            directory, withdrawalPreview, withdrawalService, actor))
-            .addFilters(new RequestIdFilter())
+    private final MockMvc mvc = MockMvcBuilders.standaloneSetup(new MembershipController(
+                    service,
+                    statusService,
+                    decisionService,
+                    partReader,
+                    directory,
+                    withdrawalPreview,
+                    withdrawalService,
+                    actor))
+            .addFilters(
+                    new RequestIdFilter(),
+                    new com.crane.bandwebbackend.global.security.RequestedWithFilter(
+                            new com.fasterxml.jackson.databind.ObjectMapper()))
             .setControllerAdvice(new GlobalExceptionHandler())
             .build();
 

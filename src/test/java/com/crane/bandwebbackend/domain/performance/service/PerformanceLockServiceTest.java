@@ -19,8 +19,8 @@ import com.crane.bandwebbackend.domain.performance.service.LockChecklistEvaluato
 import com.crane.bandwebbackend.domain.performance.service.LockChecklistEvaluator.Snapshot;
 import com.crane.bandwebbackend.domain.performance.service.LockChecklistEvaluator.SongRow;
 import com.crane.bandwebbackend.global.audit.AuditLog;
-import com.crane.bandwebbackend.global.error.ErrorCode;
 import com.crane.bandwebbackend.global.error.BusinessException;
+import com.crane.bandwebbackend.global.error.ErrorCode;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.Query;
 import java.util.List;
@@ -32,9 +32,12 @@ class PerformanceLockServiceTest {
     private final PerformanceRepository performances = mock(PerformanceRepository.class);
     private final LockReadinessReader readiness = mock(LockReadinessReader.class);
     private final EntityManager entityManager = mock(EntityManager.class);
-    private final PerformanceLockService service =
-            new PerformanceLockService(memberships, performances, readiness, entityManager,
-                    mock(com.crane.bandwebbackend.global.audit.AuditRecorder.class));
+    private final PerformanceLockService service = new PerformanceLockService(
+            memberships,
+            performances,
+            readiness,
+            entityManager,
+            mock(com.crane.bandwebbackend.global.audit.AuditRecorder.class));
 
     @Test
     void confirmationWarningDoesNotChangePerformanceOrSong() {
@@ -44,15 +47,25 @@ class PerformanceLockServiceTest {
         when(entityManager.createNativeQuery(anyString())).thenReturn(query);
         when(query.setParameter("performanceId", 3L)).thenReturn(query);
         when(query.getResultList()).thenReturn(List.of());
-        when(readiness.read(3L)).thenReturn(new Snapshot(
-                List.of(new SongRow(8, 1, 2L, "APPROVED")),
-                List.of(new PlayerRow(8, 21, 4, "APPROVED")), List.of(),
-                List.of(new ParticipantRow(21, "APPROVED"), new ParticipantRow(22, "APPROVED")),
-                List.of(), List.of(), null));
+        when(readiness.read(3L))
+                .thenReturn(new Snapshot(
+                        List.of(new SongRow(8, 1, 2L, "APPROVED")),
+                        List.of(new PlayerRow(8, 21, 4, "APPROVED")),
+                        List.of(),
+                        List.of(new ParticipantRow(21, "APPROVED"), new ParticipantRow(22, "APPROVED")),
+                        List.of(),
+                        List.of(),
+                        null));
 
         assertThatThrownBy(() -> service.lock(1L, 3L, 5L, "8", false))
-                .isInstanceOfSatisfying(BusinessException.class, error ->
-                        assertThat(error.getWarnings()).hasSize(1));
+                .isInstanceOfSatisfying(BusinessException.class, error -> {
+                    assertThat(error.getWarnings()).hasSize(1);
+                    assertThat(error.getWarnings().get(0))
+                            .containsEntry("checkId", "L-08")
+                            .containsEntry("type", "NO_SONG_PARTICIPATION")
+                            .containsEntry("targetType", "PERFORMANCE_MEMBER")
+                            .containsEntry("targetId", "22");
+                });
         verify(performance, never()).transitionTo(PerformanceStatus.LOCKED);
         verify(entityManager, never()).persist(org.mockito.ArgumentMatchers.any(AuditLog.class));
     }
@@ -65,14 +78,26 @@ class PerformanceLockServiceTest {
         when(entityManager.createNativeQuery(anyString())).thenReturn(query);
         when(query.setParameter("performanceId", 3L)).thenReturn(query);
         when(query.getResultList()).thenReturn(List.of());
-        when(readiness.read(3L)).thenReturn(new Snapshot(
-                List.of(new SongRow(8, null, null, null)), List.of(), List.of(), List.of(),
-                List.of(), List.of(), null));
+        when(readiness.read(3L))
+                .thenReturn(new Snapshot(
+                        List.of(new SongRow(8, null, null, null)),
+                        List.of(),
+                        List.of(),
+                        List.of(),
+                        List.of(),
+                        List.of(),
+                        null));
 
         assertThatThrownBy(() -> service.lock(1L, 3L, 5L, "8", true))
                 .isInstanceOfSatisfying(BusinessException.class, error -> {
-                    assertThat(error.getCode()).isEqualTo(ErrorCode.RULE_VIOLATION);
-                    assertThat(error.getReason()).isEqualTo("LOCK_REQUIREMENTS_FAILED");
+                    assertThat(error.getErrorCode()).isEqualTo(ErrorCode.RULE_VIOLATION);
+                    assertThat(error.getDetails().get(0).getReason()).isEqualTo("LOCK_REQUIREMENTS_FAILED");
+                    assertThat(error.getDetails())
+                            .extracting(detail -> detail.getReason())
+                            .contains("SETLIST_ORDER_MISSING", "TEAM_NOT_APPROVED", "PLAYER_MISSING");
+                    assertThat(error.getDetails())
+                            .extracting(detail -> detail.getField())
+                            .contains("songId:8");
                 });
         verify(performance, never()).transitionTo(PerformanceStatus.LOCKED);
     }
