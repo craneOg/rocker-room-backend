@@ -13,8 +13,8 @@ import com.crane.bandwebbackend.domain.participant.service.ParticipationLookup;
 import com.crane.bandwebbackend.domain.performance.entity.Performance;
 import com.crane.bandwebbackend.domain.performance.entity.PerformanceStatus;
 import com.crane.bandwebbackend.domain.performance.service.PerformanceService;
-import com.crane.bandwebbackend.global.error.ErrorCode;
 import com.crane.bandwebbackend.global.error.BusinessException;
+import com.crane.bandwebbackend.global.error.ErrorCode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityManager;
 import java.time.LocalDateTime;
@@ -24,12 +24,16 @@ import org.junit.jupiter.api.Test;
 class AuditionReviewServiceTest {
     private final AuditionEntryRepository repository = mock(AuditionEntryRepository.class);
     private final PerformanceService performances = mock(PerformanceService.class);
-    private final AuditionService service = new AuditionService(repository,
-            mock(ParticipationLookup.class), mock(MembershipService.class),
-            performances, mock(EntityManager.class), mock(com.crane.bandwebbackend.global.audit.AuditRecorder.class));
+    private final AuditionService service = new AuditionService(
+            repository,
+            mock(ParticipationLookup.class),
+            mock(MembershipService.class),
+            performances,
+            mock(EntityManager.class),
+            mock(com.crane.bandwebbackend.global.audit.AuditRecorder.class));
 
     @Test
-    void api149RejectsStaleAuditionRevision() throws Exception {
+    void api149RejectsStaleAuditionVersion() throws Exception {
         Performance performance = mock(Performance.class);
         AuditionEntry entry = mock(AuditionEntry.class);
         when(performances.require(1L, 2L)).thenReturn(performance);
@@ -37,11 +41,12 @@ class AuditionReviewServiceTest {
         when(repository.findWithLockByIdAndPerformanceId(3L, 2L)).thenReturn(Optional.of(entry));
         when(entry.getId()).thenReturn(3L);
         when(entry.getUpdatedAt()).thenReturn(LocalDateTime.of(2026, 11, 5, 0, 0));
-        AuditionReviewRequest body = new ObjectMapper().readValue(
-                "{\"result\":\"PASSED\",\"revision\":\"stale\"}", AuditionReviewRequest.class);
+        AuditionReviewRequest body = new ObjectMapper()
+                .readValue("{\"result\":\"PASSED\",\"version\":\"stale\"}", AuditionReviewRequest.class);
 
         assertThatThrownBy(() -> service.review(1L, 2L, 3L, 7L, body))
-                .isInstanceOfSatisfying(BusinessException.class,
-                        error -> assertThat(error.getCode()).isEqualTo(ErrorCode.VERSION_CONFLICT));
+                .isInstanceOfSatisfying(
+                        BusinessException.class,
+                        error -> assertThat(error.getErrorCode()).isEqualTo(ErrorCode.VERSION_CONFLICT));
     }
 }
