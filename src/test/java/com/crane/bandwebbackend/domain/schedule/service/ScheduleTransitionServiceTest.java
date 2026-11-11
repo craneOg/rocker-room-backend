@@ -28,7 +28,11 @@ class ScheduleTransitionServiceTest {
     private final EntityManager entityManager = mock(EntityManager.class);
     private final ScheduleEditService edits = mock(ScheduleEditService.class);
     private final ScheduleTransitionService service = new ScheduleTransitionService(
-            memberships, schedules, entityManager, mock(com.crane.bandwebbackend.global.audit.AuditRecorder.class), edits);
+            memberships,
+            schedules,
+            entityManager,
+            mock(com.crane.bandwebbackend.global.audit.AuditRecorder.class),
+            edits);
 
     @Test
     void confirmRequiresExplicitRetryWhenScheduleHasWarnings() {
@@ -47,7 +51,8 @@ class ScheduleTransitionServiceTest {
         when(edits.warningsFor(1L, 2L, 3L, 7L)).thenReturn(List.of(Map.of("type", "OUT_OF_SEASON")));
 
         assertThatThrownBy(() -> service.confirm(1L, 2L, 3L, 7L, "4", false))
-                .isInstanceOfSatisfying(BusinessException.class,
+                .isInstanceOfSatisfying(
+                        BusinessException.class,
                         error -> assertThat(error.getWarnings()).hasSize(1));
         verify(schedule, never()).transitionTo(ScheduleStatus.CONFIRMED);
     }

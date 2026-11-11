@@ -5,11 +5,4 @@ import lombok.Builder;
 
 @Builder
 public record AuditionListResponse(
-		List<AuditionItemResponse> items,
-		int page,
-		int size,
-		long totalElements,
-		int totalPages,
-		long pendingCount
-) {
-}
+        List<AuditionItemResponse> items, int page, int size, long totalElements, int totalPages, long pendingCount) {}

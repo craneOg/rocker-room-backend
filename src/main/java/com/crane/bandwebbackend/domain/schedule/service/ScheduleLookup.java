@@ -11,15 +11,15 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class ScheduleLookup {
-	private final PracticeScheduleRepository repository;
+    private final PracticeScheduleRepository repository;
 
-	@Transactional(readOnly = true)
-	public List<Long> attendedScheduleIds(Long performanceId, Long memberId) {
-		return repository.findAttendedScheduleIds(performanceId, memberId);
-	}
+    @Transactional(readOnly = true)
+    public List<Long> attendedScheduleIds(Long performanceId, Long memberId) {
+        return repository.findAttendedScheduleIds(performanceId, memberId);
+    }
 
-	@Transactional(readOnly = true)
-	public List<PracticeSchedule> schedulesOfPerformance(Long clubId, Long performanceId) {
-		return repository.findByPerformance_IdAndPerformance_Club_Id(performanceId, clubId);
-	}
+    @Transactional(readOnly = true)
+    public List<PracticeSchedule> schedulesOfPerformance(Long clubId, Long performanceId) {
+        return repository.findByPerformance_IdAndPerformance_Club_Id(performanceId, clubId);
+    }
 }

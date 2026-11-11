@@ -104,7 +104,8 @@ public class Team extends BaseTimeEntity {
 
     /** 기본 팀의 팀장을 이미 편성된 공연 참여자로 지정한다. */
     public void assignLeader(PerformanceMember leader) {
-        if (leader == null || leader.getPerformance() == null
+        if (leader == null
+                || leader.getPerformance() == null
                 || !leader.getPerformance().getId().equals(performance.getId())) {
             throw new IllegalArgumentException("같은 공연의 참여자만 팀장으로 지정할 수 있습니다.");
         }

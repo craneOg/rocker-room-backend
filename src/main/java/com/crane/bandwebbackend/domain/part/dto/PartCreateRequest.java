@@ -11,12 +11,12 @@ import lombok.Getter;
 public class PartCreateRequest {
     @NotBlank
     private final String name;
+
     @Min(0)
     private final Integer displayOrder;
 
     @JsonCreator
-    public PartCreateRequest(@JsonProperty("name") String name,
-                             @JsonProperty("displayOrder") Integer displayOrder) {
+    public PartCreateRequest(@JsonProperty("name") String name, @JsonProperty("displayOrder") Integer displayOrder) {
         this.name = name;
         this.displayOrder = displayOrder;
     }

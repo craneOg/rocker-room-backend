@@ -9,8 +9,14 @@ import org.junit.jupiter.api.Test;
 class PartResponseTest {
     @Test
     void part01UsesIsActiveField() {
-        PartResponse response = PartResponse.builder().id("1").clubId("2").name("기타")
-                .displayOrder(0).active(true).revision("part-1").build();
+        PartResponse response = PartResponse.builder()
+                .id("1")
+                .clubId("2")
+                .name("기타")
+                .displayOrder(0)
+                .active(true)
+                .revision("part-1")
+                .build();
 
         JsonNode body = new ObjectMapper().valueToTree(response);
 

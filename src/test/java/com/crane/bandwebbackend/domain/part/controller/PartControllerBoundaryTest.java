@@ -10,8 +10,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.crane.bandwebbackend.domain.club.entity.Club;
 import com.crane.bandwebbackend.domain.part.entity.Part;
 import com.crane.bandwebbackend.domain.part.service.PartService;
-import com.crane.bandwebbackend.global.error.GlobalExceptionHandler;
 import com.crane.bandwebbackend.global.config.RequestIdFilter;
+import com.crane.bandwebbackend.global.error.GlobalExceptionHandler;
 import com.crane.bandwebbackend.global.security.CurrentActor;
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -24,7 +24,9 @@ class PartControllerBoundaryTest {
     private final PartService service = mock(PartService.class);
     private final CurrentActor currentActor = mock(CurrentActor.class);
     private final MockMvc mvc = MockMvcBuilders.standaloneSetup(new PartController(service, currentActor))
-            .addFilters(new RequestIdFilter()).setControllerAdvice(new GlobalExceptionHandler()).build();
+            .addFilters(new RequestIdFilter())
+            .setControllerAdvice(new GlobalExceptionHandler())
+            .build();
 
     @Test
     void part02PassesAuthenticatedActorIdAndClubBoundaryToService() throws Exception {

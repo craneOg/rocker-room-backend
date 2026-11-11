@@ -9,10 +9,10 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Lock;
 
 public interface PerformanceRepository extends JpaRepository<Performance, Long>, JpaSpecificationExecutor<Performance> {
-	Optional<Performance> findByIdAndClub_Id(Long id, Long clubId);
+    Optional<Performance> findByIdAndClub_Id(Long id, Long clubId);
 
-	List<Performance> findByClub_Id(Long clubId);
+    List<Performance> findByClub_Id(Long clubId);
 
-	@Lock(LockModeType.PESSIMISTIC_WRITE)
-	Optional<Performance> findWithLockByIdAndClub_Id(Long id, Long clubId);
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    Optional<Performance> findWithLockByIdAndClub_Id(Long id, Long clubId);
 }

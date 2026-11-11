@@ -13,12 +13,13 @@ public class PartStatusRequest {
     @NotBlank
     @Size(max = 128)
     private final String expectedRevision;
+
     @NotNull
     private final Boolean isActive;
 
     @JsonCreator
-    public PartStatusRequest(@JsonProperty("expectedRevision") String expectedRevision,
-                             @JsonProperty("isActive") Boolean isActive) {
+    public PartStatusRequest(
+            @JsonProperty("expectedRevision") String expectedRevision, @JsonProperty("isActive") Boolean isActive) {
         this.expectedRevision = expectedRevision;
         this.isActive = isActive;
     }

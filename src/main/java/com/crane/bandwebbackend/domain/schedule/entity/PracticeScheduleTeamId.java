@@ -10,6 +10,6 @@ import lombok.NoArgsConstructor;
 @EqualsAndHashCode
 public class PracticeScheduleTeamId implements Serializable {
 
-	private Long practiceSchedule;
-	private Long team;
+    private Long practiceSchedule;
+    private Long team;
 }

@@ -20,7 +20,8 @@ public class MembershipPartReader {
     public List<PartResponse> partsOf(Long membershipId) {
         // 연결 엔티티를 조회한 뒤 외부 응답에는 파트 정보만 노출한다.
         return repository.findByMembership_Id(membershipId).stream()
-                .map(row -> PartResponse.from(row.getPart())).toList();
+                .map(row -> PartResponse.from(row.getPart()))
+                .toList();
     }
 
     /** AUTH-10 한 페이지의 파트를 한 번에 읽는다. */
@@ -31,8 +32,9 @@ public class MembershipPartReader {
             return Map.of();
         }
         // 한 번의 조회 결과를 소속 ID별 파트 응답 목록으로 그룹화한다.
-        return repository.findByMembership_IdIn(membershipIds).stream().collect(Collectors.groupingBy(
-                row -> row.getMembership().getId(),
-                Collectors.mapping(row -> PartResponse.from(row.getPart()), Collectors.toList())));
+        return repository.findByMembership_IdIn(membershipIds).stream()
+                .collect(Collectors.groupingBy(
+                        row -> row.getMembership().getId(),
+                        Collectors.mapping(row -> PartResponse.from(row.getPart()), Collectors.toList())));
     }
 }

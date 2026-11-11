@@ -42,7 +42,6 @@ class MembershipApiIntegrationTest {
     }
 
     private static UsernamePasswordAuthenticationToken actor(long userId) {
-        return new UsernamePasswordAuthenticationToken(
-                new AuthPrincipal(userId, "sid", "jti", false), null, List.of());
+        return new UsernamePasswordAuthenticationToken(new AuthPrincipal(userId, "sid", "jti", false), null, List.of());
     }
 }

@@ -21,9 +21,10 @@ import lombok.NoArgsConstructor;
 @Entity
 @Table(
         name = "part",
-        uniqueConstraints = @UniqueConstraint(
-                name = "uk_part_club_name",
-                columnNames = {"club_id", "name"}))
+        uniqueConstraints =
+                @UniqueConstraint(
+                        name = "uk_part_club_name",
+                        columnNames = {"club_id", "name"}))
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Part extends BaseTimeEntity {
 
@@ -46,8 +47,7 @@ public class Part extends BaseTimeEntity {
     private boolean isActive;
 
     public static Part create(Club club, String name, int displayOrder) {
-        if (club == null || name == null || name.trim().isEmpty()
-                || name.trim().length() > 50 || displayOrder < 0) {
+        if (club == null || name == null || name.trim().isEmpty() || name.trim().length() > 50 || displayOrder < 0) {
             throw new IllegalArgumentException("파트 생성 값이 유효하지 않습니다.");
         }
         Part part = new Part();

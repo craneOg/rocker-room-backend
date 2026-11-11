@@ -29,8 +29,10 @@ class MembershipPhotoVisibilityTest {
                 .isEqualTo("https://img.example/photo");
 
         user.changeProfileImagePublic(false);
-        assertThat(MembershipResponse.from(membership, List.of(), 9L).profileImageUrl()).isNull();
-        assertThat(MembershipPublicItem.from(membership, List.of(), 9L).profileImageUrl()).isNull();
+        assertThat(MembershipResponse.from(membership, List.of(), 9L).profileImageUrl())
+                .isNull();
+        assertThat(MembershipPublicItem.from(membership, List.of(), 9L).profileImageUrl())
+                .isNull();
         assertThat(MembershipResponse.from(membership, List.of(), 7L).profileImageUrl())
                 .isEqualTo("https://img.example/photo");
     }

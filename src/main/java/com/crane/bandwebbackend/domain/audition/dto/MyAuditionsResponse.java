@@ -4,7 +4,4 @@ import java.util.List;
 import lombok.Builder;
 
 @Builder
-public record MyAuditionsResponse(
-		List<MyAuditionItem> items
-) {
-}
+public record MyAuditionsResponse(List<MyAuditionItem> items) {}
