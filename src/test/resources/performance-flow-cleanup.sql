@@ -1,5 +1,6 @@
 -- PerformanceFlowTest 뒤 정리. 같은 컨테이너 DB를 쓰는 다른 테스트(SecurityChainTest의 DELETE FROM users 등)가 FK에 막히지 않도록
 SET FOREIGN_KEY_CHECKS = 0;
+DELETE FROM succession_notice;
 DELETE FROM audit_log;
 DELETE FROM available_slot;
 DELETE FROM song_vote;
