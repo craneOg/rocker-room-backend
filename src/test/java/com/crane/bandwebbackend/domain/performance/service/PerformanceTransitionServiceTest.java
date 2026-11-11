@@ -11,8 +11,8 @@ import com.crane.bandwebbackend.domain.membership.service.MembershipService;
 import com.crane.bandwebbackend.domain.performance.entity.Performance;
 import com.crane.bandwebbackend.domain.performance.entity.PerformanceStatus;
 import com.crane.bandwebbackend.domain.performance.repository.PerformanceRepository;
-import com.crane.bandwebbackend.global.error.ErrorCode;
 import com.crane.bandwebbackend.global.error.BusinessException;
+import com.crane.bandwebbackend.global.error.ErrorCode;
 import jakarta.persistence.EntityManager;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -21,9 +21,8 @@ class PerformanceTransitionServiceTest {
     private final MembershipService members = mock(MembershipService.class);
     private final PerformanceRepository repository = mock(PerformanceRepository.class);
     private final EntityManager entityManager = mock(EntityManager.class);
-    private final PerformanceTransitionService service =
-            new PerformanceTransitionService(members, repository, entityManager,
-                    mock(com.crane.bandwebbackend.global.audit.AuditRecorder.class));
+    private final PerformanceTransitionService service = new PerformanceTransitionService(
+            members, repository, entityManager, mock(com.crane.bandwebbackend.global.audit.AuditRecorder.class));
 
     @Test
     void api047RejectsStaleVersionBeforeChangingStatus() {
@@ -34,10 +33,10 @@ class PerformanceTransitionServiceTest {
         when(club.getStatus()).thenReturn(ClubStatus.ACTIVE);
         when(performance.getVersion()).thenReturn(7L);
 
-        assertThatThrownBy(() -> service.change(1L, 3L, 5L, null,
-                PerformanceStatus.FINISHED, "6", null))
-                .isInstanceOfSatisfying(BusinessException.class, error ->
-                        assertThat(error.getCode()).isEqualTo(ErrorCode.VERSION_CONFLICT));
+        assertThatThrownBy(() -> service.change(1L, 3L, 5L, null, PerformanceStatus.FINISHED, "6", null))
+                .isInstanceOfSatisfying(
+                        BusinessException.class,
+                        error -> assertThat(error.getErrorCode()).isEqualTo(ErrorCode.VERSION_CONFLICT));
     }
 
     @Test
@@ -49,10 +48,11 @@ class PerformanceTransitionServiceTest {
         when(club.getStatus()).thenReturn(ClubStatus.ACTIVE);
         when(performance.getStatus()).thenReturn(PerformanceStatus.ACTIVE);
 
-        assertThatThrownBy(() -> service.change(1L, 3L, 5L, PerformanceStatus.CANCELED,
-                PerformanceStatus.DRAFT, "0", "복구"))
-                .isInstanceOfSatisfying(BusinessException.class, error ->
-                        assertThat(error.getCode()).isEqualTo(ErrorCode.STATE_CONFLICT));
+        assertThatThrownBy(() ->
+                        service.change(1L, 3L, 5L, PerformanceStatus.CANCELED, PerformanceStatus.DRAFT, "0", "복구"))
+                .isInstanceOfSatisfying(
+                        BusinessException.class,
+                        error -> assertThat(error.getErrorCode()).isEqualTo(ErrorCode.STATE_CONFLICT));
     }
 
     @Test
@@ -64,9 +64,10 @@ class PerformanceTransitionServiceTest {
         when(club.getStatus()).thenReturn(ClubStatus.ACTIVE);
         when(performance.getStatus()).thenReturn(PerformanceStatus.ACTIVE);
 
-        assertThatThrownBy(() -> service.change(1L, 3L, 5L, PerformanceStatus.LOCKED,
-                PerformanceStatus.FINISHED, "0", null))
-                .isInstanceOfSatisfying(BusinessException.class, error ->
-                        assertThat(error.getCode()).isEqualTo(ErrorCode.STATE_CONFLICT));
+        assertThatThrownBy(() ->
+                        service.change(1L, 3L, 5L, PerformanceStatus.LOCKED, PerformanceStatus.FINISHED, "0", null))
+                .isInstanceOfSatisfying(
+                        BusinessException.class,
+                        error -> assertThat(error.getErrorCode()).isEqualTo(ErrorCode.STATE_CONFLICT));
     }
 }
