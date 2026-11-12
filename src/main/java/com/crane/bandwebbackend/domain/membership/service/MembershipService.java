@@ -30,6 +30,20 @@ public class MembershipService {
         return repository.findByUser_Id(userId);
     }
 
+    /** API-150: 개별 접근 실패로 전체 조회를 중단하지 않고 현재 접근 가능한 소속만 반환한다. */
+    @Transactional(readOnly = true)
+    public List<Membership> accessibleMembershipsOfUser(Long userId) {
+        return membershipsOfUser(userId).stream()
+                .filter(member -> accessibleStatus(member.getStatus()))
+                .toList();
+    }
+
+    private static boolean accessibleStatus(MembershipStatus status) {
+        return status == MembershipStatus.ACTIVE
+                || status == MembershipStatus.ON_LEAVE
+                || status == MembershipStatus.GRADUATED;
+    }
+
     @Transactional(readOnly = true)
     public boolean exists(Long clubId, Long userId) {
         return repository.findByClub_IdAndUser_Id(clubId, userId).isPresent();
@@ -52,9 +66,7 @@ public class MembershipService {
                 .findByClub_IdAndUser_Id(clubId, actorUserId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "동아리 소속이 없습니다."));
         // 실제 기능을 사용할 수 있는 활동·휴학·졸업 소속만 통과시킨다.
-        if (membership.getStatus() != MembershipStatus.ACTIVE
-                && membership.getStatus() != MembershipStatus.ON_LEAVE
-                && membership.getStatus() != MembershipStatus.GRADUATED) {
+        if (!accessibleStatus(membership.getStatus())) {
             throw new BusinessException(ErrorCode.FORBIDDEN, "활동 가능한 동아리 소속이 아닙니다.");
         }
         return membership;

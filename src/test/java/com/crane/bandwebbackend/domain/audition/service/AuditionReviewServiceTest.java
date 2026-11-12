@@ -35,8 +35,11 @@ class AuditionReviewServiceTest {
     @Test
     void api149RejectsStaleAuditionVersion() throws Exception {
         Performance performance = mock(Performance.class);
+        var club = mock(com.crane.bandwebbackend.domain.club.entity.Club.class);
+        when(club.getStatus()).thenReturn(com.crane.bandwebbackend.domain.club.entity.ClubStatus.ACTIVE);
+        when(performance.getClub()).thenReturn(club);
         AuditionEntry entry = mock(AuditionEntry.class);
-        when(performances.require(1L, 2L)).thenReturn(performance);
+        when(performances.requireLocked(1L, 2L)).thenReturn(performance);
         when(performance.getStatus()).thenReturn(PerformanceStatus.ACTIVE);
         when(repository.findWithLockByIdAndPerformanceId(3L, 2L)).thenReturn(Optional.of(entry));
         when(entry.getId()).thenReturn(3L);

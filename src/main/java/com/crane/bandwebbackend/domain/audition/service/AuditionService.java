@@ -60,11 +60,19 @@ public class AuditionService {
     /** API-150: 본인 세션 심사와 본인이 제안한 곡의 심사만 조회한다. */
     @Transactional(readOnly = true)
     public MyAuditionsResponse mine(Long actorUserId, Long clubId, Long performanceId) {
+        // API-150/G-04: 접근 불가 기록만 제외한다. 기존 소속·공연 공개 규칙을 재사용하며 이력은 보존한다.
+        Set<Long> visiblePerformances = membershipService.accessibleMembershipsOfUser(actorUserId).stream()
+                .filter(member ->
+                        clubId == null || clubId.equals(member.getClub().getId()))
+                .flatMap(member -> performanceService.list(member.getClub().getId(), actorUserId).stream())
+                .map(performance -> performance.getId())
+                .collect(Collectors.toSet());
         // 본인이 세션 지원자인 심사와 본인이 제안한 곡 심사를 함께 조회한다.
         List<AuditionEntry> owned = new ArrayList<>(repository.findByPerformanceMember_Membership_User_Id(actorUserId));
         owned.addAll(repository.findBySong_ProposedBy_User_IdAndPerformanceMemberIsNull(actorUserId));
         // 선택된 동아리·공연만 남기고 곡/파트/지원자 단위의 재심사 이력으로 묶는다.
         Map<String, List<AuditionEntry>> groups = owned.stream()
+                .filter(entry -> visiblePerformances.contains(entry.getPerformanceId()))
                 .filter(entry -> clubId == null
                         || clubId.equals(
                                 entry.getSong().getPerformance().getClub().getId()))
@@ -98,7 +106,8 @@ public class AuditionService {
             Long clubId, Long performanceId, Long actorUserId, AuditionCreateRequest body) {
         // 임원 권한과 공연·동아리 상태를 확인해 심사 등록 가능 범위를 확정한다.
         membershipService.requireAdmin(clubId, actorUserId);
-        var performance = performanceService.require(clubId, performanceId);
+        // 0.4/A-06: 확정·심사 정정과 동일하게 공연 → 곡 → 심사 순서로 잠근다.
+        var performance = performanceService.requireLocked(clubId, performanceId);
         if (performance.getClub().getStatus() != ClubStatus.ACTIVE) {
             throw new BusinessException(ErrorCode.STATE_CONFLICT, "CLUB_INACTIVE", "비활성 동아리에서는 등록할 수 없습니다.");
         }
@@ -179,20 +188,9 @@ public class AuditionService {
             throw new BusinessException(ErrorCode.RULE_VIOLATION, "심사 등록 조건을 충족하지 못했습니다.", eligibilityErrors);
         }
         // 같은 곡·파트·지원자의 미심사 기록이 있으면 중복 심사를 만들지 않는다.
-        Long partId = part == null ? null : part.getId();
-        List<AuditionEntry> pending = repository.findByPerformanceId(performanceId).stream()
-                .filter(entry ->
-                        entry.getResult() == null && entry.getSong().getId().equals(songId))
-                .filter(entry -> session
-                        ? entry.getPart() != null
-                                && entry.getPart().getId().equals(partId)
-                                && applicants.stream()
-                                        .anyMatch(applicant -> entry.getPerformanceMember() != null
-                                                && entry.getPerformanceMember()
-                                                        .getId()
-                                                        .equals(applicant.getId()))
-                        : entry.getPerformanceMember() == null)
-                .toList();
+        List<AuditionEntry> pending = session
+                ? repository.findPendingSessionsWithLock(performanceId, songId, part.getId(), applicantIds)
+                : repository.findPendingSongWithLock(performanceId, songId);
         if (!pending.isEmpty()) {
             List<ErrorDetail> duplicates = new ArrayList<>();
             if (session) {
@@ -235,7 +233,10 @@ public class AuditionService {
             Long clubId, Long performanceId, Long auditionId, Long actorUserId, AuditionReviewRequest body) {
         // 임원 권한과 공연 상태를 확인하고, 잠긴 공연의 예외 수정에는 사유를 요구한다.
         membershipService.requireAdmin(clubId, actorUserId);
-        var performance = performanceService.require(clubId, performanceId);
+        var performance = performanceService.requireLocked(clubId, performanceId);
+        if (performance.getClub().getStatus() != ClubStatus.ACTIVE) {
+            throw new BusinessException(ErrorCode.STATE_CONFLICT, "CLUB_INACTIVE", "비활성 동아리에서는 심사할 수 없습니다.");
+        }
         if (performance.getStatus() == PerformanceStatus.FINISHED
                 || performance.getStatus() == PerformanceStatus.CANCELED) {
             throw new BusinessException(ErrorCode.STATE_CONFLICT, "INVALID_STATE", "이 공연에서는 심사할 수 없습니다.");
