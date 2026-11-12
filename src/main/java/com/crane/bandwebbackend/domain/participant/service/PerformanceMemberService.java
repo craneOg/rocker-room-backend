@@ -1,5 +1,6 @@
 package com.crane.bandwebbackend.domain.participant.service;
 
+import com.crane.bandwebbackend.domain.club.entity.ClubStatus;
 import com.crane.bandwebbackend.domain.membership.entity.MemberType;
 import com.crane.bandwebbackend.domain.membership.entity.Membership;
 import com.crane.bandwebbackend.domain.membership.entity.MembershipRole;
@@ -70,7 +71,11 @@ public class PerformanceMemberService {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "참여 등록 경로가 유효하지 않습니다.");
         }
         Membership actor = membershipService.requireMember(clubId, actorUserId);
-        Performance performance = performanceService.require(clubId, performanceId);
+        // 0.4/L-05: 신규·재신청 모두 확정과 같은 공연 행 잠금으로 직렬화한다.
+        Performance performance = performanceService.requireLocked(clubId, performanceId);
+        if (performance.getClub().getStatus() != ClubStatus.ACTIVE) {
+            throw new BusinessException(ErrorCode.STATE_CONFLICT, "CLUB_INACTIVE", "비활성 동아리에서는 참여를 등록할 수 없습니다.");
+        }
         Membership target;
         LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
         // 본인 신청은 공연 상태·정책 마감·정회원 자격을 모두 확인한다.

@@ -42,7 +42,10 @@ class PerformanceMemberServiceTest {
     @BeforeEach
     void prepareApplication() {
         when(membershipService.requireMember(1L, 7L)).thenReturn(actor);
-        when(performanceService.require(1L, 2L)).thenReturn(performance);
+        when(performanceService.requireLocked(1L, 2L)).thenReturn(performance);
+        Club activeClub = mock(Club.class);
+        when(activeClub.getStatus()).thenReturn(com.crane.bandwebbackend.domain.club.entity.ClubStatus.ACTIVE);
+        when(performance.getClub()).thenReturn(activeClub);
         when(performance.getStatus()).thenReturn(PerformanceStatus.ACTIVE);
         when(performanceService.policy(1L, 2L, 7L)).thenReturn(policy);
         when(policy.getApplicationState()).thenReturn(FeatureState.OPEN);
@@ -87,6 +90,7 @@ class PerformanceMemberServiceTest {
     @Test
     void par03ApplicationCreatesAppliedRowForAuthenticatedMember() {
         Club club = mock(Club.class);
+        when(club.getStatus()).thenReturn(com.crane.bandwebbackend.domain.club.entity.ClubStatus.ACTIVE);
         when(club.getId()).thenReturn(1L);
         when(performance.getClub()).thenReturn(club);
         when(actor.getClub()).thenReturn(club);
@@ -103,6 +107,7 @@ class PerformanceMemberServiceTest {
     @Test
     void par03AdminUsesAuthorizedTargetMembershipInSameClub() {
         Club club = mock(Club.class);
+        when(club.getStatus()).thenReturn(com.crane.bandwebbackend.domain.club.entity.ClubStatus.ACTIVE);
         Membership target = mock(Membership.class);
         when(club.getId()).thenReturn(1L);
         when(performance.getClub()).thenReturn(club);

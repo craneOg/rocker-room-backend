@@ -47,7 +47,7 @@ class PerformanceLockServiceTest {
         when(entityManager.createNativeQuery(anyString())).thenReturn(query);
         when(query.setParameter("performanceId", 3L)).thenReturn(query);
         when(query.getResultList()).thenReturn(List.of());
-        when(readiness.read(3L))
+        when(readiness.readLocked(3L))
                 .thenReturn(new Snapshot(
                         List.of(new SongRow(8, 1, 2L, "APPROVED")),
                         List.of(new PlayerRow(8, 21, 4, "APPROVED")),
@@ -78,7 +78,7 @@ class PerformanceLockServiceTest {
         when(entityManager.createNativeQuery(anyString())).thenReturn(query);
         when(query.setParameter("performanceId", 3L)).thenReturn(query);
         when(query.getResultList()).thenReturn(List.of());
-        when(readiness.read(3L))
+        when(readiness.readLocked(3L))
                 .thenReturn(new Snapshot(
                         List.of(new SongRow(8, null, null, null)),
                         List.of(),

@@ -6,6 +6,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /** 잠금 준비 상태를 조회하며 정규화 순서 쓰기는 LockService에 맡긴다. */
@@ -17,12 +18,22 @@ public class LockReadinessReader {
     /** 공연 확정 점검에 필요한 곡·팀·참여자·오디션 정보를 조회한다. */
     @Transactional(readOnly = true)
     public LockChecklistEvaluator.Snapshot read(Long performanceId) {
+        return read(performanceId, false);
+    }
+
+    /** 0.4/L-05·06: 공연 잠금 획득 후 이전 RR 스냅샷 대신 최신 행으로 확정 조건을 검사한다. */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public LockChecklistEvaluator.Snapshot readLocked(Long performanceId) {
+        return read(performanceId, true);
+    }
+
+    private LockChecklistEvaluator.Snapshot read(Long performanceId, boolean current) {
         // 확정 곡과 담당 팀 상태를 잠금 평가용 행으로 변환한다.
         List<LockChecklistEvaluator.SongRow> songs = rows("""
 				SELECT s.id, s.setlist_order, s.assigned_team_id, t.status
 				FROM song s LEFT JOIN team t ON t.id = s.assigned_team_id
 				WHERE s.performance_id = :performanceId AND s.status = 'CONFIRMED'
-				""", performanceId).stream()
+				""", performanceId, current).stream()
                 .map(row -> new LockChecklistEvaluator.SongRow(
                         number(row[0]),
                         row[1] == null ? null : ((Number) row[1]).intValue(),
@@ -36,19 +47,19 @@ public class LockReadinessReader {
 				JOIN song s ON s.id = ssm.song_id
 				JOIN performance_member pm ON pm.id = ssm.performance_member_id
 				WHERE s.performance_id = :performanceId AND s.status = 'CONFIRMED'
-				""", performanceId).stream()
+				""", performanceId, current).stream()
                 .map(row -> new LockChecklistEvaluator.PlayerRow(
                         number(row[0]), number(row[1]), number(row[2]), (String) row[3]))
                 .toList();
         List<LockChecklistEvaluator.TeamRow> teams = rows("""
 				SELECT id, status FROM team WHERE performance_id = :performanceId AND status = 'SUBMITTED'
-				""", performanceId).stream()
+				""", performanceId, current).stream()
                 .map(row -> new LockChecklistEvaluator.TeamRow(number(row[0]), (String) row[1]))
                 .toList();
         List<LockChecklistEvaluator.ParticipantRow> participants = rows("""
 				SELECT id, status FROM performance_member
 				WHERE performance_id = :performanceId AND status IN ('APPLIED', 'APPROVED')
-				""", performanceId).stream()
+				""", performanceId, current).stream()
                 .map(row -> new LockChecklistEvaluator.ParticipantRow(number(row[0]), (String) row[1]))
                 .toList();
         List<LockChecklistEvaluator.RequirementRow> requirements = rows("""
@@ -57,14 +68,14 @@ public class LockReadinessReader {
 				JOIN song s ON s.id = r.song_id
 				JOIN part p ON p.id = r.part_id
 				WHERE s.performance_id = :performanceId AND s.status = 'CONFIRMED'
-				""", performanceId).stream()
+				""", performanceId, current).stream()
                 .map(row -> new LockChecklistEvaluator.RequirementRow(
                         number(row[0]), number(row[1]), (String) row[2], ((Number) row[3]).intValue()))
                 .toList();
         List<LockChecklistEvaluator.AuditionRow> auditions = rows("""
 				SELECT id, song_id, performance_member_id, result, created_at
 				FROM audition_entry WHERE performance_id = :performanceId
-				""", performanceId).stream()
+				""", performanceId, current).stream()
                 .map(row -> new LockChecklistEvaluator.AuditionRow(
                         number(row[0]),
                         number(row[1]),
@@ -76,7 +87,7 @@ public class LockReadinessReader {
         List<?> limits = entityManager
                 .createNativeQuery("""
 				SELECT max_songs_per_member FROM performance_policy WHERE performance_id = :performanceId
-				""")
+				""" + (current ? " FOR UPDATE" : ""))
                 .setParameter("performanceId", performanceId)
                 .getResultList();
         Number max = limits.isEmpty() ? null : (Number) limits.get(0);
@@ -86,9 +97,9 @@ public class LockReadinessReader {
 
     @SuppressWarnings("unchecked")
     /** 공연 식별자를 바인딩해 잠금 점검용 행 목록을 조회한다. */
-    private List<Object[]> rows(String sql, Long performanceId) {
+    private List<Object[]> rows(String sql, Long performanceId, boolean current) {
         return entityManager
-                .createNativeQuery(sql)
+                .createNativeQuery(sql + (current ? " FOR UPDATE" : ""))
                 .setParameter("performanceId", performanceId)
                 .getResultList();
     }

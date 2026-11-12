@@ -78,7 +78,7 @@ public class PerformanceLockService {
                 .setParameter("performanceId", performanceId)
                 .getResultList();
         // 잠금 직전 스냅샷을 평가해 필수 오류는 차단하고 경고는 사용자 확인을 요구한다.
-        var evaluation = LockChecklistEvaluator.evaluate(readiness.read(performanceId));
+        var evaluation = LockChecklistEvaluator.evaluate(readiness.readLocked(performanceId));
         if (!evaluation.hardErrors().isEmpty()) {
             var details = new ArrayList<ErrorDetail>();
             details.add(ErrorDetail.of("request", "LOCK_REQUIREMENTS_FAILED"));
