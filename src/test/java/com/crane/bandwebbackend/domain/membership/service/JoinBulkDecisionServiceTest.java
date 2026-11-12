@@ -11,6 +11,9 @@ import static org.mockito.Mockito.when;
 
 import com.crane.bandwebbackend.domain.membership.dto.JoinBulkDecisionRequest;
 import com.crane.bandwebbackend.domain.membership.entity.Membership;
+import com.crane.bandwebbackend.global.error.BusinessException;
+import com.crane.bandwebbackend.global.error.ErrorCode;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.OptimisticLockingFailureException;
@@ -18,6 +21,35 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionStatus;
 
 class JoinBulkDecisionServiceTest {
+
+    @Test
+    @DisplayName("API-143 INVALID_STATE만 NOT_PENDING으로 바꾸고 CLUB_INACTIVE 등 원래 사유를 보존한다")
+    void preservesSpecificConflictReasons() {
+        MembershipService memberships = mock(MembershipService.class);
+        MembershipDecisionService decisions = mock(MembershipDecisionService.class);
+        PlatformTransactionManager transactionManager = mock(PlatformTransactionManager.class);
+        when(transactionManager.getTransaction(any())).thenReturn(mock(TransactionStatus.class));
+        when(decisions.decide(anyLong(), anyLong(), anyLong(), any(), any(), nullable(String.class)))
+                .thenAnswer(invocation -> {
+                    long id = invocation.getArgument(1);
+                    if (id == 1L) throw new BusinessException(ErrorCode.STATE_CONFLICT, "INVALID_STATE", "상태");
+                    if (id == 2L) throw new BusinessException(ErrorCode.STATE_CONFLICT, "CLUB_INACTIVE", "비활성");
+                    if (id == 3L) throw new BusinessException(ErrorCode.STATE_CONFLICT, "상태");
+                    if (id == 4L) throw new BusinessException(ErrorCode.RULE_VIOLATION, "OTHER_REASON", "규칙");
+                    throw new BusinessException(ErrorCode.NOT_FOUND, "대상 없음");
+                });
+        var result = new JoinBulkDecisionService(memberships, decisions, transactionManager)
+                .decide(
+                        1L,
+                        1L,
+                        new JoinBulkDecisionRequest(
+                                java.util.List.of("1", "2", "3", "4", "5"),
+                                JoinBulkDecisionRequest.Decision.APPROVE,
+                                null));
+        assertThat(result.failed())
+                .extracting(item -> item.reason())
+                .containsExactly("NOT_PENDING", "CLUB_INACTIVE", "STATE_CONFLICT", "OTHER_REASON", "NOT_FOUND");
+    }
 
     @Test
     void recordsRuntimeFailuresAndContinuesWithRemainingItems() {

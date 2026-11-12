@@ -66,13 +66,16 @@ public class JoinBulkDecisionService {
                         request.reason()));
                 succeeded.add(new JoinBulkDecisionResponse.Success(id.toString()));
             } catch (BusinessException exception) {
+                String detailReason = exception.getDetails().isEmpty()
+                        ? null
+                        : exception.getDetails().get(0).getReason();
                 String reason = exception.getErrorCode() == ErrorCode.NOT_FOUND
                         ? "NOT_FOUND"
-                        : exception.getErrorCode() == ErrorCode.STATE_CONFLICT
+                        : exception.getErrorCode() == ErrorCode.STATE_CONFLICT && "INVALID_STATE".equals(detailReason)
                                 ? "NOT_PENDING"
-                                : exception.getDetails().isEmpty()
+                                : detailReason == null
                                         ? exception.getErrorCode().name()
-                                        : exception.getDetails().get(0).getReason();
+                                        : detailReason;
                 failed.add(new JoinBulkDecisionResponse.Failure(id.toString(), reason));
             } catch (DataIntegrityViolationException | OptimisticLockingFailureException exception) {
                 failed.add(new JoinBulkDecisionResponse.Failure(id.toString(), "CONFLICT"));
