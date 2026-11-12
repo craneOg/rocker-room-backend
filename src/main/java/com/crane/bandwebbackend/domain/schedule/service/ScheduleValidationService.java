@@ -3,6 +3,7 @@ package com.crane.bandwebbackend.domain.schedule.service;
 import com.crane.bandwebbackend.domain.club.entity.ClubStatus;
 import com.crane.bandwebbackend.domain.membership.entity.Membership;
 import com.crane.bandwebbackend.domain.membership.service.MembershipService;
+import com.crane.bandwebbackend.domain.performance.entity.Performance;
 import com.crane.bandwebbackend.domain.performance.entity.PerformanceStatus;
 import com.crane.bandwebbackend.domain.performance.service.PerformanceService;
 import com.crane.bandwebbackend.domain.schedule.dto.ScheduleCreateRequest;
@@ -10,6 +11,7 @@ import com.crane.bandwebbackend.domain.schedule.entity.PracticeSchedule;
 import com.crane.bandwebbackend.domain.schedule.entity.ScheduleStatus;
 import com.crane.bandwebbackend.domain.schedule.entity.ScheduleType;
 import com.crane.bandwebbackend.domain.schedule.repository.PracticeScheduleRepository;
+import com.crane.bandwebbackend.domain.team.entity.Team;
 import com.crane.bandwebbackend.global.error.BusinessException;
 import com.crane.bandwebbackend.global.error.ErrorCode;
 import com.crane.bandwebbackend.global.response.ApiIds;
@@ -40,6 +42,13 @@ public class ScheduleValidationService {
     private final ScheduleEditService warnings;
     private final EntityManager entityManager;
 
+    private void validateTitle(String title, Performance performance, ScheduleType type, List<Long> teamIds) {
+        String firstTeamName = teamIds.isEmpty()
+                ? null
+                : entityManager.find(Team.class, teamIds.get(0)).getName();
+        ScheduleTitles.resolve(title, performance, type, firstTeamName, teamIds.size());
+    }
+
     /** 일정 생성한다 */
     @Transactional(readOnly = true)
     public Map<String, Object> create(
@@ -65,8 +74,12 @@ public class ScheduleValidationService {
         LocalDateTime end =
                 request.endAt().withOffsetSameInstant(ZoneOffset.UTC).toLocalDateTime();
         validateTime(start, end);
-        if (request.title() != null && request.title().length() > 100
-                || request.location() != null && request.location().length() > 200
+        validateTitle(
+                request.title(),
+                performance,
+                request.eventType() == null ? ScheduleType.PRACTICE : request.eventType(),
+                teamIds);
+        if (request.location() != null && request.location().length() > 200
                 || request.memo() != null && request.memo().length() > 500) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "일정 문자열 길이가 유효하지 않습니다.");
         }
@@ -129,7 +142,7 @@ public class ScheduleValidationService {
                 : schedule.isForAllParticipants();
         for (String field : List.of("title", "location", "memo")) {
             if (patch.has(field) && !patch.get(field).isNull()) {
-                int max = field.equals("title") ? 100 : field.equals("location") ? 200 : 500;
+                int max = field.equals("title") ? Integer.MAX_VALUE : field.equals("location") ? 200 : 500;
                 if (!patch.get(field).isTextual() || patch.get(field).asText().length() > max) {
                     throw new BusinessException(ErrorCode.VALIDATION_ERROR, field + "가 유효하지 않습니다.");
                 }
@@ -142,6 +155,17 @@ public class ScheduleValidationService {
                 throw new BusinessException(ErrorCode.VALIDATION_ERROR, "eventType이 유효하지 않습니다.");
             }
         }
+        validateTitle(
+                patch.has("title")
+                        ? (patch.get("title").isNull()
+                                ? null
+                                : patch.get("title").asText())
+                        : schedule.getTitle(),
+                performance,
+                patch.has("eventType")
+                        ? ScheduleType.valueOf(patch.get("eventType").asText())
+                        : schedule.getScheduleType(),
+                teamIds);
         return result(
                 clubId,
                 performanceId,

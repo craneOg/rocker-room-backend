@@ -91,26 +91,13 @@ public class ScheduleCreateService {
                 })
                 .toList();
         // 제목이 없으면 공연일·대표 팀·일정 유형으로 사람이 읽을 수 있는 제목을 만든다.
-        String title = request.title();
-        if (title == null || title.isBlank()) {
-            String prefix = performance.getPerformDate() == null
-                    ? ""
-                    : performance.getPerformDate().getYear() + "년 "
-                            + performance.getPerformDate().getMonthValue() + "월 공연 ";
-            String teamName = linkedTeams.isEmpty()
-                    ? ""
-                    : linkedTeams.get(0).getName()
-                            + (linkedTeams.size() > 1 ? " 외 " + (linkedTeams.size() - 1) + "팀" : "") + " ";
-            String suffix = switch (type) {
-                case PRACTICE -> "합주";
-                case REHEARSAL -> "리허설";
-                case AUDITION -> "오디션";
-                case ETC -> "일정";
-            };
-            title = prefix + teamName + suffix;
-        }
-        if (title.length() > 100
-                || (request.location() != null && request.location().length() > 200)
+        String title = ScheduleTitles.resolve(
+                request.title(),
+                performance,
+                type,
+                linkedTeams.isEmpty() ? null : linkedTeams.get(0).getName(),
+                linkedTeams.size());
+        if ((request.location() != null && request.location().length() > 200)
                 || (request.memo() != null && request.memo().length() > 500)) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "일정 문자열 길이가 유효하지 않습니다.");
         }

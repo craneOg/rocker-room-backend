@@ -85,7 +85,7 @@ public class ScheduleEditService {
         ScheduleType type = body.has("eventType") ? enumValue(body.get("eventType")) : schedule.getScheduleType();
         LocalDateTime start = body.has("startAt") ? dateTime(body.get("startAt")) : schedule.getStartAt();
         LocalDateTime end = body.has("endAt") ? dateTime(body.get("endAt")) : schedule.getEndAt();
-        String title = body.has("title") ? string(body.get("title"), 100) : schedule.getTitle();
+        String title = body.has("title") ? string(body.get("title"), Integer.MAX_VALUE) : schedule.getTitle();
         String location = body.has("location") ? string(body.get("location"), 200) : schedule.getLocation();
         String memo = body.has("memo") ? string(body.get("memo"), 500) : schedule.getMemo();
         boolean all = body.has("forAllParticipants")
@@ -102,6 +102,7 @@ public class ScheduleEditService {
                                     .map(link -> link.getTeam().getId())
                                     .toList());
         }
+        title = ScheduleTitles.resolve(title, schedule.getPerformance(), type, null, 0);
         // 엔티티가 보장하는 시간·필드 불변식을 적용하고 검증 오류로 변환한다.
         try {
             schedule.replace(type, title, start, end, location, all, memo);
@@ -160,6 +161,7 @@ public class ScheduleEditService {
     public List<Map<String, Object>> warningsFor(Long clubId, Long performanceId, Long scheduleId, Long actorUserId) {
         // 동아리 소속과 일정 경계를 확인해 다른 동아리 일정의 존재가 새지 않게 한다.
         Membership actor = membershipService.requireMember(clubId, actorUserId);
+        performances.detail(clubId, performanceId, actorUserId);
         PracticeSchedule schedule = schedules
                 .findByIdAndPerformance_IdAndPerformance_Club_Id(scheduleId, performanceId, clubId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "일정을 찾을 수 없습니다."));
@@ -171,8 +173,18 @@ public class ScheduleEditService {
             }
         }
         // 시간 충돌·시즌 경고와 곡별 파트 부족 경고를 하나의 목록으로 합친다.
-        List<Map<String, Object>> result =
-                new ArrayList<>(warnings(schedule, actor.getRole() == MembershipRole.CLUB_ADMIN));
+        Set<Long> visiblePerformances = performances.list(clubId, actorUserId).stream()
+                .map(performance -> performance.getId())
+                .collect(java.util.stream.Collectors.toSet());
+        List<Map<String, Object>> result = new ArrayList<>(warningsForCandidate(
+                clubId,
+                performanceId,
+                scheduleId,
+                schedule.getStartAt(),
+                schedule.getEndAt(),
+                new HashSet<>(attendeeIds(scheduleId)),
+                actor.getRole() == MembershipRole.CLUB_ADMIN,
+                visiblePerformances));
         result.addAll(partShortages(scheduleId));
         if (actor.getRole() == MembershipRole.CLUB_ADMIN) {
             return result;
@@ -255,7 +267,8 @@ public class ScheduleEditService {
                 candidate.getStartAt(),
                 candidate.getEndAt(),
                 new HashSet<>(attendeeIds(candidate.getId())),
-                includeTentative);
+                includeTentative,
+                null);
     }
 
     /** API-106·109의 저장 전 검사도 이 순수 조회 경로를 사용한다. */
@@ -267,7 +280,8 @@ public class ScheduleEditService {
             LocalDateTime startAt,
             LocalDateTime endAt,
             Set<Long> candidateMembers) {
-        return warningsForCandidate(clubId, performanceId, excludeScheduleId, startAt, endAt, candidateMembers, true);
+        return warningsForCandidate(
+                clubId, performanceId, excludeScheduleId, startAt, endAt, candidateMembers, true, null);
     }
 
     private List<Map<String, Object>> warningsForCandidate(
@@ -277,7 +291,8 @@ public class ScheduleEditService {
             LocalDateTime startAt,
             LocalDateTime endAt,
             Set<Long> candidateMembers,
-            boolean includeTentative) {
+            boolean includeTentative,
+            Set<Long> visiblePerformances) {
         List<Map<String, Object>> result = new ArrayList<>();
         // 공연 정책의 합주 시즌을 벗어나면 저장 차단 대신 경고를 추가한다.
         performances.policyIfExists(clubId, performanceId).ifPresent(policy -> {
@@ -296,6 +311,9 @@ public class ScheduleEditService {
         for (PracticeSchedule other :
                 schedules.findByPerformance_Club_IdAndStartAtLessThanAndEndAtGreaterThan(clubId, endAt, startAt)) {
             if (other.getId().equals(excludeScheduleId)
+                    || (visiblePerformances != null
+                            && !visiblePerformances.contains(
+                                    other.getPerformance().getId()))
                     || other.getStatus() == ScheduleStatus.CANCELED
                     || (!includeTentative && other.getStatus() == ScheduleStatus.TENTATIVE)) {
                 continue;
@@ -404,11 +422,7 @@ public class ScheduleEditService {
     /** 일정 유형과 대상 팀을 이용해 자동 제목을 생성한다. */
     private String automaticTitle(PracticeSchedule schedule, ScheduleType type, List<Long> teamIds) {
         // 공연 날짜가 있으면 연·월을 제목 접두어로 붙인다.
-        String prefix = schedule.getPerformance().getPerformDate() == null
-                ? ""
-                : schedule.getPerformance().getPerformDate().getYear() + "년 "
-                        + schedule.getPerformance().getPerformDate().getMonthValue() + "월 공연 ";
-        String teamName = "";
+        String teamName = null;
         // 대상 팀이 있으면 첫 팀 이름과 나머지 팀 수를 제목에 요약한다.
         if (!teamIds.isEmpty()) {
             Team first = entityManager.find(Team.class, teamIds.get(0));
@@ -418,16 +432,10 @@ public class ScheduleEditService {
                             .equals(schedule.getPerformance().getId())) {
                 throw new BusinessException(ErrorCode.NOT_FOUND, "같은 공연의 팀을 찾을 수 없습니다.");
             }
-            teamName = first.getName() + (teamIds.size() > 1 ? " 외 " + (teamIds.size() - 1) + "팀" : "") + " ";
+            teamName = first.getName();
         }
         // 일정 유형을 사용자가 이해할 수 있는 한국어 접미어로 변환한다.
-        String suffix = switch (type) {
-            case PRACTICE -> "합주";
-            case REHEARSAL -> "리허설";
-            case AUDITION -> "오디션";
-            case ETC -> "일정";
-        };
-        return prefix + teamName + suffix;
+        return ScheduleTitles.resolve(null, schedule.getPerformance(), type, teamName, teamIds.size());
     }
 
     /** JSON 배열의 식별자를 중복 없는 양의 정수 목록으로 변환한다. */

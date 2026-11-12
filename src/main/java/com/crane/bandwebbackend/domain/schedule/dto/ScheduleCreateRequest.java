@@ -12,7 +12,7 @@ public record ScheduleCreateRequest(
         ScheduleStatus status,
         @NotNull(message = "시작 시각은 필수입니다.") OffsetDateTime startAt,
         @NotNull(message = "종료 시각은 필수입니다.") OffsetDateTime endAt,
-        @Size(max = 100, message = "일정 제목은 100자 이하여야 합니다.") String title,
+        String title,
         @Size(max = 200, message = "일정 장소는 200자 이하여야 합니다.") String location,
         @Size(max = 500, message = "메모는 500자 이하여야 합니다.") String memo,
         Boolean forAllParticipants,
