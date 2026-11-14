@@ -50,6 +50,24 @@ public class TeamMember extends BaseCreatedTimeEntity {
     @JoinColumn(name = "part_id")
     private Part part;
 
+    /** 같은 공연의 팀과 참여자를 파트 미지정 팀원으로 연결한다. */
+    public static TeamMember link(Team team, PerformanceMember performanceMember) {
+        if (team == null
+                || performanceMember == null
+                || team.getPerformance() == null
+                || performanceMember.getPerformance() == null
+                || !team.getPerformance()
+                        .getId()
+                        .equals(performanceMember.getPerformance().getId())) {
+            throw new IllegalArgumentException("같은 공연의 팀과 참여자만 연결할 수 있습니다.");
+        }
+        TeamMember member = new TeamMember();
+        member.team = team;
+        member.performanceId = team.getPerformance().getId();
+        member.performanceMember = performanceMember;
+        return member;
+    }
+
     public static TeamMember of(Team team, PerformanceMember performanceMember, Part part) {
         TeamMember m = new TeamMember();
         m.team = team;

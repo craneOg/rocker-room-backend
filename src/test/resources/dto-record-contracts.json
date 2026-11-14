@@ -1,0 +1,1090 @@
+{
+  "com.crane.bandwebbackend.domain.audition.dto.AuditionCreateRequest" : {
+    "violations" : [ "songId:NotBlank", "type:NotBlank" ],
+    "json" : {
+      "type" : "1",
+      "songId" : "1",
+      "partId" : "1",
+      "applicantPerformanceMemberIds" : [ ],
+      "linkedScheduleId" : "1",
+      "memo" : "1"
+    }
+  },
+  "com.crane.bandwebbackend.domain.audition.dto.AuditionCreateResponse" : {
+    "violations" : [ ],
+    "json" : {
+      "items" : [ ]
+    }
+  },
+  "com.crane.bandwebbackend.domain.audition.dto.AuditionCreatedItem" : {
+    "violations" : [ ],
+    "json" : {
+      "id" : "1",
+      "type" : "1",
+      "songId" : "1",
+      "songTitle" : "1",
+      "songStatus" : "PROPOSED",
+      "partId" : "1",
+      "applicantPerformanceMemberId" : "1",
+      "linkedScheduleId" : "1",
+      "scheduledAt" : "2026-11-01T09:00:00+09:00",
+      "memo" : "1",
+      "result" : "PASSED",
+      "version" : "1"
+    }
+  },
+  "com.crane.bandwebbackend.domain.audition.dto.AuditionItemResponse" : {
+    "violations" : [ ],
+    "json" : {
+      "id" : "1",
+      "type" : "1",
+      "songId" : "1",
+      "songTitle" : "1",
+      "songStatus" : "PROPOSED",
+      "partId" : "1",
+      "partName" : "1",
+      "applicantPerformanceMemberId" : "1",
+      "applicantName" : "1",
+      "candidateTeamName" : "1",
+      "linkedScheduleId" : "1",
+      "scheduledAt" : "2026-11-01T09:00:00+09:00",
+      "memo" : "1",
+      "result" : "PASSED",
+      "comment" : "1",
+      "judgedBy" : "1",
+      "judgedByName" : "1",
+      "judgedAt" : "2026-11-01T09:00:00+09:00",
+      "version" : "1",
+      "createdAt" : "2026-11-01T09:00:00+09:00"
+    }
+  },
+  "com.crane.bandwebbackend.domain.audition.dto.AuditionListResponse" : {
+    "violations" : [ ],
+    "json" : {
+      "items" : [ ],
+      "page" : 1,
+      "size" : 1,
+      "totalElements" : 1,
+      "totalPages" : 1,
+      "pendingCount" : 1
+    }
+  },
+  "com.crane.bandwebbackend.domain.audition.dto.AuditionResponse" : {
+    "violations" : [ ],
+    "json" : {
+      "id" : "1",
+      "performanceId" : "1",
+      "songId" : "1",
+      "performanceMemberId" : "1",
+      "partId" : "1",
+      "scheduleId" : "1",
+      "result" : "PASSED",
+      "reviewerUserId" : "1",
+      "reviewedAt" : "2026-11-01T09:00:00+09:00",
+      "note" : "1",
+      "version" : "1",
+      "createdAt" : "2026-11-01T09:00:00+09:00",
+      "updatedAt" : "2026-11-01T09:00:00+09:00"
+    }
+  },
+  "com.crane.bandwebbackend.domain.audition.dto.AuditionReviewRequest" : {
+    "violations" : [ "result:NotNull", "version:NotBlank" ],
+    "json" : {
+      "result" : "PASSED",
+      "comment" : "1",
+      "reason" : "1",
+      "version" : "1"
+    }
+  },
+  "com.crane.bandwebbackend.domain.audition.dto.AuditionReviewResponse" : {
+    "violations" : [ ],
+    "json" : {
+      "id" : "1",
+      "type" : "1",
+      "songId" : "1",
+      "songStatus" : "PROPOSED",
+      "partId" : "1",
+      "partName" : "1",
+      "applicantPerformanceMemberId" : "1",
+      "applicantName" : "1",
+      "result" : "PASSED",
+      "comment" : "1",
+      "judgedBy" : "1",
+      "judgedByName" : "1",
+      "judgedAt" : "2026-11-01T09:00:00+09:00",
+      "version" : "1"
+    }
+  },
+  "com.crane.bandwebbackend.domain.audition.dto.MyAuditionItem" : {
+    "violations" : [ ],
+    "json" : {
+      "id" : "1",
+      "clubId" : "1",
+      "performanceId" : "1",
+      "type" : "1",
+      "songId" : "1",
+      "songTitle" : "1",
+      "partId" : "1",
+      "partName" : "1",
+      "scheduledAt" : "2026-11-01T09:00:00+09:00",
+      "result" : "PASSED",
+      "comment" : "1",
+      "judgedAt" : "2026-11-01T09:00:00+09:00",
+      "isLatest" : true
+    }
+  },
+  "com.crane.bandwebbackend.domain.audition.dto.MyAuditionsResponse" : {
+    "violations" : [ ],
+    "json" : {
+      "items" : [ ]
+    }
+  },
+  "com.crane.bandwebbackend.domain.membership.controller.MemberLookupController$LookupResponse" : {
+    "violations" : [ ],
+    "json" : {
+      "userId" : "1",
+      "handle" : "1",
+      "name" : "1",
+      "profileImageUrl" : "1",
+      "membership" : null
+    }
+  },
+  "com.crane.bandwebbackend.domain.membership.controller.MemberLookupController$MembershipInfo" : {
+    "violations" : [ ],
+    "json" : {
+      "id" : "1",
+      "status" : "1",
+      "invitationExpiresAt" : "2026-11-01T09:00:00+09:00"
+    }
+  },
+  "com.crane.bandwebbackend.domain.membership.dto.JoinBulkDecisionRequest" : {
+    "violations" : [ "decision:NotNull", "membershipIds:NotEmpty" ],
+    "json" : {
+      "membershipIds" : [ ],
+      "decision" : "APPROVE",
+      "reason" : "1"
+    }
+  },
+  "com.crane.bandwebbackend.domain.membership.dto.JoinBulkDecisionResponse" : {
+    "violations" : [ ],
+    "json" : {
+      "succeeded" : [ ],
+      "failed" : [ ],
+      "summary" : null
+    }
+  },
+  "com.crane.bandwebbackend.domain.membership.dto.JoinBulkDecisionResponse$Failure" : {
+    "violations" : [ ],
+    "json" : {
+      "membershipId" : "1",
+      "reason" : "1"
+    }
+  },
+  "com.crane.bandwebbackend.domain.membership.dto.JoinBulkDecisionResponse$Success" : {
+    "violations" : [ ],
+    "json" : {
+      "membershipId" : "1"
+    }
+  },
+  "com.crane.bandwebbackend.domain.membership.dto.JoinBulkDecisionResponse$Summary" : {
+    "violations" : [ ],
+    "json" : {
+      "requested" : 1,
+      "succeeded" : 1,
+      "failed" : 1
+    }
+  },
+  "com.crane.bandwebbackend.domain.membership.dto.MembershipBulkRequest" : {
+    "violations" : [ "action:NotNull", "membershipIds:NotEmpty", "params:NotNull" ],
+    "json" : {
+      "membershipIds" : [ ],
+      "action" : "CHANGE_STATUS",
+      "params" : null,
+      "reason" : "1"
+    }
+  },
+  "com.crane.bandwebbackend.domain.membership.dto.MembershipBulkResponse" : {
+    "violations" : [ ],
+    "json" : {
+      "succeeded" : [ ],
+      "failed" : [ ],
+      "summary" : null
+    }
+  },
+  "com.crane.bandwebbackend.domain.membership.dto.MembershipBulkResponse$Failure" : {
+    "violations" : [ ],
+    "json" : {
+      "membershipId" : "1",
+      "reason" : "1"
+    }
+  },
+  "com.crane.bandwebbackend.domain.membership.dto.MembershipBulkResponse$Success" : {
+    "violations" : [ ],
+    "json" : {
+      "membershipId" : "1",
+      "skipped" : true
+    }
+  },
+  "com.crane.bandwebbackend.domain.membership.dto.MembershipBulkResponse$Summary" : {
+    "violations" : [ ],
+    "json" : {
+      "requested" : 1,
+      "succeeded" : 1,
+      "failed" : 1,
+      "skipped" : 1
+    }
+  },
+  "com.crane.bandwebbackend.domain.membership.dto.MembershipInviteRequest" : {
+    "violations" : [ "handle:NotBlank" ],
+    "json" : {
+      "handle" : "1",
+      "memberType" : "REGULAR",
+      "displayName" : "1"
+    }
+  },
+  "com.crane.bandwebbackend.domain.membership.dto.MembershipProfileRequest" : {
+    "violations" : [ ],
+    "json" : {
+      "displayName" : "1"
+    }
+  },
+  "com.crane.bandwebbackend.domain.membership.dto.MembershipPublicItem" : {
+    "violations" : [ ],
+    "json" : {
+      "id" : "1",
+      "displayName" : "1",
+      "userName" : "1",
+      "memberType" : "REGULAR",
+      "role" : "CLUB_ADMIN",
+      "profileImageUrl" : "1",
+      "parts" : [ ]
+    }
+  },
+  "com.crane.bandwebbackend.domain.membership.dto.MembershipPublicItem$Part" : {
+    "violations" : [ ],
+    "json" : {
+      "id" : "1",
+      "name" : "1",
+      "displayOrder" : 1,
+      "isActive" : true
+    }
+  },
+  "com.crane.bandwebbackend.domain.membership.dto.MembershipReasonRequest" : {
+    "violations" : [ ],
+    "json" : {
+      "reason" : "1"
+    }
+  },
+  "com.crane.bandwebbackend.domain.membership.dto.MembershipResponse" : {
+    "violations" : [ ],
+    "json" : {
+      "id" : "1",
+      "clubId" : "1",
+      "userId" : "1",
+      "userName" : "1",
+      "handle" : "1",
+      "profileImageUrl" : "1",
+      "displayName" : "1",
+      "memberType" : "REGULAR",
+      "role" : "CLUB_ADMIN",
+      "status" : "PENDING",
+      "joinSource" : "CLUB_CREATOR",
+      "invitedAt" : "2026-11-01T09:00:00+09:00",
+      "invitationExpiresAt" : "2026-11-01T09:00:00+09:00",
+      "approvedAt" : "2026-11-01T09:00:00+09:00",
+      "requestedAt" : "2026-11-01T09:00:00+09:00",
+      "leftAt" : "2026-11-01T09:00:00+09:00",
+      "parts" : [ ],
+      "createdAt" : "2026-11-01T09:00:00+09:00",
+      "updatedAt" : "2026-11-01T09:00:00+09:00"
+    }
+  },
+  "com.crane.bandwebbackend.domain.membership.dto.MembershipTypeRequest" : {
+    "violations" : [ "memberType:NotNull", "reason:NotBlank" ],
+    "json" : {
+      "memberType" : "REGULAR",
+      "reason" : "1"
+    }
+  },
+  "com.crane.bandwebbackend.domain.membership.dto.MembershipWithdrawalRequest" : {
+    "violations" : [ ],
+    "json" : {
+      "reason" : "1",
+      "successorMembershipId" : "1",
+      "teamLeaderSuccessors" : [ ]
+    }
+  },
+  "com.crane.bandwebbackend.domain.membership.dto.MembershipWithdrawalRequest$TeamSuccessor" : {
+    "violations" : [ ],
+    "json" : {
+      "teamId" : "1",
+      "membershipId" : "1"
+    }
+  },
+  "com.crane.bandwebbackend.domain.membership.dto.MembershipWithdrawalResult" : {
+    "violations" : [ ],
+    "json" : {
+      "resource" : null,
+      "warnings" : [ ],
+      "effects" : null
+    }
+  },
+  "com.crane.bandwebbackend.domain.membership.dto.MembershipWithdrawalResult$Effects" : {
+    "violations" : [ ],
+    "json" : {
+      "approvedPerformanceMemberIds" : [ ],
+      "affectedScheduleIds" : [ ],
+      "affectedUserIds" : [ ]
+    }
+  },
+  "com.crane.bandwebbackend.domain.membership.dto.WithdrawalPreviewResponse" : {
+    "violations" : [ ],
+    "json" : {
+      "target" : null,
+      "succession" : null,
+      "performanceImpacts" : [ ],
+      "teamLeaderCandidates" : [ ],
+      "warnings" : [ ]
+    }
+  },
+  "com.crane.bandwebbackend.domain.membership.dto.WithdrawalPreviewResponse$Candidate" : {
+    "violations" : [ ],
+    "json" : {
+      "membershipId" : "1",
+      "displayName" : "1"
+    }
+  },
+  "com.crane.bandwebbackend.domain.membership.dto.WithdrawalPreviewResponse$PerformanceImpact" : {
+    "violations" : [ ],
+    "json" : {
+      "performanceId" : "1",
+      "performanceName" : "1",
+      "participationStatus" : "APPLIED",
+      "isTeamLeader" : true,
+      "teamName" : "1"
+    }
+  },
+  "com.crane.bandwebbackend.domain.membership.dto.WithdrawalPreviewResponse$Succession" : {
+    "violations" : [ ],
+    "json" : {
+      "type" : "1",
+      "candidateMembershipId" : "1",
+      "candidateName" : "1"
+    }
+  },
+  "com.crane.bandwebbackend.domain.membership.dto.WithdrawalPreviewResponse$Target" : {
+    "violations" : [ ],
+    "json" : {
+      "membershipId" : "1",
+      "displayName" : "1",
+      "role" : "CLUB_ADMIN"
+    }
+  },
+  "com.crane.bandwebbackend.domain.membership.dto.WithdrawalPreviewResponse$TeamLeaderCandidates" : {
+    "violations" : [ ],
+    "json" : {
+      "performanceId" : "1",
+      "performanceName" : "1",
+      "teamId" : "1",
+      "teamName" : "1",
+      "candidates" : [ ]
+    }
+  },
+  "com.crane.bandwebbackend.domain.membership.service.MemberDirectoryService$LookupResult" : {
+    "violations" : [ ],
+    "json" : {
+      "user" : null,
+      "membership" : null
+    }
+  },
+  "com.crane.bandwebbackend.domain.membership.service.MembershipBulkService$Params" : {
+    "violations" : [ ],
+    "json" : {
+      "status" : "PENDING",
+      "mode" : "1",
+      "partIds" : [ ],
+      "performanceId" : 1
+    }
+  },
+  "com.crane.bandwebbackend.domain.participant.dto.MyParticipationResponse" : {
+    "violations" : [ ],
+    "json" : {
+      "id" : "1",
+      "performanceId" : "1",
+      "membershipId" : "1",
+      "status" : "APPLIED",
+      "source" : "APPLICATION",
+      "createdAt" : "2026-11-01T09:00:00+09:00",
+      "updatedAt" : "2026-11-01T09:00:00+09:00",
+      "myTeams" : [ ],
+      "myPlayingSongs" : [ ],
+      "progress" : null
+    }
+  },
+  "com.crane.bandwebbackend.domain.participant.dto.MyParticipationResponse$MySong" : {
+    "violations" : [ ],
+    "json" : {
+      "songId" : "1",
+      "title" : "1",
+      "partId" : "1",
+      "partName" : "1",
+      "setlistOrder" : 1
+    }
+  },
+  "com.crane.bandwebbackend.domain.participant.dto.MyParticipationResponse$MyTeam" : {
+    "violations" : [ ],
+    "json" : {
+      "teamId" : "1",
+      "name" : "1",
+      "isLeader" : true
+    }
+  },
+  "com.crane.bandwebbackend.domain.participant.dto.MyParticipationResponse$Progress" : {
+    "violations" : [ ],
+    "json" : {
+      "candidateSongs" : null,
+      "unansweredPlayabilityCount" : 1,
+      "votes" : null,
+      "availabilitySlotCount" : 1
+    }
+  },
+  "com.crane.bandwebbackend.domain.participant.dto.MyParticipationResponse$Usage" : {
+    "violations" : [ ],
+    "json" : {
+      "used" : 1,
+      "limit" : 1
+    }
+  },
+  "com.crane.bandwebbackend.domain.participant.dto.ParticipantBulkDecisionRequest" : {
+    "violations" : [ "decision:NotNull", "performanceMemberIds:NotEmpty" ],
+    "json" : {
+      "performanceMemberIds" : [ ],
+      "decision" : "APPROVE",
+      "reason" : "1"
+    }
+  },
+  "com.crane.bandwebbackend.domain.participant.dto.ParticipantBulkDecisionResponse" : {
+    "violations" : [ ],
+    "json" : {
+      "succeeded" : [ ],
+      "failed" : [ ],
+      "summary" : null
+    }
+  },
+  "com.crane.bandwebbackend.domain.participant.dto.ParticipantBulkDecisionResponse$Failure" : {
+    "violations" : [ ],
+    "json" : {
+      "performanceMemberId" : "1",
+      "reason" : "1"
+    }
+  },
+  "com.crane.bandwebbackend.domain.participant.dto.ParticipantBulkDecisionResponse$Success" : {
+    "violations" : [ ],
+    "json" : {
+      "performanceMemberId" : "1"
+    }
+  },
+  "com.crane.bandwebbackend.domain.participant.dto.ParticipantBulkDecisionResponse$Summary" : {
+    "violations" : [ ],
+    "json" : {
+      "requested" : 1,
+      "succeeded" : 1,
+      "failed" : 1
+    }
+  },
+  "com.crane.bandwebbackend.domain.participant.dto.ParticipantBulkRequest" : {
+    "violations" : [ "membershipIds:NotEmpty" ],
+    "json" : {
+      "membershipIds" : [ ],
+      "reason" : "1"
+    }
+  },
+  "com.crane.bandwebbackend.domain.participant.dto.ParticipantDecisionRequest" : {
+    "violations" : [ "performanceVersion:NotBlank" ],
+    "json" : {
+      "performanceVersion" : "1",
+      "reason" : "1"
+    }
+  },
+  "com.crane.bandwebbackend.domain.participant.dto.ParticipantImpactResponse" : {
+    "violations" : [ ],
+    "json" : {
+      "teamIds" : [ ],
+      "songIds" : [ ],
+      "scheduleIds" : [ ],
+      "affectedUserIds" : [ ],
+      "warnings" : [ ]
+    }
+  },
+  "com.crane.bandwebbackend.domain.participant.dto.ParticipantImpactResponse$Warning" : {
+    "violations" : [ ],
+    "json" : {
+      "type" : "1",
+      "targetId" : "1",
+      "message" : "1"
+    }
+  },
+  "com.crane.bandwebbackend.domain.participant.dto.ParticipantListItem" : {
+    "violations" : [ ],
+    "json" : {
+      "id" : "1",
+      "performanceId" : "1",
+      "membershipId" : "1",
+      "status" : "APPLIED",
+      "source" : "APPLICATION",
+      "createdAt" : "2026-11-01T09:00:00+09:00",
+      "updatedAt" : "2026-11-01T09:00:00+09:00",
+      "displayName" : "1",
+      "profileImageUrl" : "1",
+      "memberType" : "REGULAR",
+      "membershipStatus" : "PENDING",
+      "parts" : [ ],
+      "teamNames" : [ ],
+      "playedSongCount" : 1
+    }
+  },
+  "com.crane.bandwebbackend.domain.participant.dto.ParticipantListItem$Part" : {
+    "violations" : [ ],
+    "json" : {
+      "id" : "1",
+      "name" : "1"
+    }
+  },
+  "com.crane.bandwebbackend.domain.participant.dto.ParticipantListResponse" : {
+    "violations" : [ ],
+    "json" : {
+      "items" : [ ],
+      "statusCounts" : { },
+      "page" : 1,
+      "size" : 1,
+      "totalElements" : 1,
+      "totalPages" : 1
+    }
+  },
+  "com.crane.bandwebbackend.domain.participant.dto.ParticipantMutationResult" : {
+    "violations" : [ ],
+    "json" : {
+      "resource" : null,
+      "warnings" : [ ],
+      "effects" : null
+    }
+  },
+  "com.crane.bandwebbackend.domain.participant.dto.ParticipantMutationResult$Effects" : {
+    "violations" : [ ],
+    "json" : {
+      "approvedPerformanceMemberIds" : [ ],
+      "affectedScheduleIds" : [ ],
+      "affectedUserIds" : [ ]
+    }
+  },
+  "com.crane.bandwebbackend.domain.participant.dto.ParticipantRegisterRequest" : {
+    "violations" : [ "source:NotNull" ],
+    "json" : {
+      "source" : "APPLICATION",
+      "membershipId" : "1"
+    }
+  },
+  "com.crane.bandwebbackend.domain.participant.dto.ParticipantRemovalRequest" : {
+    "violations" : [ "performanceVersion:NotBlank" ],
+    "json" : {
+      "performanceVersion" : "1",
+      "reason" : "1",
+      "teamLeaderSuccessors" : [ ]
+    }
+  },
+  "com.crane.bandwebbackend.domain.participant.dto.ParticipantRemovalRequest$Successor" : {
+    "violations" : [ ],
+    "json" : {
+      "teamId" : "1",
+      "membershipId" : "1"
+    }
+  },
+  "com.crane.bandwebbackend.domain.participant.dto.ParticipantResponse" : {
+    "violations" : [ ],
+    "json" : {
+      "id" : "1",
+      "performanceId" : "1",
+      "membershipId" : "1",
+      "displayName" : "1",
+      "memberType" : "REGULAR",
+      "status" : "APPLIED",
+      "source" : "APPLICATION",
+      "decidedAt" : "2026-11-01T09:00:00+09:00",
+      "revision" : "1",
+      "createdAt" : "2026-11-01T09:00:00+09:00",
+      "updatedAt" : "2026-11-01T09:00:00+09:00"
+    }
+  },
+  "com.crane.bandwebbackend.domain.performance.dto.LockChecklistItem" : {
+    "violations" : [ ],
+    "json" : {
+      "checkId" : "1",
+      "result" : "SATISFIED",
+      "type" : "1",
+      "message" : "1",
+      "targetType" : "1",
+      "targetId" : "1"
+    }
+  },
+  "com.crane.bandwebbackend.domain.performance.dto.LockChecklistResponse" : {
+    "violations" : [ ],
+    "json" : {
+      "items" : [ ]
+    }
+  },
+  "com.crane.bandwebbackend.domain.performance.dto.LockConfirmRequest" : {
+    "violations" : [ "version:NotBlank" ],
+    "json" : {
+      "version" : "1",
+      "confirmed" : true
+    }
+  },
+  "com.crane.bandwebbackend.domain.performance.dto.LockMutationResponse" : {
+    "violations" : [ ],
+    "json" : {
+      "resource" : null,
+      "warnings" : [ ],
+      "effects" : null
+    }
+  },
+  "com.crane.bandwebbackend.domain.performance.dto.LockMutationResponse$Effects" : {
+    "violations" : [ ],
+    "json" : {
+      "approvedPerformanceMemberIds" : [ ],
+      "affectedScheduleIds" : [ ],
+      "affectedUserIds" : [ ]
+    }
+  },
+  "com.crane.bandwebbackend.domain.performance.dto.LockValidateRequest" : {
+    "violations" : [ "version:NotBlank" ],
+    "json" : {
+      "version" : "1"
+    }
+  },
+  "com.crane.bandwebbackend.domain.performance.dto.LockValidationResponse" : {
+    "violations" : [ ],
+    "json" : {
+      "hardErrors" : [ ],
+      "warnings" : [ ],
+      "normalizedSetlist" : [ ],
+      "confirmed" : true,
+      "expiresAt" : "2026-11-01T09:00:00+09:00",
+      "versions" : { }
+    }
+  },
+  "com.crane.bandwebbackend.domain.performance.dto.LockValidationResponse$NormalizedSong" : {
+    "violations" : [ ],
+    "json" : {
+      "songId" : "1",
+      "order" : 1
+    }
+  },
+  "com.crane.bandwebbackend.domain.performance.dto.PerformanceCreateRequest" : {
+    "violations" : [ "title:NotBlank" ],
+    "json" : {
+      "title" : "1",
+      "performDate" : "2026-11-01",
+      "location" : "1",
+      "preset" : "TEAM_FIRST",
+      "policy" : null
+    }
+  },
+  "com.crane.bandwebbackend.domain.performance.dto.PerformanceDetailResponse" : {
+    "violations" : [ ],
+    "json" : {
+      "performance" : null,
+      "policy" : null,
+      "counts" : null,
+      "nextSchedule" : null
+    }
+  },
+  "com.crane.bandwebbackend.domain.performance.dto.PerformanceDetailResponse$Counts" : {
+    "violations" : [ ],
+    "json" : {
+      "teams" : 1,
+      "candidateSongs" : 1,
+      "confirmedSongs" : 1,
+      "participants" : 1
+    }
+  },
+  "com.crane.bandwebbackend.domain.performance.dto.PerformanceDetailResponse$NextSchedule" : {
+    "violations" : [ ],
+    "json" : {
+      "id" : "1",
+      "title" : "1",
+      "startAt" : "2026-11-01T09:00:00+09:00"
+    }
+  },
+  "com.crane.bandwebbackend.domain.performance.dto.PerformanceListItem" : {
+    "violations" : [ ],
+    "json" : {
+      "id" : "1",
+      "clubId" : "1",
+      "title" : "1",
+      "performDate" : "2026-11-01",
+      "location" : "1",
+      "preset" : "1",
+      "status" : "1",
+      "createdByUserId" : "1",
+      "version" : "1",
+      "createdAt" : "2026-11-01T09:00:00+09:00",
+      "updatedAt" : "2026-11-01T09:00:00+09:00",
+      "myParticipationStatus" : "APPLIED",
+      "openFeatures" : [ ]
+    }
+  },
+  "com.crane.bandwebbackend.domain.performance.dto.PerformanceListItem$OpenFeature" : {
+    "violations" : [ ],
+    "json" : {
+      "feature" : "1",
+      "deadlineAt" : "2026-11-01T09:00:00+09:00"
+    }
+  },
+  "com.crane.bandwebbackend.domain.performance.dto.PerformancePolicyResponse" : {
+    "violations" : [ ],
+    "json" : {
+      "performanceId" : "1",
+      "performanceVersion" : "1",
+      "applicationState" : "DISABLED",
+      "applicationDeadline" : "2026-11-01T09:00:00+09:00",
+      "candidateState" : "DISABLED",
+      "candidateDeadline" : "2026-11-01T09:00:00+09:00",
+      "playabilityState" : "DISABLED",
+      "playabilityDeadline" : "2026-11-01T09:00:00+09:00",
+      "voteState" : "DISABLED",
+      "voteDeadline" : "2026-11-01T09:00:00+09:00",
+      "teamApplicationState" : "DISABLED",
+      "teamApplicationDeadline" : "2026-11-01T09:00:00+09:00",
+      "availabilityState" : "DISABLED",
+      "availabilityDeadline" : "2026-11-01T09:00:00+09:00",
+      "candidateScope" : "ALL_PARTICIPANTS",
+      "candidateLimitPerMember" : 1,
+      "voteMethod" : "APPROVAL",
+      "voteMaxChoices" : 1,
+      "playabilityResultPublic" : true,
+      "voteResultPublic" : true,
+      "practiceSeasonStart" : "2026-11-01",
+      "practiceSeasonEnd" : "2026-11-01",
+      "maxSongsPerMember" : 1,
+      "updatedAt" : "2026-11-01T09:00:00+09:00"
+    }
+  },
+  "com.crane.bandwebbackend.domain.performance.dto.PerformanceResponse" : {
+    "violations" : [ ],
+    "json" : {
+      "id" : "1",
+      "clubId" : "1",
+      "title" : "1",
+      "performDate" : "2026-11-01",
+      "location" : "1",
+      "preset" : "TEAM_FIRST",
+      "status" : "DRAFT",
+      "createdByUserId" : "1",
+      "version" : "1",
+      "createdAt" : "2026-11-01T09:00:00+09:00",
+      "updatedAt" : "2026-11-01T09:00:00+09:00"
+    }
+  },
+  "com.crane.bandwebbackend.domain.performance.dto.PerformanceTransitionRequest" : {
+    "violations" : [ "version:NotBlank" ],
+    "json" : {
+      "version" : "1",
+      "reason" : "1"
+    }
+  },
+  "com.crane.bandwebbackend.domain.performance.dto.PerformanceUpdateResponse" : {
+    "violations" : [ ],
+    "json" : {
+      "id" : "1",
+      "clubId" : "1",
+      "title" : "1",
+      "performDate" : "2026-11-01",
+      "location" : "1",
+      "preset" : "TEAM_FIRST",
+      "status" : "DRAFT",
+      "createdByUserId" : "1",
+      "version" : "1",
+      "createdAt" : "2026-11-01T09:00:00+09:00",
+      "updatedAt" : "2026-11-01T09:00:00+09:00",
+      "warnings" : [ ]
+    }
+  },
+  "com.crane.bandwebbackend.domain.performance.dto.PerformanceUpdateResponse$Warning" : {
+    "violations" : [ ],
+    "json" : {
+      "type" : "1",
+      "message" : "1"
+    }
+  },
+  "com.crane.bandwebbackend.domain.performance.dto.PolicyUpdateResponse" : {
+    "violations" : [ ],
+    "json" : {
+      "policy" : null,
+      "warnings" : [ ]
+    }
+  },
+  "com.crane.bandwebbackend.domain.performance.dto.PolicyUpdateResponse$Warning" : {
+    "violations" : [ ],
+    "json" : {
+      "type" : "1",
+      "message" : "1"
+    }
+  },
+  "com.crane.bandwebbackend.domain.performance.dto.VoteMethodChangeRequest" : {
+    "violations" : [ "version:NotBlank", "voteMethod:NotNull" ],
+    "json" : {
+      "version" : "1",
+      "voteMethod" : "APPROVAL",
+      "confirmed" : true,
+      "reason" : "1"
+    }
+  },
+  "com.crane.bandwebbackend.domain.performance.entity.PerformancePolicy$Values" : {
+    "violations" : [ ],
+    "json" : {
+      "applicationState" : "DISABLED",
+      "applicationDeadline" : "2026-11-01T00:00:00",
+      "candidateState" : "DISABLED",
+      "candidateDeadline" : "2026-11-01T00:00:00",
+      "candidateScope" : "ALL_PARTICIPANTS",
+      "candidateLimitPerMember" : 1,
+      "playabilityState" : "DISABLED",
+      "playabilityDeadline" : "2026-11-01T00:00:00",
+      "voteState" : "DISABLED",
+      "voteDeadline" : "2026-11-01T00:00:00",
+      "voteMethod" : "APPROVAL",
+      "voteMaxChoices" : 1,
+      "playabilityResultPublic" : true,
+      "voteResultPublic" : true,
+      "teamSubmissionState" : "DISABLED",
+      "teamSubmissionDeadline" : "2026-11-01T00:00:00",
+      "availabilityState" : "DISABLED",
+      "availabilityDeadline" : "2026-11-01T00:00:00",
+      "practiceSeasonStart" : "2026-11-01",
+      "practiceSeasonEnd" : "2026-11-01",
+      "maxSongsPerMember" : 1
+    }
+  },
+  "com.crane.bandwebbackend.domain.performance.service.LockChecklistEvaluator$AuditionRow" : {
+    "violations" : [ ],
+    "json" : {
+      "id" : 1,
+      "songId" : 1,
+      "performanceMemberId" : 1,
+      "result" : "1",
+      "createdAt" : "2026-11-01T00:00:00"
+    }
+  },
+  "com.crane.bandwebbackend.domain.performance.service.LockChecklistEvaluator$Evaluation" : {
+    "violations" : [ ],
+    "json" : {
+      "items" : [ ],
+      "hardErrors" : [ ],
+      "warnings" : [ ],
+      "normalizedSetlist" : [ ]
+    }
+  },
+  "com.crane.bandwebbackend.domain.performance.service.LockChecklistEvaluator$ParticipantRow" : {
+    "violations" : [ ],
+    "json" : {
+      "id" : 1,
+      "status" : "1"
+    }
+  },
+  "com.crane.bandwebbackend.domain.performance.service.LockChecklistEvaluator$PlayerRow" : {
+    "violations" : [ ],
+    "json" : {
+      "songId" : 1,
+      "performanceMemberId" : 1,
+      "partId" : 1,
+      "memberStatus" : "1"
+    }
+  },
+  "com.crane.bandwebbackend.domain.performance.service.LockChecklistEvaluator$RequirementRow" : {
+    "violations" : [ ],
+    "json" : {
+      "songId" : 1,
+      "partId" : 1,
+      "partName" : "1",
+      "requiredCount" : 1
+    }
+  },
+  "com.crane.bandwebbackend.domain.performance.service.LockChecklistEvaluator$Snapshot" : {
+    "violations" : [ ],
+    "json" : {
+      "songs" : [ ],
+      "players" : [ ],
+      "teams" : [ ],
+      "participants" : [ ],
+      "requirements" : [ ],
+      "auditions" : [ ],
+      "maxSongsPerMember" : 1
+    }
+  },
+  "com.crane.bandwebbackend.domain.performance.service.LockChecklistEvaluator$SongRow" : {
+    "violations" : [ ],
+    "json" : {
+      "id" : 1,
+      "order" : 1,
+      "assignedTeamId" : 1,
+      "assignedTeamStatus" : "1"
+    }
+  },
+  "com.crane.bandwebbackend.domain.performance.service.LockChecklistEvaluator$TeamRow" : {
+    "violations" : [ ],
+    "json" : {
+      "id" : 1,
+      "status" : "1"
+    }
+  },
+  "com.crane.bandwebbackend.domain.performance.service.VoteMethodChangeService$ChangeResult" : {
+    "violations" : [ ],
+    "json" : {
+      "policy" : null,
+      "removedVoteCount" : 1
+    }
+  },
+  "com.crane.bandwebbackend.domain.performance.service.VoteMethodChangeService$State" : {
+    "violations" : [ ],
+    "json" : {
+      "performance" : null,
+      "policy" : null,
+      "version" : "1",
+      "affectedCount" : 1
+    }
+  },
+  "com.crane.bandwebbackend.domain.performance.service.VoteMethodChangeService$Validation" : {
+    "violations" : [ ],
+    "json" : {
+      "hardErrors" : [ ],
+      "warnings" : [ ],
+      "versions" : { }
+    }
+  },
+  "com.crane.bandwebbackend.domain.schedule.controller.CalendarController$Items" : {
+    "violations" : [ ],
+    "json" : {
+      "items" : [ ]
+    }
+  },
+  "com.crane.bandwebbackend.domain.schedule.dto.CalendarEvent" : {
+    "violations" : [ ],
+    "json" : {
+      "id" : "1",
+      "title" : "1",
+      "startAt" : "2026-11-01T09:00:00+09:00",
+      "endAt" : "2026-11-01T09:00:00+09:00",
+      "eventType" : "1",
+      "allDay" : true,
+      "status" : "1",
+      "clubId" : "1",
+      "performanceId" : "1"
+    }
+  },
+  "com.crane.bandwebbackend.domain.schedule.dto.ScheduleConfirmRequest" : {
+    "violations" : [ "version:NotBlank" ],
+    "json" : {
+      "version" : "1",
+      "confirmed" : true
+    }
+  },
+  "com.crane.bandwebbackend.domain.schedule.dto.ScheduleCreateRequest" : {
+    "violations" : [ "endAt:NotNull", "startAt:NotNull" ],
+    "json" : {
+      "eventType" : "PRACTICE",
+      "status" : "TENTATIVE",
+      "startAt" : "2026-11-01T09:00:00+09:00",
+      "endAt" : "2026-11-01T09:00:00+09:00",
+      "title" : "1",
+      "location" : "1",
+      "memo" : "1",
+      "forAllParticipants" : true,
+      "teamIds" : [ ],
+      "songIds" : [ ]
+    }
+  },
+  "com.crane.bandwebbackend.domain.schedule.dto.ScheduleDetailResponse" : {
+    "violations" : [ ],
+    "json" : {
+      "schedule" : null,
+      "participants" : [ ]
+    }
+  },
+  "com.crane.bandwebbackend.domain.schedule.dto.ScheduleDetailResponse$Part" : {
+    "violations" : [ ],
+    "json" : {
+      "id" : "1",
+      "name" : "1"
+    }
+  },
+  "com.crane.bandwebbackend.domain.schedule.dto.ScheduleDetailResponse$Participant" : {
+    "violations" : [ ],
+    "json" : {
+      "userId" : "1",
+      "performanceMemberId" : "1",
+      "membershipId" : "1",
+      "displayName" : "1",
+      "parts" : [ ],
+      "memberType" : "REGULAR",
+      "isSupportPlayer" : true
+    }
+  },
+  "com.crane.bandwebbackend.domain.schedule.dto.ScheduleMutationResponse" : {
+    "violations" : [ ],
+    "json" : {
+      "resource" : null,
+      "warnings" : [ ],
+      "effects" : null
+    }
+  },
+  "com.crane.bandwebbackend.domain.schedule.dto.ScheduleMutationResponse$Effects" : {
+    "violations" : [ ],
+    "json" : {
+      "approvedPerformanceMemberIds" : [ ],
+      "affectedScheduleIds" : [ ],
+      "affectedUserIds" : [ ]
+    }
+  },
+  "com.crane.bandwebbackend.domain.schedule.dto.ScheduleResponse" : {
+    "violations" : [ ],
+    "json" : {
+      "id" : "1",
+      "performanceId" : "1",
+      "eventType" : "PRACTICE",
+      "status" : "TENTATIVE",
+      "title" : "1",
+      "startAt" : "2026-11-01T09:00:00+09:00",
+      "endAt" : "2026-11-01T09:00:00+09:00",
+      "location" : "1",
+      "memo" : "1",
+      "forAllParticipants" : true,
+      "teamIds" : [ ],
+      "songIds" : [ ],
+      "performanceTitle" : "1",
+      "version" : "1",
+      "createdAt" : "2026-11-01T09:00:00+09:00",
+      "updatedAt" : "2026-11-01T09:00:00+09:00"
+    }
+  },
+  "com.crane.bandwebbackend.domain.schedule.dto.ScheduleVersionRequest" : {
+    "violations" : [ "version:NotBlank" ],
+    "json" : {
+      "version" : "1",
+      "reason" : "1"
+    }
+  },
+  "com.crane.bandwebbackend.domain.schedule.service.ScheduleEditService$EditResult" : {
+    "violations" : [ ],
+    "json" : {
+      "schedule" : null,
+      "warnings" : [ ]
+    }
+  },
+  "com.crane.bandwebbackend.domain.schedule.service.ScheduleTransitionService$ConfirmResult" : {
+    "violations" : [ ],
+    "json" : {
+      "schedule" : null,
+      "warnings" : [ ]
+    }
+  }
+}

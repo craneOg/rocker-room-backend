@@ -81,4 +81,38 @@ public class AuditionEntry extends BaseTimeEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by_user_id", nullable = false)
     private User createdBy;
+
+    /** 오디션 생성한다 */
+    public static AuditionEntry create(
+            Long performanceId,
+            Song song,
+            PerformanceMember member,
+            Part part,
+            PracticeSchedule schedule,
+            String memo,
+            User createdBy) {
+        if (performanceId == null || song == null || createdBy == null || (member == null) != (part == null)) {
+            throw new IllegalArgumentException("오디션 심사 대상이 유효하지 않습니다.");
+        }
+        AuditionEntry entry = new AuditionEntry();
+        entry.performanceId = performanceId;
+        entry.song = song;
+        entry.performanceMember = member;
+        entry.part = part;
+        entry.practiceSchedule = schedule;
+        entry.memo = memo;
+        entry.createdBy = createdBy;
+        return entry;
+    }
+
+    /** 오디션 심사 결과를 입력하거나 정정한다 */
+    public void review(AuditionResult result, String comment, User reviewer, LocalDateTime reviewedAt) {
+        if (result == null || reviewer == null || reviewedAt == null) {
+            throw new IllegalArgumentException("심사 결과 필수 값이 없습니다.");
+        }
+        this.result = result;
+        this.comment = comment;
+        this.reviewedBy = reviewer;
+        this.reviewedAt = reviewedAt;
+    }
 }

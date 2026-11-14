@@ -59,4 +59,23 @@ public class SuccessionNotice extends BaseCreatedTimeEntity {
 
     // NULL이면 미확인
     private LocalDateTime confirmedAt;
+
+    /** U-06: 이전 담당자의 개인정보 없이 후임과 승계 대상만 저장한다. */
+    public static SuccessionNotice admin(User successor, Club club) {
+        SuccessionNotice notice = new SuccessionNotice();
+        notice.user = successor;
+        notice.club = club;
+        notice.noticeType = SuccessionNoticeType.ADMIN;
+        return notice;
+    }
+
+    public static SuccessionNotice teamLeader(User successor, Club club, Team team, Long performanceId) {
+        SuccessionNotice notice = new SuccessionNotice();
+        notice.user = successor;
+        notice.club = club;
+        notice.noticeType = SuccessionNoticeType.TEAM_LEADER;
+        notice.team = team;
+        notice.performanceId = performanceId;
+        return notice;
+    }
 }

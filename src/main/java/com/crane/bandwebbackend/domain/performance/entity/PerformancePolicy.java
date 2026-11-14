@@ -1,5 +1,6 @@
 package com.crane.bandwebbackend.domain.performance.entity;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -13,6 +14,8 @@ import jakarta.persistence.Table;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.UpdateTimestamp;
@@ -108,4 +111,219 @@ public class PerformancePolicy {
     @UpdateTimestamp
     @Column(nullable = false)
     private LocalDateTime updatedAt;
+
+    /** PERF-002 프리셋 초기값. CUSTOM은 서비스에서 모든 상태 필드 입력을 검증한다. */
+    public static PerformancePolicy initial(Performance performance, PerformancePreset preset) {
+        if (performance == null || preset == null) {
+            throw new IllegalArgumentException("공연 정책 초기값이 유효하지 않습니다.");
+        }
+        PerformancePolicy policy = new PerformancePolicy();
+        policy.performance = performance;
+        switch (preset) {
+            case TEAM_FIRST ->
+                policy.states(
+                        FeatureState.OPEN,
+                        FeatureState.CLOSED,
+                        FeatureState.OPEN,
+                        CandidateScope.TEAM_MEMBERS,
+                        FeatureState.OPEN,
+                        FeatureState.CLOSED,
+                        FeatureState.CLOSED);
+            case SONG_FIRST ->
+                policy.states(
+                        FeatureState.OPEN,
+                        FeatureState.CLOSED,
+                        FeatureState.OPEN,
+                        CandidateScope.ALL_PARTICIPANTS,
+                        FeatureState.OPEN,
+                        FeatureState.OPEN,
+                        FeatureState.CLOSED);
+            case SONG_FIXED ->
+                policy.states(
+                        FeatureState.CLOSED,
+                        FeatureState.DISABLED,
+                        FeatureState.DISABLED,
+                        CandidateScope.ALL_PARTICIPANTS,
+                        FeatureState.CLOSED,
+                        FeatureState.DISABLED,
+                        FeatureState.CLOSED);
+            case SELF_TEAM ->
+                policy.states(
+                        FeatureState.OPEN,
+                        FeatureState.OPEN,
+                        FeatureState.OPEN,
+                        CandidateScope.TEAM_MEMBERS,
+                        FeatureState.OPEN,
+                        FeatureState.CLOSED,
+                        FeatureState.CLOSED);
+            case BAND ->
+                policy.states(
+                        FeatureState.CLOSED,
+                        FeatureState.DISABLED,
+                        FeatureState.OPEN,
+                        CandidateScope.ALL_PARTICIPANTS,
+                        FeatureState.OPEN,
+                        FeatureState.OPEN,
+                        FeatureState.CLOSED);
+            case CUSTOM ->
+                policy.states(
+                        FeatureState.DISABLED,
+                        FeatureState.DISABLED,
+                        FeatureState.DISABLED,
+                        CandidateScope.ALL_PARTICIPANTS,
+                        FeatureState.DISABLED,
+                        FeatureState.DISABLED,
+                        FeatureState.DISABLED);
+        }
+        policy.voteMethod = VoteMethod.APPROVAL;
+        policy.playabilityResultPublic = true;
+        policy.voteResultPublic = true;
+        return policy;
+    }
+
+    private void states(
+            FeatureState application,
+            FeatureState team,
+            FeatureState candidate,
+            CandidateScope scope,
+            FeatureState playability,
+            FeatureState vote,
+            FeatureState availability) {
+        this.applicationState = application;
+        this.teamSubmissionState = team;
+        this.candidateState = candidate;
+        this.candidateScope = scope;
+        this.playabilityState = playability;
+        this.voteState = vote;
+        this.availabilityState = availability;
+    }
+
+    /** 필드별 부분 수정은 서비스가 기존값을 보존해 완성한 Values로 전달한다. */
+    public void replace(Values values) {
+        if (values.getApplicationState() == null
+                || values.getCandidateState() == null
+                || values.getPlayabilityState() == null
+                || values.getVoteState() == null
+                || values.getTeamSubmissionState() == null
+                || values.getAvailabilityState() == null
+                || values.getCandidateScope() == null
+                || values.getVoteMethod() == null) {
+            throw new IllegalArgumentException("정책 상태가 누락되었습니다.");
+        }
+        if ((values.getPracticeSeasonStart() == null) != (values.getPracticeSeasonEnd() == null)
+                || (values.getPracticeSeasonStart() != null
+                        && values.getPracticeSeasonStart().isAfter(values.getPracticeSeasonEnd()))) {
+            throw new IllegalArgumentException("합주 시즌 범위가 유효하지 않습니다.");
+        }
+        if (values.getAvailabilityState() == FeatureState.OPEN && values.getPracticeSeasonStart() == null) {
+            throw new IllegalStateException("가능 시간을 열려면 합주 시즌이 필요합니다.");
+        }
+        if (nonPositive(values.getCandidateLimitPerMember())
+                || nonPositive(values.getVoteMaxChoices())
+                || nonPositive(values.getMaxSongsPerMember())) {
+            throw new IllegalArgumentException("정책 제한 수는 양수여야 합니다.");
+        }
+        applicationState = values.getApplicationState();
+        applicationDeadline = values.getApplicationDeadline();
+        candidateState = values.getCandidateState();
+        candidateDeadline = values.getCandidateDeadline();
+        candidateScope = values.getCandidateScope();
+        candidateLimitPerMember = values.getCandidateLimitPerMember();
+        playabilityState = values.getPlayabilityState();
+        playabilityDeadline = values.getPlayabilityDeadline();
+        voteState = values.getVoteState();
+        voteDeadline = values.getVoteDeadline();
+        voteMethod = values.getVoteMethod();
+        voteMaxChoices = values.getVoteMaxChoices();
+        playabilityResultPublic = values.isPlayabilityResultPublic();
+        voteResultPublic = values.isVoteResultPublic();
+        teamSubmissionState = values.getTeamSubmissionState();
+        teamSubmissionDeadline = values.getTeamSubmissionDeadline();
+        availabilityState = values.getAvailabilityState();
+        availabilityDeadline = values.getAvailabilityDeadline();
+        practiceSeasonStart = values.getPracticeSeasonStart();
+        practiceSeasonEnd = values.getPracticeSeasonEnd();
+        maxSongsPerMember = values.getMaxSongsPerMember();
+    }
+
+    private static boolean nonPositive(Integer value) {
+        return value != null && value <= 0;
+    }
+
+    /** 공연 투표 방식을 변경한다 */
+    public void changeVoteMethod(VoteMethod method) {
+        if (method == null) {
+            throw new IllegalArgumentException("투표 방식이 필요합니다.");
+        }
+        this.voteMethod = method;
+    }
+
+    @Getter
+    @AllArgsConstructor
+    @NoArgsConstructor(access = AccessLevel.PROTECTED)
+    @EqualsAndHashCode
+    public static class Values {
+        @JsonProperty("applicationState")
+        private FeatureState applicationState;
+
+        @JsonProperty("applicationDeadline")
+        private LocalDateTime applicationDeadline;
+
+        @JsonProperty("candidateState")
+        private FeatureState candidateState;
+
+        @JsonProperty("candidateDeadline")
+        private LocalDateTime candidateDeadline;
+
+        @JsonProperty("candidateScope")
+        private CandidateScope candidateScope;
+
+        @JsonProperty("candidateLimitPerMember")
+        private Integer candidateLimitPerMember;
+
+        @JsonProperty("playabilityState")
+        private FeatureState playabilityState;
+
+        @JsonProperty("playabilityDeadline")
+        private LocalDateTime playabilityDeadline;
+
+        @JsonProperty("voteState")
+        private FeatureState voteState;
+
+        @JsonProperty("voteDeadline")
+        private LocalDateTime voteDeadline;
+
+        @JsonProperty("voteMethod")
+        private VoteMethod voteMethod;
+
+        @JsonProperty("voteMaxChoices")
+        private Integer voteMaxChoices;
+
+        @JsonProperty("playabilityResultPublic")
+        private boolean playabilityResultPublic;
+
+        @JsonProperty("voteResultPublic")
+        private boolean voteResultPublic;
+
+        @JsonProperty("teamSubmissionState")
+        private FeatureState teamSubmissionState;
+
+        @JsonProperty("teamSubmissionDeadline")
+        private LocalDateTime teamSubmissionDeadline;
+
+        @JsonProperty("availabilityState")
+        private FeatureState availabilityState;
+
+        @JsonProperty("availabilityDeadline")
+        private LocalDateTime availabilityDeadline;
+
+        @JsonProperty("practiceSeasonStart")
+        private LocalDate practiceSeasonStart;
+
+        @JsonProperty("practiceSeasonEnd")
+        private LocalDate practiceSeasonEnd;
+
+        @JsonProperty("maxSongsPerMember")
+        private Integer maxSongsPerMember;
+    }
 }
