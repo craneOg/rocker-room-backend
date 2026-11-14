@@ -13,6 +13,7 @@ import com.crane.bandwebbackend.domain.user.entity.User;
 import com.crane.bandwebbackend.global.error.BusinessException;
 import com.crane.bandwebbackend.global.error.ErrorCode;
 import com.crane.bandwebbackend.global.response.ApiIds;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.EnumSet;
@@ -21,6 +22,11 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -164,5 +170,15 @@ public class MemberDirectoryService {
         return member.getDisplayName() == null ? member.getUser().getName() : member.getDisplayName();
     }
 
-    public record LookupResult(User user, Membership membership) {}
+    @Getter
+    @AllArgsConstructor
+    @NoArgsConstructor(access = AccessLevel.PROTECTED)
+    @EqualsAndHashCode
+    public static class LookupResult {
+        @JsonProperty("user")
+        private User user;
+
+        @JsonProperty("membership")
+        private Membership membership;
+    }
 }

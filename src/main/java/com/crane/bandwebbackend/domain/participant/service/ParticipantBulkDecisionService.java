@@ -38,16 +38,16 @@ public class ParticipantBulkDecisionService {
             throw new BusinessException(ErrorCode.STATE_CONFLICT, "INVALID_STATE", "일괄 결정이 가능한 공연 상태가 아닙니다.");
         }
         if (request == null
-                || request.decision() == null
-                || request.performanceMemberIds() == null
-                || request.performanceMemberIds().isEmpty()
-                || request.performanceMemberIds().size() > 100) {
+                || request.getDecision() == null
+                || request.getPerformanceMemberIds() == null
+                || request.getPerformanceMemberIds().isEmpty()
+                || request.getPerformanceMemberIds().size() > 100) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "일괄 결정 요청이 유효하지 않습니다.");
         }
-        if (request.reason() != null && request.reason().length() > 500) {
+        if (request.getReason() != null && request.getReason().length() > 500) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "사유는 500자 이하여야 합니다.");
         }
-        List<Long> ids = request.performanceMemberIds().stream()
+        List<Long> ids = request.getPerformanceMemberIds().stream()
                 .map(value -> ApiIds.positive(value, "performanceMemberIds"))
                 .toList();
         if (new HashSet<>(ids).size() != ids.size()) {
@@ -63,14 +63,14 @@ public class ParticipantBulkDecisionService {
             try {
                 tx.executeWithoutResult(status -> {
                     var current = performances.require(clubId, performanceId);
-                    if (request.decision() == ParticipantBulkDecisionRequest.Decision.APPROVE) {
+                    if (request.getDecision() == ParticipantBulkDecisionRequest.Decision.APPROVE) {
                         approvals.approve(
                                 clubId,
                                 performanceId,
                                 id,
                                 actorUserId,
                                 current.getVersion().toString(),
-                                request.reason());
+                                request.getReason());
                     } else {
                         removals.remove(
                                 clubId,
@@ -78,7 +78,7 @@ public class ParticipantBulkDecisionService {
                                 id,
                                 actorUserId,
                                 new ParticipantRemovalRequest(
-                                        current.getVersion().toString(), request.reason(), List.of()),
+                                        current.getVersion().toString(), request.getReason(), List.of()),
                                 true);
                     }
                 });

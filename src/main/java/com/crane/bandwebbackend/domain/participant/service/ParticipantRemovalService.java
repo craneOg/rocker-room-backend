@@ -68,10 +68,11 @@ public class ParticipantRemovalService {
         }
         // 거절은 신청 대기와 공연 버전을 요구하고 철회는 유효 참여 상태를 요구한다.
         if (reject) {
-            if (body.performanceVersion() == null || !body.performanceVersion().matches("[0-9]+")) {
+            if (body.getPerformanceVersion() == null
+                    || !body.getPerformanceVersion().matches("[0-9]+")) {
                 throw new BusinessException(ErrorCode.VALIDATION_ERROR, "performanceVersion이 필요합니다.");
             }
-            if (!body.performanceVersion().equals(performance.getVersion().toString())) {
+            if (!body.getPerformanceVersion().equals(performance.getVersion().toString())) {
                 throw new BusinessException(ErrorCode.VERSION_CONFLICT, "공연 버전이 달라졌습니다.");
             }
             if (member.getStatus() != PerformanceMemberStatus.APPLIED) {
@@ -91,29 +92,29 @@ public class ParticipantRemovalService {
         if (status == PerformanceStatus.DRAFT && !reject && self) {
             throw new BusinessException(ErrorCode.FORBIDDEN, "초안 공연에서는 임원만 참여자를 뺄 수 있습니다.");
         }
-        if (body.reason() != null && body.reason().length() > 500) {
+        if (body.getReason() != null && body.getReason().length() > 500) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "사유는 500자 이하여야 합니다.");
         }
         // 변경 전에 팀·곡·일정 영향을 계산해 응답과 안전 검증에 사용한다.
         ParticipantImpactResponse affected = impact.read(clubId, performanceId, participantId, actorUserId);
-        removalPolicy.validate(performance, participantId, body.reason(), reject);
+        removalPolicy.validate(performance, participantId, body.getReason(), reject);
         // 팀장 후임을 먼저 반영한 뒤 참여 상태를 거절 또는 철회로 변경한다.
         TeamLeaderSuccession.Mode mode =
                 !reject && self ? TeamLeaderSuccession.Mode.SELF_WITHDRAWAL : TeamLeaderSuccession.Mode.ADMIN_REMOVAL;
         Map<Long, Long> specified = new HashMap<>();
-        if (body.teamLeaderSuccessors() != null) {
-            for (var item : body.teamLeaderSuccessors()) {
+        if (body.getTeamLeaderSuccessors() != null) {
+            for (var item : body.getTeamLeaderSuccessors()) {
                 if (item == null) {
                     throw TeamLeaderSuccession.invalidSuccessor(mode);
                 }
-                Long teamId = ApiIds.positive(item.teamId(), "teamLeaderSuccessors.teamId");
-                Long membershipId = ApiIds.positive(item.membershipId(), "teamLeaderSuccessors.membershipId");
+                Long teamId = ApiIds.positive(item.getTeamId(), "teamLeaderSuccessors.teamId");
+                Long membershipId = ApiIds.positive(item.getMembershipId(), "teamLeaderSuccessors.membershipId");
                 if (specified.put(teamId, membershipId) != null) {
                     throw TeamLeaderSuccession.invalidSuccessor(mode);
                 }
             }
         }
-        Set<String> affectedUsers = new HashSet<>(affected.affectedUserIds());
+        Set<String> affectedUsers = new HashSet<>(affected.getAffectedUserIds());
         succession.apply(performanceId, participantId, specified, mode).forEach(id -> affectedUsers.add(id.toString()));
         if (!specified.isEmpty()) {
             throw TeamLeaderSuccession.invalidSuccessor(mode);
@@ -129,16 +130,16 @@ public class ParticipantRemovalService {
                 reject ? "PERFORMANCE_MEMBER_REJECTED" : "PERFORMANCE_MEMBER_WITHDRAWN",
                 "PERFORMANCE_MEMBER",
                 participantId,
-                body.reason(),
+                body.getReason(),
                 Map.of("status", member.getStatus()));
-        removalPolicy.recordException(performance, actorUserId, participantId, body.reason());
+        removalPolicy.recordException(performance, actorUserId, participantId, body.getReason());
         entityManager.flush();
         return new ParticipantMutationResult(
                 ParticipantResponse.from(member),
-                affected.warnings().stream().map(warning -> (Object) warning).toList(),
+                affected.getWarnings().stream().map(warning -> (Object) warning).toList(),
                 new ParticipantMutationResult.Effects(
                         List.of(),
-                        affected.scheduleIds(),
+                        affected.getScheduleIds(),
                         affectedUsers.stream().sorted().toList()));
     }
 }

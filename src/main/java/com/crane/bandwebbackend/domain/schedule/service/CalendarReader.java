@@ -212,7 +212,7 @@ public class CalendarReader {
             throw rangeTooLarge();
         }
         return events.stream()
-                .sorted(Comparator.comparing(CalendarEvent::startAt).thenComparing(CalendarEvent::id))
+                .sorted(Comparator.comparing(CalendarEvent::getStartAt).thenComparing(CalendarEvent::getId))
                 .toList();
     }
 

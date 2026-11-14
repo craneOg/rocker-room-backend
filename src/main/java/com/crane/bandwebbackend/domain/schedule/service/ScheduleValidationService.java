@@ -58,29 +58,29 @@ public class ScheduleValidationService {
         var performance = performances.require(clubId, performanceId);
         requireActiveClub(performance.getClub().getStatus());
         requireEditable(performance.getStatus());
-        if (request == null || request.startAt() == null || request.endAt() == null) {
+        if (request == null || request.getStartAt() == null || request.getEndAt() == null) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "시작·종료 시각이 필요합니다.");
         }
-        ScheduleStatus status = request.status() == null ? ScheduleStatus.TENTATIVE : request.status();
+        ScheduleStatus status = request.getStatus() == null ? ScheduleStatus.TENTATIVE : request.getStatus();
         if (status == ScheduleStatus.CANCELED) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "취소 상태는 생성할 수 없습니다.");
         }
         // 대상 ID와 UTC 시간 범위를 정규화하고 참조 경계를 검증한다.
-        List<Long> teamIds = ids(request.teamIds(), "teamIds");
-        List<Long> songIds = ids(request.songIds(), "songIds");
+        List<Long> teamIds = ids(request.getTeamIds(), "teamIds");
+        List<Long> songIds = ids(request.getSongIds(), "songIds");
         validateTargets(performanceId, teamIds, songIds);
         LocalDateTime start =
-                request.startAt().withOffsetSameInstant(ZoneOffset.UTC).toLocalDateTime();
+                request.getStartAt().withOffsetSameInstant(ZoneOffset.UTC).toLocalDateTime();
         LocalDateTime end =
-                request.endAt().withOffsetSameInstant(ZoneOffset.UTC).toLocalDateTime();
+                request.getEndAt().withOffsetSameInstant(ZoneOffset.UTC).toLocalDateTime();
         validateTime(start, end);
         validateTitle(
-                request.title(),
+                request.getTitle(),
                 performance,
-                request.eventType() == null ? ScheduleType.PRACTICE : request.eventType(),
+                request.getEventType() == null ? ScheduleType.PRACTICE : request.getEventType(),
                 teamIds);
-        if (request.location() != null && request.location().length() > 200
-                || request.memo() != null && request.memo().length() > 500) {
+        if (request.getLocation() != null && request.getLocation().length() > 200
+                || request.getMemo() != null && request.getMemo().length() > 500) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "일정 문자열 길이가 유효하지 않습니다.");
         }
         return result(
@@ -91,7 +91,7 @@ public class ScheduleValidationService {
                 status,
                 start,
                 end,
-                Boolean.TRUE.equals(request.forAllParticipants()),
+                Boolean.TRUE.equals(request.getForAllParticipants()),
                 teamIds,
                 songIds,
                 true);

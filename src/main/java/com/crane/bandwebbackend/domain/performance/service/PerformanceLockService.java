@@ -38,7 +38,7 @@ public class PerformanceLockService {
         memberships.requireAdmin(clubId, actorUserId);
         requirePerformance(clubId, performanceId);
         return new LockChecklistResponse(
-                LockChecklistEvaluator.evaluate(readiness.read(performanceId)).items());
+                LockChecklistEvaluator.evaluate(readiness.read(performanceId)).getItems());
     }
 
     /** 공연 입력과 상태를 검증한다 */
@@ -51,9 +51,9 @@ public class PerformanceLockService {
         requireActive(performance, version);
         var evaluation = LockChecklistEvaluator.evaluate(readiness.read(performanceId));
         return new LockValidationResponse(
-                evaluation.hardErrors(),
-                evaluation.warnings(),
-                evaluation.normalizedSetlist(),
+                evaluation.getHardErrors(),
+                evaluation.getWarnings(),
+                evaluation.getNormalizedSetlist(),
                 false,
                 null,
                 Map.of("performance", performance.getVersion().toString()));
@@ -79,25 +79,27 @@ public class PerformanceLockService {
                 .getResultList();
         // 잠금 직전 스냅샷을 평가해 필수 오류는 차단하고 경고는 사용자 확인을 요구한다.
         var evaluation = LockChecklistEvaluator.evaluate(readiness.readLocked(performanceId));
-        if (!evaluation.hardErrors().isEmpty()) {
+        if (!evaluation.getHardErrors().isEmpty()) {
             var details = new ArrayList<ErrorDetail>();
             details.add(ErrorDetail.of("request", "LOCK_REQUIREMENTS_FAILED"));
-            evaluation.hardErrors().forEach(item -> {
-                String field = switch (item.targetType()) {
+            evaluation.getHardErrors().forEach(item -> {
+                String field = switch (item.getTargetType()) {
                     case "SONG" -> "songId";
                     case "TEAM" -> "teamId";
                     case "PERFORMANCE_MEMBER" -> "performanceMemberId";
                     case "AUDITION" -> "auditionId";
                     default -> "request";
                 };
-                details.add(ErrorDetail.of(field + ":" + item.targetId(), item.type()));
+                details.add(ErrorDetail.of(field + ":" + item.getTargetId(), item.getType()));
             });
             throw new BusinessException(ErrorCode.RULE_VIOLATION, "셋리스트 확정 조건을 충족하지 못했습니다.", details);
         }
-        if (!evaluation.warnings().isEmpty() && !confirmed) {
+        if (!evaluation.getWarnings().isEmpty() && !confirmed) {
             throw BusinessException.confirmationRequired(
                     "경고를 확인한 뒤 다시 요청해 주세요.",
-                    evaluation.warnings().stream().map(item -> item.asWarning()).toList());
+                    evaluation.getWarnings().stream()
+                            .map(item -> item.asWarning())
+                            .toList());
         }
         // UNIQUE(performance_id, setlist_order)를 피하기 위해 비운 뒤 1부터 다시 지정한다.
         entityManager
@@ -108,14 +110,14 @@ public class PerformanceLockService {
                 .setParameter("performanceId", performanceId)
                 .executeUpdate();
         // 평가기가 정규화한 순서를 곡별로 다시 저장한다.
-        for (var row : evaluation.normalizedSetlist()) {
+        for (var row : evaluation.getNormalizedSetlist()) {
             entityManager
                     .createNativeQuery("""
 					UPDATE song SET setlist_order = :newOrder, version = version + 1
 					WHERE id = :songId AND performance_id = :performanceId AND status = 'CONFIRMED'
 					""")
-                    .setParameter("newOrder", row.order())
-                    .setParameter("songId", Long.valueOf(row.songId()))
+                    .setParameter("newOrder", row.getOrder())
+                    .setParameter("songId", Long.valueOf(row.getSongId()))
                     .setParameter("performanceId", performanceId)
                     .executeUpdate();
         }
@@ -137,10 +139,10 @@ public class PerformanceLockService {
                 "PERFORMANCE",
                 performanceId,
                 null,
-                Map.of("confirmedSongCount", evaluation.normalizedSetlist().size()));
+                Map.of("confirmedSongCount", evaluation.getNormalizedSetlist().size()));
         entityManager.flush();
         return new LockMutationResponse(
-                PerformanceResponse.from(performance), evaluation.warnings(), LockMutationResponse.Effects.none());
+                PerformanceResponse.from(performance), evaluation.getWarnings(), LockMutationResponse.Effects.none());
     }
 
     /** 동아리에 속한 공연을 조회하고 없으면 API 오류를 발생시킨다. */

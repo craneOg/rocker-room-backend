@@ -5,10 +5,16 @@ import com.crane.bandwebbackend.domain.membership.service.MemberDirectoryService
 import com.crane.bandwebbackend.global.response.ApiIds;
 import com.crane.bandwebbackend.global.response.ApiResponse;
 import com.crane.bandwebbackend.global.security.CurrentActor;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.ResponseEntity;
@@ -33,7 +39,7 @@ public class MemberLookupController {
             @PathVariable String clubId, @RequestParam String handle, HttpServletRequest request) {
         Long actor = currentActor.requireUserId();
         var result = directory.lookup(ApiIds.positive(clubId, "clubId"), actor, handle);
-        Membership member = result.membership();
+        Membership member = result.getMembership();
         MembershipInfo info = member == null
                 ? null
                 : new MembershipInfo(
@@ -47,15 +53,46 @@ public class MemberLookupController {
                                         .plusMonths(1)
                                         .toOffsetDateTime());
         return ResponseEntity.ok(ApiResponse.ok(new LookupResponse(
-                result.user().getId().toString(),
-                result.user().getHandle(),
-                result.user().getName(),
-                result.user().profileImageUrlFor(result.user().getId().equals(actor) ? result.user() : null),
+                result.getUser().getId().toString(),
+                result.getUser().getHandle(),
+                result.getUser().getName(),
+                result.getUser().profileImageUrlFor(result.getUser().getId().equals(actor) ? result.getUser() : null),
                 info)));
     }
 
-    public record LookupResponse(
-            String userId, String handle, String name, String profileImageUrl, MembershipInfo membership) {}
+    @Getter
+    @AllArgsConstructor
+    @NoArgsConstructor(access = AccessLevel.PROTECTED)
+    @EqualsAndHashCode
+    public static class LookupResponse {
+        @JsonProperty("userId")
+        private String userId;
 
-    public record MembershipInfo(String id, String status, OffsetDateTime invitationExpiresAt) {}
+        @JsonProperty("handle")
+        private String handle;
+
+        @JsonProperty("name")
+        private String name;
+
+        @JsonProperty("profileImageUrl")
+        private String profileImageUrl;
+
+        @JsonProperty("membership")
+        private MembershipInfo membership;
+    }
+
+    @Getter
+    @AllArgsConstructor
+    @NoArgsConstructor(access = AccessLevel.PROTECTED)
+    @EqualsAndHashCode
+    public static class MembershipInfo {
+        @JsonProperty("id")
+        private String id;
+
+        @JsonProperty("status")
+        private String status;
+
+        @JsonProperty("invitationExpiresAt")
+        private OffsetDateTime invitationExpiresAt;
+    }
 }

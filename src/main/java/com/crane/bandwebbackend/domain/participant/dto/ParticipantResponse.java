@@ -6,25 +6,56 @@ import com.crane.bandwebbackend.domain.participant.entity.PerformanceMember;
 import com.crane.bandwebbackend.domain.participant.entity.PerformanceMemberSource;
 import com.crane.bandwebbackend.domain.participant.entity.PerformanceMemberStatus;
 import com.crane.bandwebbackend.global.response.RevisionTag;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 /** PAR-02/03의 본인·임원용 상세 응답. 일반 공개 목록에는 source/revision을 내보내지 않는다. */
 @Builder
-public record ParticipantResponse(
-        String id,
-        String performanceId,
-        String membershipId,
-        String displayName,
-        MemberType memberType,
-        PerformanceMemberStatus status,
-        PerformanceMemberSource source,
-        OffsetDateTime decidedAt,
-        String revision,
-        OffsetDateTime createdAt,
-        OffsetDateTime updatedAt) {
+@Getter
+@AllArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@EqualsAndHashCode
+public class ParticipantResponse {
+    @JsonProperty("id")
+    private String id;
+
+    @JsonProperty("performanceId")
+    private String performanceId;
+
+    @JsonProperty("membershipId")
+    private String membershipId;
+
+    @JsonProperty("displayName")
+    private String displayName;
+
+    @JsonProperty("memberType")
+    private MemberType memberType;
+
+    @JsonProperty("status")
+    private PerformanceMemberStatus status;
+
+    @JsonProperty("source")
+    private PerformanceMemberSource source;
+
+    @JsonProperty("decidedAt")
+    private OffsetDateTime decidedAt;
+
+    @JsonProperty("revision")
+    private String revision;
+
+    @JsonProperty("createdAt")
+    private OffsetDateTime createdAt;
+
+    @JsonProperty("updatedAt")
+    private OffsetDateTime updatedAt;
 
     /** 공연 참여 엔티티를 응답 데이터로 변환한다 */
     public static ParticipantResponse from(PerformanceMember member) {

@@ -126,7 +126,9 @@ public class PracticeScheduleController {
                 body);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.ok(new ScheduleMutationResponse(
-                        response(result.schedule()), result.warnings(), ScheduleMutationResponse.Effects.none())));
+                        response(result.getSchedule()),
+                        result.getWarnings(),
+                        ScheduleMutationResponse.Effects.none())));
     }
 
     /** 일정 생성 요청을 검증한다 */
@@ -190,7 +192,7 @@ public class PracticeScheduleController {
                 currentActor.requireUserId(),
                 body);
         return ResponseEntity.ok(ApiResponse.ok(new ScheduleMutationResponse(
-                response(result.schedule()), result.warnings(), ScheduleMutationResponse.Effects.none())));
+                response(result.getSchedule()), result.getWarnings(), ScheduleMutationResponse.Effects.none())));
     }
 
     /** 일정 수정 요청을 검증한다 */
@@ -222,9 +224,9 @@ public class PracticeScheduleController {
                 ApiIds.positive(performanceId, "performanceId"),
                 ApiIds.positive(scheduleId, "scheduleId"),
                 currentActor.requireUserId(),
-                body.version(),
+                body.getVersion(),
                 ScheduleStatus.CANCELED,
-                body.reason());
+                body.getReason());
         return ResponseEntity.ok(ApiResponse.ok(ScheduleMutationResponse.of(response(schedule))));
     }
 
@@ -241,10 +243,10 @@ public class PracticeScheduleController {
                 ApiIds.positive(performanceId, "performanceId"),
                 ApiIds.positive(scheduleId, "scheduleId"),
                 currentActor.requireUserId(),
-                body.version(),
-                Boolean.TRUE.equals(body.confirmed()));
+                body.getVersion(),
+                Boolean.TRUE.equals(body.getConfirmed()));
         return ResponseEntity.ok(ApiResponse.ok(new ScheduleMutationResponse(
-                response(result.schedule()), result.warnings(), ScheduleMutationResponse.Effects.none())));
+                response(result.getSchedule()), result.getWarnings(), ScheduleMutationResponse.Effects.none())));
     }
 
     /** 일정 확정을 해제한다 */
@@ -255,7 +257,7 @@ public class PracticeScheduleController {
             @PathVariable String scheduleId,
             @Valid @RequestBody ScheduleVersionRequest body,
             HttpServletRequest request) {
-        if (body.reason() != null) {
+        if (body.getReason() != null) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "unconfirm은 reason을 받지 않습니다.");
         }
         PracticeSchedule schedule = transitionService.change(
@@ -263,7 +265,7 @@ public class PracticeScheduleController {
                 ApiIds.positive(performanceId, "performanceId"),
                 ApiIds.positive(scheduleId, "scheduleId"),
                 currentActor.requireUserId(),
-                body.version(),
+                body.getVersion(),
                 ScheduleStatus.TENTATIVE,
                 null);
         return ResponseEntity.ok(ApiResponse.ok(response(schedule)));

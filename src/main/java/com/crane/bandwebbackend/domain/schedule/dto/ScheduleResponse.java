@@ -3,30 +3,71 @@ package com.crane.bandwebbackend.domain.schedule.dto;
 import com.crane.bandwebbackend.domain.schedule.entity.PracticeSchedule;
 import com.crane.bandwebbackend.domain.schedule.entity.ScheduleStatus;
 import com.crane.bandwebbackend.domain.schedule.entity.ScheduleType;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 /** SCH-01 목록 객체. 연결 팀·곡 ID는 ScheduleTargetReader가 페이지 단위로 공급한다. */
 @Builder
-public record ScheduleResponse(
-        String id,
-        String performanceId,
-        ScheduleType eventType,
-        ScheduleStatus status,
-        String title,
-        OffsetDateTime startAt,
-        OffsetDateTime endAt,
-        String location,
-        String memo,
-        boolean forAllParticipants,
-        List<String> teamIds,
-        List<String> songIds,
-        String performanceTitle,
-        String version,
-        OffsetDateTime createdAt,
-        OffsetDateTime updatedAt) {
+@Getter
+@AllArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@EqualsAndHashCode
+public class ScheduleResponse {
+    @JsonProperty("id")
+    private String id;
+
+    @JsonProperty("performanceId")
+    private String performanceId;
+
+    @JsonProperty("eventType")
+    private ScheduleType eventType;
+
+    @JsonProperty("status")
+    private ScheduleStatus status;
+
+    @JsonProperty("title")
+    private String title;
+
+    @JsonProperty("startAt")
+    private OffsetDateTime startAt;
+
+    @JsonProperty("endAt")
+    private OffsetDateTime endAt;
+
+    @JsonProperty("location")
+    private String location;
+
+    @JsonProperty("memo")
+    private String memo;
+
+    @JsonProperty("forAllParticipants")
+    private boolean forAllParticipants;
+
+    @JsonProperty("teamIds")
+    private List<String> teamIds;
+
+    @JsonProperty("songIds")
+    private List<String> songIds;
+
+    @JsonProperty("performanceTitle")
+    private String performanceTitle;
+
+    @JsonProperty("version")
+    private String version;
+
+    @JsonProperty("createdAt")
+    private OffsetDateTime createdAt;
+
+    @JsonProperty("updatedAt")
+    private OffsetDateTime updatedAt;
 
     /** 일정 엔티티를 응답 데이터로 변환한다 */
     public static ScheduleResponse from(PracticeSchedule schedule, List<String> teamIds, List<String> songIds) {

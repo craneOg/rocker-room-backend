@@ -25,13 +25,13 @@ class LockChecklistEvaluatorTest {
                 List.of(),
                 2));
 
-        assertThat(result.hardErrors()).isEmpty();
-        assertThat(result.warnings()).isEmpty();
-        assertThat(result.items())
+        assertThat(result.getHardErrors()).isEmpty();
+        assertThat(result.getWarnings()).isEmpty();
+        assertThat(result.getItems())
                 .hasSize(11)
-                .allMatch(item -> item.result().name().equals("SATISFIED"));
-        assertThat(result.normalizedSetlist())
-                .extracting(row -> row.songId() + ":" + row.order())
+                .allMatch(item -> item.getResult().name().equals("SATISFIED"));
+        assertThat(result.getNormalizedSetlist())
+                .extracting(row -> row.getSongId() + ":" + row.getOrder())
                 .containsExactly("1:1", "2:2");
     }
 
@@ -46,10 +46,10 @@ class LockChecklistEvaluatorTest {
                 List.of(new AuditionRow(9, 1, null, null, LocalDateTime.parse("2026-11-01T10:00:00"))),
                 null));
 
-        assertThat(result.hardErrors())
-                .extracting(item -> item.checkId())
+        assertThat(result.getHardErrors())
+                .extracting(item -> item.getCheckId())
                 .containsExactly("L-01", "L-02", "L-03", "L-04", "L-05", "L-06");
-        assertThat(result.warnings()).isEmpty();
+        assertThat(result.getWarnings()).isEmpty();
     }
 
     @Test
@@ -65,9 +65,9 @@ class LockChecklistEvaluatorTest {
                         new AuditionRow(31, 2, null, "FAILED", LocalDateTime.parse("2026-11-02T10:00:00"))),
                 1));
 
-        assertThat(result.hardErrors()).isEmpty();
-        assertThat(result.warnings())
-                .extracting(item -> item.checkId())
+        assertThat(result.getHardErrors()).isEmpty();
+        assertThat(result.getWarnings())
+                .extracting(item -> item.getCheckId())
                 .containsExactly("L-07", "L-08", "L-09", "L-10", "L-11");
     }
 
@@ -84,6 +84,6 @@ class LockChecklistEvaluatorTest {
                         new AuditionRow(31, 1, null, "PASSED", LocalDateTime.parse("2026-11-02T10:00:00"))),
                 1));
 
-        assertThat(result.warnings()).noneMatch(item -> item.checkId().equals("L-11"));
+        assertThat(result.getWarnings()).noneMatch(item -> item.getCheckId().equals("L-11"));
     }
 }

@@ -5,10 +5,16 @@ import com.crane.bandwebbackend.domain.schedule.service.CalendarReader;
 import com.crane.bandwebbackend.global.response.ApiIds;
 import com.crane.bandwebbackend.global.response.ApiResponse;
 import com.crane.bandwebbackend.global.security.CurrentActor;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -79,5 +85,12 @@ public class CalendarController {
         return time.withOffsetSameInstant(ZoneOffset.UTC).toLocalDateTime();
     }
 
-    public record Items(List<CalendarEvent> items) {}
+    @Getter
+    @AllArgsConstructor
+    @NoArgsConstructor(access = AccessLevel.PROTECTED)
+    @EqualsAndHashCode
+    public static class Items {
+        @JsonProperty("items")
+        private List<CalendarEvent> items;
+    }
 }

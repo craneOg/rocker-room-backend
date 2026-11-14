@@ -83,7 +83,7 @@ class ParticipantRemovalIntegrationTest {
     void withdrawAndReapply() {
         var result = removal.remove(1L, 1L, 2L, 1L, request(), false);
         assertRemoved("WITHDRAWN");
-        assertThat(result.effects().affectedScheduleIds()).contains("1");
+        assertThat(result.getEffects().getAffectedScheduleIds()).contains("1");
         new TransactionTemplate(transactionManager)
                 .executeWithoutResult(status -> participants.ensureAdminParticipation(
                         performances.findById(1L).orElseThrow(),
@@ -138,7 +138,7 @@ class ParticipantRemovalIntegrationTest {
         }
         var result = withdrawal.withdraw(1L, 2L, 1L, null);
         assertRemoved("WITHDRAWN");
-        assertThat(result.effects().affectedScheduleIds()).contains("1");
+        assertThat(result.getEffects().getAffectedScheduleIds()).contains("1");
         assertThat(count("SELECT COUNT(*) FROM team_member WHERE performance_member_id IN (12,13)"))
                 .isEqualTo(2);
         assertThat(count("SELECT COUNT(*) FROM song_session_member WHERE performance_member_id IN (12,13)"))

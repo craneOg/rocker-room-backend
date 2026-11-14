@@ -64,17 +64,17 @@ class Pr18PolicyIntegrationTest {
     @DisplayName("API-150 접근 불가 소속·DRAFT·객원 공연만 제외하며 정상 항목과 심사 원본은 보존한다")
     void mineFiltersOnlyInaccessibleRecords(String status) {
         history(status);
-        assertThat(auditions.mine(2L, null, null).items())
-                .extracting(item -> item.id())
+        assertThat(auditions.mine(2L, null, null).getItems())
+                .extracting(item -> item.getId())
                 .containsExactlyInAnyOrder("1", "5");
-        assertThat(auditions.mine(2L, 2L, null).items()).isEmpty();
-        assertThat(auditions.mine(2L, null, 3L).items()).isEmpty();
-        assertThat(auditions.mine(2L, 1L, 1L).items()).hasSize(2);
+        assertThat(auditions.mine(2L, 2L, null).getItems()).isEmpty();
+        assertThat(auditions.mine(2L, null, 3L).getItems()).isEmpty();
+        assertThat(auditions.mine(2L, 1L, 1L).getItems()).hasSize(2);
         assertThat(count("SELECT COUNT(*) FROM audition_entry")).isEqualTo(5);
         // 객원의 유효 참여가 복구되면 기존 이력도 현재 공개 범위에 따라 다시 조회된다.
         jdbc.update("UPDATE performance_member SET status='APPLIED' WHERE id=6");
-        assertThat(auditions.mine(2L, null, null).items())
-                .extracting(item -> item.id())
+        assertThat(auditions.mine(2L, null, null).getItems())
+                .extracting(item -> item.getId())
                 .containsExactlyInAnyOrder("1", "5", "4");
     }
 
@@ -84,14 +84,14 @@ class Pr18PolicyIntegrationTest {
         history("WITHDRAWN");
         for (String status : List.of("ACTIVE", "ON_LEAVE", "GRADUATED")) {
             jdbc.update("UPDATE membership SET status=? WHERE id=2", status);
-            assertThat(auditions.mine(2L, null, null).items())
-                    .extracting(item -> item.id())
+            assertThat(auditions.mine(2L, null, null).getItems())
+                    .extracting(item -> item.getId())
                     .containsExactlyInAnyOrder("1", "5");
         }
         jdbc.update("UPDATE membership SET role='CLUB_ADMIN',status='ACTIVE' WHERE id=2");
         jdbc.update("UPDATE club SET status='INACTIVE' WHERE id=1");
-        assertThat(auditions.mine(2L, null, null).items())
-                .extracting(item -> item.id())
+        assertThat(auditions.mine(2L, null, null).getItems())
+                .extracting(item -> item.getId())
                 .containsExactlyInAnyOrder("1", "3", "5");
     }
 
@@ -107,14 +107,14 @@ class Pr18PolicyIntegrationTest {
             auditions.review(
                     1L,
                     1L,
-                    Long.valueOf(created.id()),
+                    Long.valueOf(created.getId()),
                     1L,
-                    new AuditionReviewRequest(AuditionResult.PASSED, "원본", null, created.version()));
+                    new AuditionReviewRequest(AuditionResult.PASSED, "원본", null, created.getVersion()));
         String version = auditions
                 .pageAdmin(1L, 1L, 1L, null, null, null, null, 0, 20)
-                .items()
+                .getItems()
                 .get(0)
-                .version();
+                .getVersion();
         long audits = count("SELECT COUNT(*) FROM audit_log");
         jdbc.update("UPDATE performance SET status=? WHERE id=1", performanceStatus);
         jdbc.update("UPDATE club SET status='INACTIVE' WHERE id=1");
@@ -122,16 +122,16 @@ class Pr18PolicyIntegrationTest {
                 () -> auditions.review(
                         1L,
                         1L,
-                        Long.valueOf(created.id()),
+                        Long.valueOf(created.getId()),
                         1L,
                         new AuditionReviewRequest(AuditionResult.FAILED, "변경", null, version)),
                 ErrorCode.STATE_CONFLICT,
                 "CLUB_INACTIVE");
         assertThat(jdbc.queryForObject(
-                        "SELECT result FROM audition_entry WHERE id=?", String.class, Long.valueOf(created.id())))
+                        "SELECT result FROM audition_entry WHERE id=?", String.class, Long.valueOf(created.getId())))
                 .isEqualTo(correction ? "PASSED" : null);
         assertThat(jdbc.queryForObject(
-                        "SELECT comment FROM audition_entry WHERE id=?", String.class, Long.valueOf(created.id())))
+                        "SELECT comment FROM audition_entry WHERE id=?", String.class, Long.valueOf(created.getId())))
                 .isEqualTo(correction ? "원본" : null);
         assertThat(count("SELECT COUNT(*) FROM audit_log")).isEqualTo(audits);
     }
@@ -178,11 +178,11 @@ class Pr18PolicyIntegrationTest {
         var request = scheduleRequest(null, type);
         validations.create(1L, 1L, 1L, request);
         var result = creates.create(1L, 1L, 1L, request);
-        assertThat(result.schedule().getTitle()).hasSize(100);
+        assertThat(result.getSchedule().getTitle()).hasSize(100);
         var patch = mapper.readTree("{\"version\":\"0\",\"title\":null}");
-        validations.edit(1L, 1L, result.schedule().getId(), 1L, patch);
-        assertThat(edits.edit(1L, 1L, result.schedule().getId(), 1L, patch)
-                        .schedule()
+        validations.edit(1L, 1L, result.getSchedule().getId(), 1L, patch);
+        assertThat(edits.edit(1L, 1L, result.getSchedule().getId(), 1L, patch)
+                        .getSchedule()
                         .getTitle())
                 .hasSize(100);
     }

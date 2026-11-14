@@ -122,8 +122,8 @@ public class PerformanceMemberController {
                 ApiIds.positive(clubId, "clubId"),
                 ApiIds.positive(performanceId, "performanceId"),
                 currentActor.requireUserId(),
-                body.membershipIds(),
-                body.reason());
+                body.getMembershipIds(),
+                body.getReason());
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.ok(Map.of(
                         "items", members.stream().map(ParticipantResponse::from).toList())));
@@ -142,8 +142,8 @@ public class PerformanceMemberController {
                 ApiIds.positive(performanceId, "performanceId"),
                 ApiIds.positive(performanceMemberId, "performanceMemberId"),
                 currentActor.requireUserId(),
-                body.performanceVersion(),
-                body.reason());
+                body.getPerformanceVersion(),
+                body.getReason());
         return ResponseEntity.ok(ApiResponse.ok(ParticipantResponse.from(member)));
     }
 

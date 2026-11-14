@@ -14,12 +14,18 @@ import com.crane.bandwebbackend.global.audit.AuditRecorder;
 import com.crane.bandwebbackend.global.error.BusinessException;
 import com.crane.bandwebbackend.global.error.ErrorCode;
 import com.crane.bandwebbackend.global.response.ApiIds;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.persistence.EntityManager;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -46,17 +52,17 @@ public class MembershipBulkService {
         // 관리자 권한과 요청 크기·본문 형식·사유 길이를 일괄 검증한다.
         memberships.requireAdmin(clubId, actorUserId);
         if (request == null
-                || request.membershipIds() == null
-                || request.membershipIds().isEmpty()
-                || request.membershipIds().size() > 100
-                || request.action() == null
-                || request.params() == null
-                || !request.params().isObject()
-                || (request.reason() != null
-                        && (request.reason().isBlank() || request.reason().length() > 500))) {
+                || request.getMembershipIds() == null
+                || request.getMembershipIds().isEmpty()
+                || request.getMembershipIds().size() > 100
+                || request.getAction() == null
+                || request.getParams() == null
+                || !request.getParams().isObject()
+                || (request.getReason() != null
+                        && (request.getReason().isBlank() || request.getReason().length() > 500))) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "일괄 처리 요청이 유효하지 않습니다.");
         }
-        List<Long> ids = request.membershipIds().stream()
+        List<Long> ids = request.getMembershipIds().stream()
                 .map(value -> ApiIds.positive(value, "membershipIds"))
                 .toList();
         if (new HashSet<>(ids).size() != ids.size()) {
@@ -86,7 +92,7 @@ public class MembershipBulkService {
             }
         }
         int skipped = (int) succeeded.stream()
-                .filter(MembershipBulkResponse.Success::skipped)
+                .filter(MembershipBulkResponse.Success::isSkipped)
                 .count();
         return new MembershipBulkResponse(
                 succeeded,
@@ -97,8 +103,8 @@ public class MembershipBulkService {
     /** 일괄 변경 요청의 상태별 필수 인자와 참조 대상을 검증한다. */
     private Params validateParams(Long clubId, MembershipBulkRequest request) {
         // action마다 필요한 JSON 필드만 읽어 내부 실행용 불변 파라미터로 변환한다.
-        JsonNode node = request.params();
-        return switch (request.action()) {
+        JsonNode node = request.getParams();
+        return switch (request.getAction()) {
             case CHANGE_STATUS -> {
                 String value = requiredText(node, "status");
                 MembershipStatus status;
@@ -157,14 +163,14 @@ public class MembershipBulkService {
             throw new BusinessException(ErrorCode.STATE_CONFLICT, "INVALID_MEMBERSHIP_STATUS", "처리할 수 없는 소속 상태입니다.");
         }
         // 상태 변경은 단건 서비스에 위임해 동일한 상태·감사 규칙을 재사용한다.
-        if (request.action() == MembershipBulkRequest.Action.CHANGE_STATUS) {
-            statusService.transition(clubId, id, actorUserId, params.status(), request.reason());
+        if (request.getAction() == MembershipBulkRequest.Action.CHANGE_STATUS) {
+            statusService.transition(clubId, id, actorUserId, params.getStatus(), request.getReason());
             return false;
         }
         // 파트 추가·삭제는 중복에 안전한 SQL로 적용하고 한 번의 감사 로그를 남긴다.
-        if (request.action() == MembershipBulkRequest.Action.CHANGE_PARTS) {
-            for (Long partId : params.partIds()) {
-                if (params.mode().equals("ADD")) {
+        if (request.getAction() == MembershipBulkRequest.Action.CHANGE_PARTS) {
+            for (Long partId : params.getPartIds()) {
+                if (params.getMode().equals("ADD")) {
                     Part current = parts.findByIdAndClub_Id(partId, clubId)
                             .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "파트를 찾을 수 없습니다."));
                     if (!current.isActive()) {
@@ -194,25 +200,25 @@ public class MembershipBulkService {
                     "MEMBERSHIP_PARTS_CHANGED",
                     "MEMBERSHIP",
                     id,
-                    request.reason(),
-                    Map.of("mode", params.mode()));
+                    request.getReason(),
+                    Map.of("mode", params.getMode()));
             return false;
         }
         // 이미 유효 참여자인 경우는 성공한 건너뜀으로 표시하고, 아니면 관리자 참여를 생성한다.
         var existingStatus =
-                performanceMembers.status(params.performanceId(), id).orElse(null);
+                performanceMembers.status(params.getPerformanceId(), id).orElse(null);
         if (existingStatus == PerformanceMemberStatus.APPLIED || existingStatus == PerformanceMemberStatus.APPROVED) {
             return true;
         }
         var added = participantService.register(
-                clubId, params.performanceId(), actorUserId, PerformanceMemberSource.ADMIN, id);
+                clubId, params.getPerformanceId(), actorUserId, PerformanceMemberSource.ADMIN, id);
         auditRecorder.record(
                 clubId,
                 actorUserId,
                 "PERFORMANCE_MEMBER_ADDED",
                 "PERFORMANCE_MEMBER",
                 added.getId(),
-                request.reason(),
+                request.getReason(),
                 Map.of("membershipId", id));
         return false;
     }
@@ -226,5 +232,21 @@ public class MembershipBulkService {
         return value.asText();
     }
 
-    private record Params(MembershipStatus status, String mode, List<Long> partIds, Long performanceId) {}
+    @Getter
+    @AllArgsConstructor
+    @NoArgsConstructor(access = AccessLevel.PROTECTED)
+    @EqualsAndHashCode
+    private static class Params {
+        @JsonProperty("status")
+        private MembershipStatus status;
+
+        @JsonProperty("mode")
+        private String mode;
+
+        @JsonProperty("partIds")
+        private List<Long> partIds;
+
+        @JsonProperty("performanceId")
+        private Long performanceId;
+    }
 }

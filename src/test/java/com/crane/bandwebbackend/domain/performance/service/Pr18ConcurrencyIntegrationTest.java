@@ -182,9 +182,9 @@ class Pr18ConcurrencyIntegrationTest {
                 () -> auditions.review(
                         1L,
                         1L,
-                        Long.valueOf(created.id()),
+                        Long.valueOf(created.getId()),
                         1L,
-                        new AuditionReviewRequest(AuditionResult.PASSED, null, null, created.version())),
+                        new AuditionReviewRequest(AuditionResult.PASSED, null, null, created.getVersion())),
                 () -> locks.lock(1L, 1L, 1L, "0", true));
         assertThat(failure).isNull();
         assertThat(jdbc.queryForObject("SELECT status FROM performance WHERE id=1", String.class))
@@ -202,18 +202,18 @@ class Pr18ConcurrencyIntegrationTest {
         var reviewed = auditions.review(
                 1L,
                 1L,
-                Long.valueOf(created.id()),
+                Long.valueOf(created.getId()),
                 1L,
-                new AuditionReviewRequest(AuditionResult.PASSED, null, null, created.version()));
+                new AuditionReviewRequest(AuditionResult.PASSED, null, null, created.getVersion()));
         BusinessException failure = blocked(
                 () -> locks.lock(1L, 1L, 1L, "0", true),
                 () -> auditions.review(
                         1L,
                         1L,
-                        Long.valueOf(created.id()),
+                        Long.valueOf(created.getId()),
                         1L,
                         new AuditionReviewRequest(
-                                AuditionResult.FAILED, null, reason ? "정정" : null, reviewed.version())));
+                                AuditionResult.FAILED, null, reason ? "정정" : null, reviewed.getVersion())));
         if (reason) {
             assertThat(failure).isNull();
         } else {
@@ -224,7 +224,7 @@ class Pr18ConcurrencyIntegrationTest {
                     .containsExactly("REASON_REQUIRED");
         }
         assertThat(jdbc.queryForObject(
-                        "SELECT result FROM audition_entry WHERE id=?", String.class, Long.valueOf(created.id())))
+                        "SELECT result FROM audition_entry WHERE id=?", String.class, Long.valueOf(created.getId())))
                 .isEqualTo(reason ? "FAILED" : "PASSED");
         assertThat(jdbc.queryForObject(
                         "SELECT COUNT(*) FROM audit_log WHERE action='LOCKED_EXCEPTION_EDIT'", Long.class))

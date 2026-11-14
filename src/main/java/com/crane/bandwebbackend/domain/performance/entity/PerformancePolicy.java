@@ -1,5 +1,6 @@
 package com.crane.bandwebbackend.domain.performance.entity;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -13,6 +14,8 @@ import jakarta.persistence.Table;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.UpdateTimestamp;
@@ -197,50 +200,50 @@ public class PerformancePolicy {
 
     /** 필드별 부분 수정은 서비스가 기존값을 보존해 완성한 Values로 전달한다. */
     public void replace(Values values) {
-        if (values.applicationState() == null
-                || values.candidateState() == null
-                || values.playabilityState() == null
-                || values.voteState() == null
-                || values.teamSubmissionState() == null
-                || values.availabilityState() == null
-                || values.candidateScope() == null
-                || values.voteMethod() == null) {
+        if (values.getApplicationState() == null
+                || values.getCandidateState() == null
+                || values.getPlayabilityState() == null
+                || values.getVoteState() == null
+                || values.getTeamSubmissionState() == null
+                || values.getAvailabilityState() == null
+                || values.getCandidateScope() == null
+                || values.getVoteMethod() == null) {
             throw new IllegalArgumentException("정책 상태가 누락되었습니다.");
         }
-        if ((values.practiceSeasonStart() == null) != (values.practiceSeasonEnd() == null)
-                || (values.practiceSeasonStart() != null
-                        && values.practiceSeasonStart().isAfter(values.practiceSeasonEnd()))) {
+        if ((values.getPracticeSeasonStart() == null) != (values.getPracticeSeasonEnd() == null)
+                || (values.getPracticeSeasonStart() != null
+                        && values.getPracticeSeasonStart().isAfter(values.getPracticeSeasonEnd()))) {
             throw new IllegalArgumentException("합주 시즌 범위가 유효하지 않습니다.");
         }
-        if (values.availabilityState() == FeatureState.OPEN && values.practiceSeasonStart() == null) {
+        if (values.getAvailabilityState() == FeatureState.OPEN && values.getPracticeSeasonStart() == null) {
             throw new IllegalStateException("가능 시간을 열려면 합주 시즌이 필요합니다.");
         }
-        if (nonPositive(values.candidateLimitPerMember())
-                || nonPositive(values.voteMaxChoices())
-                || nonPositive(values.maxSongsPerMember())) {
+        if (nonPositive(values.getCandidateLimitPerMember())
+                || nonPositive(values.getVoteMaxChoices())
+                || nonPositive(values.getMaxSongsPerMember())) {
             throw new IllegalArgumentException("정책 제한 수는 양수여야 합니다.");
         }
-        applicationState = values.applicationState();
-        applicationDeadline = values.applicationDeadline();
-        candidateState = values.candidateState();
-        candidateDeadline = values.candidateDeadline();
-        candidateScope = values.candidateScope();
-        candidateLimitPerMember = values.candidateLimitPerMember();
-        playabilityState = values.playabilityState();
-        playabilityDeadline = values.playabilityDeadline();
-        voteState = values.voteState();
-        voteDeadline = values.voteDeadline();
-        voteMethod = values.voteMethod();
-        voteMaxChoices = values.voteMaxChoices();
-        playabilityResultPublic = values.playabilityResultPublic();
-        voteResultPublic = values.voteResultPublic();
-        teamSubmissionState = values.teamSubmissionState();
-        teamSubmissionDeadline = values.teamSubmissionDeadline();
-        availabilityState = values.availabilityState();
-        availabilityDeadline = values.availabilityDeadline();
-        practiceSeasonStart = values.practiceSeasonStart();
-        practiceSeasonEnd = values.practiceSeasonEnd();
-        maxSongsPerMember = values.maxSongsPerMember();
+        applicationState = values.getApplicationState();
+        applicationDeadline = values.getApplicationDeadline();
+        candidateState = values.getCandidateState();
+        candidateDeadline = values.getCandidateDeadline();
+        candidateScope = values.getCandidateScope();
+        candidateLimitPerMember = values.getCandidateLimitPerMember();
+        playabilityState = values.getPlayabilityState();
+        playabilityDeadline = values.getPlayabilityDeadline();
+        voteState = values.getVoteState();
+        voteDeadline = values.getVoteDeadline();
+        voteMethod = values.getVoteMethod();
+        voteMaxChoices = values.getVoteMaxChoices();
+        playabilityResultPublic = values.isPlayabilityResultPublic();
+        voteResultPublic = values.isVoteResultPublic();
+        teamSubmissionState = values.getTeamSubmissionState();
+        teamSubmissionDeadline = values.getTeamSubmissionDeadline();
+        availabilityState = values.getAvailabilityState();
+        availabilityDeadline = values.getAvailabilityDeadline();
+        practiceSeasonStart = values.getPracticeSeasonStart();
+        practiceSeasonEnd = values.getPracticeSeasonEnd();
+        maxSongsPerMember = values.getMaxSongsPerMember();
     }
 
     private static boolean nonPositive(Integer value) {
@@ -255,26 +258,72 @@ public class PerformancePolicy {
         this.voteMethod = method;
     }
 
-    public record Values(
-            FeatureState applicationState,
-            LocalDateTime applicationDeadline,
-            FeatureState candidateState,
-            LocalDateTime candidateDeadline,
-            CandidateScope candidateScope,
-            Integer candidateLimitPerMember,
-            FeatureState playabilityState,
-            LocalDateTime playabilityDeadline,
-            FeatureState voteState,
-            LocalDateTime voteDeadline,
-            VoteMethod voteMethod,
-            Integer voteMaxChoices,
-            boolean playabilityResultPublic,
-            boolean voteResultPublic,
-            FeatureState teamSubmissionState,
-            LocalDateTime teamSubmissionDeadline,
-            FeatureState availabilityState,
-            LocalDateTime availabilityDeadline,
-            LocalDate practiceSeasonStart,
-            LocalDate practiceSeasonEnd,
-            Integer maxSongsPerMember) {}
+    @Getter
+    @AllArgsConstructor
+    @NoArgsConstructor(access = AccessLevel.PROTECTED)
+    @EqualsAndHashCode
+    public static class Values {
+        @JsonProperty("applicationState")
+        private FeatureState applicationState;
+
+        @JsonProperty("applicationDeadline")
+        private LocalDateTime applicationDeadline;
+
+        @JsonProperty("candidateState")
+        private FeatureState candidateState;
+
+        @JsonProperty("candidateDeadline")
+        private LocalDateTime candidateDeadline;
+
+        @JsonProperty("candidateScope")
+        private CandidateScope candidateScope;
+
+        @JsonProperty("candidateLimitPerMember")
+        private Integer candidateLimitPerMember;
+
+        @JsonProperty("playabilityState")
+        private FeatureState playabilityState;
+
+        @JsonProperty("playabilityDeadline")
+        private LocalDateTime playabilityDeadline;
+
+        @JsonProperty("voteState")
+        private FeatureState voteState;
+
+        @JsonProperty("voteDeadline")
+        private LocalDateTime voteDeadline;
+
+        @JsonProperty("voteMethod")
+        private VoteMethod voteMethod;
+
+        @JsonProperty("voteMaxChoices")
+        private Integer voteMaxChoices;
+
+        @JsonProperty("playabilityResultPublic")
+        private boolean playabilityResultPublic;
+
+        @JsonProperty("voteResultPublic")
+        private boolean voteResultPublic;
+
+        @JsonProperty("teamSubmissionState")
+        private FeatureState teamSubmissionState;
+
+        @JsonProperty("teamSubmissionDeadline")
+        private LocalDateTime teamSubmissionDeadline;
+
+        @JsonProperty("availabilityState")
+        private FeatureState availabilityState;
+
+        @JsonProperty("availabilityDeadline")
+        private LocalDateTime availabilityDeadline;
+
+        @JsonProperty("practiceSeasonStart")
+        private LocalDate practiceSeasonStart;
+
+        @JsonProperty("practiceSeasonEnd")
+        private LocalDate practiceSeasonEnd;
+
+        @JsonProperty("maxSongsPerMember")
+        private Integer maxSongsPerMember;
+    }
 }

@@ -2,22 +2,50 @@ package com.crane.bandwebbackend.domain.schedule.dto;
 
 import com.crane.bandwebbackend.domain.performance.entity.Performance;
 import com.crane.bandwebbackend.domain.schedule.entity.PracticeSchedule;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 /** API-114·115 공통 캘린더 항목. */
-public record CalendarEvent(
-        String id,
-        String title,
-        OffsetDateTime startAt,
-        OffsetDateTime endAt,
-        String eventType,
-        boolean allDay,
-        String status,
-        String clubId,
-        String performanceId) {
+@Getter
+@AllArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@EqualsAndHashCode
+public class CalendarEvent {
+    @JsonProperty("id")
+    private String id;
+
+    @JsonProperty("title")
+    private String title;
+
+    @JsonProperty("startAt")
+    private OffsetDateTime startAt;
+
+    @JsonProperty("endAt")
+    private OffsetDateTime endAt;
+
+    @JsonProperty("eventType")
+    private String eventType;
+
+    @JsonProperty("allDay")
+    private boolean allDay;
+
+    @JsonProperty("status")
+    private String status;
+
+    @JsonProperty("clubId")
+    private String clubId;
+
+    @JsonProperty("performanceId")
+    private String performanceId;
+
     /** 일정 연결된 일정을 조회한다 */
     public static CalendarEvent schedule(PracticeSchedule schedule) {
         return new CalendarEvent(

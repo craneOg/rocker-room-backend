@@ -20,6 +20,7 @@ import com.crane.bandwebbackend.global.audit.AuditRecorder;
 import com.crane.bandwebbackend.global.error.BusinessException;
 import com.crane.bandwebbackend.global.error.ErrorCode;
 import com.crane.bandwebbackend.global.response.ApiIds;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
@@ -33,6 +34,11 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -154,7 +160,17 @@ public class ScheduleEditService {
         return new EditResult(schedule, warnings);
     }
 
-    public record EditResult(PracticeSchedule schedule, List<Map<String, Object>> warnings) {}
+    @Getter
+    @AllArgsConstructor
+    @NoArgsConstructor(access = AccessLevel.PROTECTED)
+    @EqualsAndHashCode
+    public static class EditResult {
+        @JsonProperty("schedule")
+        private PracticeSchedule schedule;
+
+        @JsonProperty("warnings")
+        private List<Map<String, Object>> warnings;
+    }
 
     /** 일정 확정과 충돌 조회에서 같은 경고 계산을 재사용한다. */
     @Transactional(readOnly = true)

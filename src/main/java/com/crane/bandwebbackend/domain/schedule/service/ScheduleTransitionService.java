@@ -9,9 +9,15 @@ import com.crane.bandwebbackend.domain.schedule.repository.PracticeScheduleRepos
 import com.crane.bandwebbackend.global.audit.AuditRecorder;
 import com.crane.bandwebbackend.global.error.BusinessException;
 import com.crane.bandwebbackend.global.error.ErrorCode;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.EntityManager;
 import java.util.List;
 import java.util.Map;
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -76,7 +82,17 @@ public class ScheduleTransitionService {
         return new ConfirmResult(schedule, warnings);
     }
 
-    public record ConfirmResult(PracticeSchedule schedule, List<Map<String, Object>> warnings) {}
+    @Getter
+    @AllArgsConstructor
+    @NoArgsConstructor(access = AccessLevel.PROTECTED)
+    @EqualsAndHashCode
+    public static class ConfirmResult {
+        @JsonProperty("schedule")
+        private PracticeSchedule schedule;
+
+        @JsonProperty("warnings")
+        private List<Map<String, Object>> warnings;
+    }
 
     /** 일정 변경한다 */
     @Transactional

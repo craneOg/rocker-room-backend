@@ -74,8 +74,8 @@ class PerformanceMemberControllerTest {
                         org.mockito.ArgumentMatchers.eq(7L),
                         body.capture(),
                         org.mockito.ArgumentMatchers.eq(false));
-        assertThat(body.getValue().performanceVersion()).isNull();
-        assertThat(body.getValue().reason()).isEqualTo("자진 철회");
+        assertThat(body.getValue().getPerformanceVersion()).isNull();
+        assertThat(body.getValue().getReason()).isEqualTo("자진 철회");
     }
 
     @Test

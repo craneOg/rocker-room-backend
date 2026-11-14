@@ -6,35 +6,82 @@ import com.crane.bandwebbackend.domain.membership.entity.Membership;
 import com.crane.bandwebbackend.domain.membership.entity.MembershipRole;
 import com.crane.bandwebbackend.domain.membership.entity.MembershipStatus;
 import com.crane.bandwebbackend.domain.part.dto.PartResponse;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.List;
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 /** MEM-01/03의 내부 상세 계약. 공개 목록에는 사용하지 않는다. */
 @Builder
-public record MembershipResponse(
-        String id,
-        String clubId,
-        String userId,
-        String userName,
-        String handle,
-        String profileImageUrl,
-        String displayName,
-        MemberType memberType,
-        MembershipRole role,
-        MembershipStatus status,
-        JoinSource joinSource,
-        OffsetDateTime invitedAt,
-        OffsetDateTime invitationExpiresAt,
-        OffsetDateTime approvedAt,
-        OffsetDateTime requestedAt,
-        OffsetDateTime leftAt,
-        List<PartResponse> parts,
-        OffsetDateTime createdAt,
-        OffsetDateTime updatedAt) {
+@Getter
+@AllArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@EqualsAndHashCode
+public class MembershipResponse {
+    @JsonProperty("id")
+    private String id;
+
+    @JsonProperty("clubId")
+    private String clubId;
+
+    @JsonProperty("userId")
+    private String userId;
+
+    @JsonProperty("userName")
+    private String userName;
+
+    @JsonProperty("handle")
+    private String handle;
+
+    @JsonProperty("profileImageUrl")
+    private String profileImageUrl;
+
+    @JsonProperty("displayName")
+    private String displayName;
+
+    @JsonProperty("memberType")
+    private MemberType memberType;
+
+    @JsonProperty("role")
+    private MembershipRole role;
+
+    @JsonProperty("status")
+    private MembershipStatus status;
+
+    @JsonProperty("joinSource")
+    private JoinSource joinSource;
+
+    @JsonProperty("invitedAt")
+    private OffsetDateTime invitedAt;
+
+    @JsonProperty("invitationExpiresAt")
+    private OffsetDateTime invitationExpiresAt;
+
+    @JsonProperty("approvedAt")
+    private OffsetDateTime approvedAt;
+
+    @JsonProperty("requestedAt")
+    private OffsetDateTime requestedAt;
+
+    @JsonProperty("leftAt")
+    private OffsetDateTime leftAt;
+
+    @JsonProperty("parts")
+    private List<PartResponse> parts;
+
+    @JsonProperty("createdAt")
+    private OffsetDateTime createdAt;
+
+    @JsonProperty("updatedAt")
+    private OffsetDateTime updatedAt;
 
     /** 소속 엔티티를 응답 데이터로 변환한다 */
     public static MembershipResponse from(Membership membership, List<PartResponse> parts) {

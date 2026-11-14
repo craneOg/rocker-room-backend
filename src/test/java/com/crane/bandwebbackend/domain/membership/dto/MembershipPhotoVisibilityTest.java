@@ -23,17 +23,17 @@ class MembershipPhotoVisibilityTest {
         when(club.getId()).thenReturn(1L);
         when(membership.getUser()).thenReturn(user);
 
-        assertThat(MembershipResponse.from(membership, List.of(), 9L).profileImageUrl())
+        assertThat(MembershipResponse.from(membership, List.of(), 9L).getProfileImageUrl())
                 .isEqualTo("https://img.example/photo");
-        assertThat(MembershipPublicItem.from(membership, List.of(), 9L).profileImageUrl())
+        assertThat(MembershipPublicItem.from(membership, List.of(), 9L).getProfileImageUrl())
                 .isEqualTo("https://img.example/photo");
 
         user.changeProfileImagePublic(false);
-        assertThat(MembershipResponse.from(membership, List.of(), 9L).profileImageUrl())
+        assertThat(MembershipResponse.from(membership, List.of(), 9L).getProfileImageUrl())
                 .isNull();
-        assertThat(MembershipPublicItem.from(membership, List.of(), 9L).profileImageUrl())
+        assertThat(MembershipPublicItem.from(membership, List.of(), 9L).getProfileImageUrl())
                 .isNull();
-        assertThat(MembershipResponse.from(membership, List.of(), 7L).profileImageUrl())
+        assertThat(MembershipResponse.from(membership, List.of(), 7L).getProfileImageUrl())
                 .isEqualTo("https://img.example/photo");
     }
 }

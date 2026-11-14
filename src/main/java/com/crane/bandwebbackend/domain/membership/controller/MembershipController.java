@@ -100,14 +100,14 @@ public class MembershipController {
             @PathVariable String clubId, @Valid @RequestBody MembershipInviteRequest body, HttpServletRequest request) {
         Long club = ApiIds.positive(clubId, "clubId");
         Long actor = currentActor.requireUserId();
-        var user = directory.lookup(club, actor, body.handle()).user();
+        var user = directory.lookup(club, actor, body.getHandle()).getUser();
         boolean existed = service.exists(club, user.getId());
         Membership invited = service.invite(
                 club,
                 actor,
-                body.handle(),
-                body.memberType() == null ? MemberType.REGULAR : body.memberType(),
-                body.displayName());
+                body.getHandle(),
+                body.getMemberType() == null ? MemberType.REGULAR : body.getMemberType(),
+                body.getDisplayName());
         return ResponseEntity.status(existed ? HttpStatus.OK : HttpStatus.CREATED)
                 .body(ApiResponse.ok(MembershipResponse.from(invited, partReader.partsOf(invited.getId()), actor)));
     }
@@ -157,7 +157,7 @@ public class MembershipController {
                 membershipId,
                 MembershipStatus.PENDING,
                 MembershipStatus.ACTIVE,
-                body == null ? null : body.reason(),
+                body == null ? null : body.getReason(),
                 request));
     }
 
@@ -169,7 +169,7 @@ public class MembershipController {
             @Valid @RequestBody MembershipReasonRequest body,
             HttpServletRequest request) {
         return ResponseEntity.ok(decide(
-                clubId, membershipId, MembershipStatus.PENDING, MembershipStatus.REJECTED, body.reason(), request));
+                clubId, membershipId, MembershipStatus.PENDING, MembershipStatus.REJECTED, body.getReason(), request));
     }
 
     /** 소속 초대를 수락한다 */
@@ -191,7 +191,7 @@ public class MembershipController {
             @Valid @RequestBody MembershipReasonRequest body,
             HttpServletRequest request) {
         return ResponseEntity.ok(decide(
-                clubId, membershipId, MembershipStatus.INVITED, MembershipStatus.DECLINED, body.reason(), request));
+                clubId, membershipId, MembershipStatus.INVITED, MembershipStatus.DECLINED, body.getReason(), request));
     }
 
     /** 가입 신청 또는 초대에 대한 단건 결정을 공통 처리한다. */
@@ -225,7 +225,7 @@ public class MembershipController {
                         ApiIds.positive(clubId, "clubId"),
                         ApiIds.positive(membershipId, "membershipId"),
                         currentActor.requireUserId(),
-                        body.displayName()),
+                        body.getDisplayName()),
                 request));
     }
 
@@ -271,8 +271,8 @@ public class MembershipController {
                         ApiIds.positive(clubId, "clubId"),
                         ApiIds.positive(membershipId, "membershipId"),
                         currentActor.requireUserId(),
-                        body.memberType(),
-                        body.reason()),
+                        body.getMemberType(),
+                        body.getReason()),
                 request));
     }
 
@@ -289,7 +289,7 @@ public class MembershipController {
                         ApiIds.positive(membershipId, "membershipId"),
                         currentActor.requireUserId(),
                         target,
-                        body.reason()),
+                        body.getReason()),
                 request);
     }
 

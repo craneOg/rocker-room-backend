@@ -93,8 +93,8 @@ class PerformanceReviewIntegrationTest {
     void guestSeesOnlyAttendedNextSchedule() {
         var detail = details.read(1L, 1L, 4L);
 
-        assertThat(detail.nextSchedule()).isNotNull();
-        assertThat(detail.nextSchedule().id()).isEqualTo("11");
+        assertThat(detail.getNextSchedule()).isNotNull();
+        assertThat(detail.getNextSchedule().getId()).isEqualTo("11");
     }
 
     @Test
@@ -107,7 +107,7 @@ class PerformanceReviewIntegrationTest {
                 mapper.readTree("{\"version\":\"0\",\"voteMaxChoices\":2,"
                         + "\"practiceSeasonStart\":\"2026-12-01\",\"practiceSeasonEnd\":\"2026-12-31\"}"));
 
-        assertThat(Long.parseLong(response.policy().performanceVersion()))
+        assertThat(Long.parseLong(response.getPolicy().getPerformanceVersion()))
                 .isEqualTo(versionInDatabase())
                 .isGreaterThan(0);
         var next = policies.update(
@@ -115,10 +115,10 @@ class PerformanceReviewIntegrationTest {
                 1L,
                 1L,
                 mapper.readTree(
-                        "{\"version\":\"" + response.policy().performanceVersion() + "\",\"voteMaxChoices\":3}"));
-        assertThat(Long.parseLong(next.policy().performanceVersion()))
+                        "{\"version\":\"" + response.getPolicy().getPerformanceVersion() + "\",\"voteMaxChoices\":3}"));
+        assertThat(Long.parseLong(next.getPolicy().getPerformanceVersion()))
                 .isEqualTo(versionInDatabase())
-                .isGreaterThan(Long.parseLong(response.policy().performanceVersion()));
+                .isGreaterThan(Long.parseLong(response.getPolicy().getPerformanceVersion()));
     }
 
     @Test
@@ -126,7 +126,7 @@ class PerformanceReviewIntegrationTest {
     void voteMethodChangeReturnsCommittedVersion() {
         var response = votes.change(1L, 1L, 1L, new VoteMethodChangeRequest("0", VoteMethod.SCORE, true, "방식 변경"));
 
-        assertThat(Long.parseLong(response.policy().performanceVersion()))
+        assertThat(Long.parseLong(response.getPolicy().getPerformanceVersion()))
                 .isEqualTo(versionInDatabase())
                 .isGreaterThan(0);
         var next = votes.change(
@@ -134,10 +134,10 @@ class PerformanceReviewIntegrationTest {
                 1L,
                 1L,
                 new VoteMethodChangeRequest(
-                        response.policy().performanceVersion(), VoteMethod.APPROVAL, true, "방식 재변경"));
-        assertThat(Long.parseLong(next.policy().performanceVersion()))
+                        response.getPolicy().getPerformanceVersion(), VoteMethod.APPROVAL, true, "방식 재변경"));
+        assertThat(Long.parseLong(next.getPolicy().getPerformanceVersion()))
                 .isEqualTo(versionInDatabase())
-                .isGreaterThan(Long.parseLong(response.policy().performanceVersion()));
+                .isGreaterThan(Long.parseLong(response.getPolicy().getPerformanceVersion()));
     }
 
     private long versionInDatabase() {

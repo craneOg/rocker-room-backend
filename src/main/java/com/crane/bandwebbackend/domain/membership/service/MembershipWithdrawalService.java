@@ -84,21 +84,21 @@ public class MembershipWithdrawalService {
         if (request == null) {
             request = new MembershipWithdrawalRequest(null, null, List.of());
         }
-        if (request.reason() != null && request.reason().length() > 500) {
+        if (request.getReason() != null && request.getReason().length() > 500) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "reason은 500자 이하여야 합니다.");
         }
         Map<Long, Long> specified = new HashMap<>();
-        if (request.teamLeaderSuccessors() != null
-                && request.teamLeaderSuccessors().size() > 100) {
+        if (request.getTeamLeaderSuccessors() != null
+                && request.getTeamLeaderSuccessors().size() > 100) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "팀장 후임은 최대 100건입니다.");
         }
-        if (request.teamLeaderSuccessors() != null) {
-            for (var item : request.teamLeaderSuccessors()) {
+        if (request.getTeamLeaderSuccessors() != null) {
+            for (var item : request.getTeamLeaderSuccessors()) {
                 if (item == null) {
                     throw new BusinessException(ErrorCode.VALIDATION_ERROR, "팀장 후임 항목이 비어 있습니다.");
                 }
-                Long team = ApiIds.positive(item.teamId(), "teamLeaderSuccessors.teamId");
-                Long candidate = ApiIds.positive(item.membershipId(), "teamLeaderSuccessors.membershipId");
+                Long team = ApiIds.positive(item.getTeamId(), "teamLeaderSuccessors.teamId");
+                Long candidate = ApiIds.positive(item.getMembershipId(), "teamLeaderSuccessors.membershipId");
                 if (specified.put(team, candidate) != null) {
                     throw new BusinessException(ErrorCode.VALIDATION_ERROR, "중복 팀장 후임입니다.");
                 }
@@ -123,7 +123,7 @@ public class MembershipWithdrawalService {
                             && participant.getStatus() != PerformanceMemberStatus.APPROVED)) {
                 continue;
             }
-            removalPolicy.validate(participant.getPerformance(), participant.getId(), request.reason(), false);
+            removalPolicy.validate(participant.getPerformance(), participant.getId(), request.getReason(), false);
             affectedSchedules.addAll(
                     schedules.attendedScheduleIds(participant.getPerformance().getId(), participant.getId()));
             affectedUsers.addAll(succession.apply(
@@ -140,10 +140,10 @@ public class MembershipWithdrawalService {
                     "PERFORMANCE_MEMBER_WITHDRAWN",
                     "PERFORMANCE_MEMBER",
                     participant.getId(),
-                    request.reason(),
+                    request.getReason(),
                     Map.of("membershipId", membershipId));
             removalPolicy.recordException(
-                    participant.getPerformance(), actorUserId, participant.getId(), request.reason());
+                    participant.getPerformance(), actorUserId, participant.getId(), request.getReason());
         }
         // 사용되지 않은 후임 요청은 대상이 팀장이 아닌 팀을 지정한 것으로 판단한다.
         if (!specified.isEmpty()) {
@@ -161,7 +161,7 @@ public class MembershipWithdrawalService {
                     List.of(MembershipStatus.ACTIVE, MembershipStatus.ON_LEAVE));
             if (!otherAdmin) {
                 requiresSuccession = true;
-                Membership successor = chooseSuccessor(clubId, membershipId, request.successorMembershipId());
+                Membership successor = chooseSuccessor(clubId, membershipId, request.getSuccessorMembershipId());
                 if (successor != null) {
                     successor.changeRole(MembershipRole.CLUB_ADMIN);
                     affectedUsers.add(successor.getUser().getId());
@@ -181,7 +181,7 @@ public class MembershipWithdrawalService {
                         "CLUB_DEACTIVATED",
                         "CLUB",
                         clubId,
-                        request.reason(),
+                        request.getReason(),
                         Map.of("formerAdminMembershipId", membershipId));
             } else {
                 auditRecorder.record(
@@ -190,13 +190,13 @@ public class MembershipWithdrawalService {
                         "ADMIN_SUCCESSION",
                         "MEMBERSHIP",
                         successorId,
-                        request.reason(),
+                        request.getReason(),
                         Map.of("formerAdminMembershipId", membershipId));
             }
         }
         // 전체 변경 이력을 남기고 즉시 flush해 제약조건 오류도 이 트랜잭션에서 확인한다.
         auditRecorder.record(
-                clubId, actorUserId, "MEMBERSHIP_WITHDRAWN", "MEMBERSHIP", membershipId, request.reason(), Map.of());
+                clubId, actorUserId, "MEMBERSHIP_WITHDRAWN", "MEMBERSHIP", membershipId, request.getReason(), Map.of());
         entityManager.flush();
         return new MembershipWithdrawalResult(
                 MembershipResponse.from(target, parts.partsOf(membershipId), actorUserId),

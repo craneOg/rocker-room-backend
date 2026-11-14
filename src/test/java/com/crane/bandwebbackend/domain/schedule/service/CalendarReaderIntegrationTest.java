@@ -61,14 +61,14 @@ class CalendarReaderIntegrationTest {
         schedule(6, from, from.plusHours(1), "CANCELED", true);
         schedule(7, from, from.plusHours(1), "CONFIRMED", false);
         assertThat(calendars.personal(4L, from, to, null, false, false))
-                .extracting(event -> event.id())
+                .extracting(event -> event.getId())
                 .containsExactly("2", "1");
         verify(schedules, times(1)).findAttendedScheduleIds(1L, 4L);
-        assertThat(club(false)).extracting(event -> event.id()).containsExactly("2", "1");
+        assertThat(club(false)).extracting(event -> event.getId()).containsExactly("2", "1");
         verify(schedules, times(2)).findAttendedScheduleIds(1L, 4L);
-        assertThat(club(true)).extracting(event -> event.id()).containsExactly("2", "1", "6");
+        assertThat(club(true)).extracting(event -> event.getId()).containsExactly("2", "1", "6");
         assertThat(calendars.club(1L, 2L, from, to, null, null, null, null, false, false, false))
-                .extracting(event -> event.id())
+                .extracting(event -> event.getId())
                 .containsExactly("2", "1", "7");
     }
 
@@ -109,18 +109,18 @@ class CalendarReaderIntegrationTest {
         for (var events : List.of(personal, club)) {
             assertThat(events).hasSize(2);
             var performance = events.stream()
-                    .filter(event -> event.eventType().equals("PERFORMANCE"))
+                    .filter(event -> event.getEventType().equals("PERFORMANCE"))
                     .findFirst()
                     .orElseThrow();
-            assertThat(performance.id()).isEqualTo("1");
-            assertThat(performance.performanceId()).isEqualTo("1");
-            assertThat(performance.allDay()).isTrue();
-            assertThat(performance.status()).isNull();
+            assertThat(performance.getId()).isEqualTo("1");
+            assertThat(performance.getPerformanceId()).isEqualTo("1");
+            assertThat(performance.isAllDay()).isTrue();
+            assertThat(performance.getStatus()).isNull();
             assertThat(events.stream()
-                            .filter(event -> !event.allDay())
+                            .filter(event -> !event.isAllDay())
                             .findFirst()
                             .orElseThrow()
-                            .id())
+                            .getId())
                     .isEqualTo("1");
         }
     }

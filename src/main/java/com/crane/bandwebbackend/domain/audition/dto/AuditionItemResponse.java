@@ -6,35 +6,84 @@ import com.crane.bandwebbackend.domain.membership.entity.Membership;
 import com.crane.bandwebbackend.domain.schedule.entity.PracticeSchedule;
 import com.crane.bandwebbackend.domain.song.entity.SongStatus;
 import com.crane.bandwebbackend.global.response.RevisionTag;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 /** API-147 목록 카드. 임원만 조회한다. */
 @Builder
-public record AuditionItemResponse(
-        String id,
-        String type,
-        String songId,
-        String songTitle,
-        SongStatus songStatus,
-        String partId,
-        String partName,
-        String applicantPerformanceMemberId,
-        String applicantName,
-        String candidateTeamName,
-        String linkedScheduleId,
-        OffsetDateTime scheduledAt,
-        String memo,
-        AuditionResult result,
-        String comment,
-        String judgedBy,
-        String judgedByName,
-        OffsetDateTime judgedAt,
-        String version,
-        OffsetDateTime createdAt) {
+@Getter
+@AllArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@EqualsAndHashCode
+public class AuditionItemResponse {
+    @JsonProperty("id")
+    private String id;
+
+    @JsonProperty("type")
+    private String type;
+
+    @JsonProperty("songId")
+    private String songId;
+
+    @JsonProperty("songTitle")
+    private String songTitle;
+
+    @JsonProperty("songStatus")
+    private SongStatus songStatus;
+
+    @JsonProperty("partId")
+    private String partId;
+
+    @JsonProperty("partName")
+    private String partName;
+
+    @JsonProperty("applicantPerformanceMemberId")
+    private String applicantPerformanceMemberId;
+
+    @JsonProperty("applicantName")
+    private String applicantName;
+
+    @JsonProperty("candidateTeamName")
+    private String candidateTeamName;
+
+    @JsonProperty("linkedScheduleId")
+    private String linkedScheduleId;
+
+    @JsonProperty("scheduledAt")
+    private OffsetDateTime scheduledAt;
+
+    @JsonProperty("memo")
+    private String memo;
+
+    @JsonProperty("result")
+    private AuditionResult result;
+
+    @JsonProperty("comment")
+    private String comment;
+
+    @JsonProperty("judgedBy")
+    private String judgedBy;
+
+    @JsonProperty("judgedByName")
+    private String judgedByName;
+
+    @JsonProperty("judgedAt")
+    private OffsetDateTime judgedAt;
+
+    @JsonProperty("version")
+    private String version;
+
+    @JsonProperty("createdAt")
+    private OffsetDateTime createdAt;
 
     /** 오디션 엔티티를 응답 데이터로 변환한다 */
     public static AuditionItemResponse from(AuditionEntry entry) {

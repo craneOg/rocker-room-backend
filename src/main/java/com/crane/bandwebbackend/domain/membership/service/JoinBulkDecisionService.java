@@ -32,16 +32,16 @@ public class JoinBulkDecisionService {
         // 일괄 결정 권한과 요청 크기·사유·중복 식별자를 먼저 검증한다.
         memberships.requireAdmin(clubId, actorUserId);
         if (request == null
-                || request.decision() == null
-                || request.membershipIds() == null
-                || request.membershipIds().isEmpty()
-                || request.membershipIds().size() > 100) {
+                || request.getDecision() == null
+                || request.getMembershipIds() == null
+                || request.getMembershipIds().isEmpty()
+                || request.getMembershipIds().size() > 100) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "일괄 결정 요청이 유효하지 않습니다.");
         }
-        if (request.reason() != null && request.reason().length() > 500) {
+        if (request.getReason() != null && request.getReason().length() > 500) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "사유는 500자 이하여야 합니다.");
         }
-        List<Long> ids = request.membershipIds().stream()
+        List<Long> ids = request.getMembershipIds().stream()
                 .map(value -> ApiIds.positive(value, "membershipIds"))
                 .toList();
         if (new HashSet<>(ids).size() != ids.size()) {
@@ -60,10 +60,10 @@ public class JoinBulkDecisionService {
                         id,
                         actorUserId,
                         MembershipStatus.PENDING,
-                        request.decision() == JoinBulkDecisionRequest.Decision.APPROVE
+                        request.getDecision() == JoinBulkDecisionRequest.Decision.APPROVE
                                 ? MembershipStatus.ACTIVE
                                 : MembershipStatus.REJECTED,
-                        request.reason()));
+                        request.getReason()));
                 succeeded.add(new JoinBulkDecisionResponse.Success(id.toString()));
             } catch (BusinessException exception) {
                 String detailReason = exception.getDetails().isEmpty()

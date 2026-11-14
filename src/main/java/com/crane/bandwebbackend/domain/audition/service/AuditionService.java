@@ -116,12 +116,12 @@ public class AuditionService {
             throw new BusinessException(ErrorCode.STATE_CONFLICT, "INVALID_STATE", "공연 상태가 등록을 허용하지 않습니다.");
         }
         // 요청 유형을 곡 자체 심사와 특정 세션 지원자 심사로 구분한다.
-        boolean session = "SESSION".equals(body.type());
-        if (!session && !"SONG".equals(body.type())) {
+        boolean session = "SESSION".equals(body.getType());
+        if (!session && !"SONG".equals(body.getType())) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "오디션 유형이 유효하지 않습니다.");
         }
         // 동시 중복 등록을 막기 위해 대상 곡을 쓰기 잠금으로 조회한다.
-        Long songId = ApiIds.positive(body.songId(), "songId");
+        Long songId = ApiIds.positive(body.getSongId(), "songId");
         Song song = entityManager.find(Song.class, songId, LockModeType.PESSIMISTIC_WRITE);
         if (song == null || !song.getPerformance().getId().equals(performanceId)) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "곡을 찾을 수 없습니다.");
@@ -132,9 +132,9 @@ public class AuditionService {
         // 일정이 연결됐다면 같은 공연의 오디션 유형 일정인지 검증한다.
         List<ErrorDetail> eligibilityErrors = new ArrayList<>();
         PracticeSchedule schedule = null;
-        if (body.linkedScheduleId() != null) {
+        if (body.getLinkedScheduleId() != null) {
             schedule = entityManager.find(
-                    PracticeSchedule.class, ApiIds.positive(body.linkedScheduleId(), "linkedScheduleId"));
+                    PracticeSchedule.class, ApiIds.positive(body.getLinkedScheduleId(), "linkedScheduleId"));
             if (schedule == null
                     || !schedule.getPerformance().getId().equals(performanceId)
                     || schedule.getScheduleType() != ScheduleType.AUDITION) {
@@ -145,27 +145,27 @@ public class AuditionService {
         Part part = null;
         List<Long> applicantIds = new ArrayList<>();
         if (session) {
-            if (body.partId() == null
-                    || body.applicantPerformanceMemberIds() == null
-                    || body.applicantPerformanceMemberIds().isEmpty()
-                    || body.applicantPerformanceMemberIds().size() > 50) {
+            if (body.getPartId() == null
+                    || body.getApplicantPerformanceMemberIds() == null
+                    || body.getApplicantPerformanceMemberIds().isEmpty()
+                    || body.getApplicantPerformanceMemberIds().size() > 50) {
                 throw new BusinessException(ErrorCode.VALIDATION_ERROR, "세션 심사에는 파트와 지원자가 필요합니다.");
             }
-            part = entityManager.find(Part.class, ApiIds.positive(body.partId(), "partId"));
+            part = entityManager.find(Part.class, ApiIds.positive(body.getPartId(), "partId"));
             if (part == null || !part.getClub().getId().equals(clubId) || !part.isActive()) {
                 eligibilityErrors.add(ErrorDetail.of("partId", "PART_NOT_ACTIVE"));
             }
             Set<Long> uniqueIds = new HashSet<>();
-            for (String raw : body.applicantPerformanceMemberIds()) {
+            for (String raw : body.getApplicantPerformanceMemberIds()) {
                 Long id = ApiIds.positive(raw, "applicantPerformanceMemberIds");
                 if (!uniqueIds.add(id)) {
                     throw new BusinessException(ErrorCode.VALIDATION_ERROR, "중복 지원자가 있습니다.");
                 }
                 applicantIds.add(id);
             }
-        } else if (body.partId() != null
-                || body.applicantPerformanceMemberIds() != null
-                        && !body.applicantPerformanceMemberIds().isEmpty()) {
+        } else if (body.getPartId() != null
+                || body.getApplicantPerformanceMemberIds() != null
+                        && !body.getApplicantPerformanceMemberIds().isEmpty()) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "곡 심사에는 지원자와 파트를 지정할 수 없습니다.");
         }
         // 모든 지원자가 같은 공연에서 지원 또는 승인 상태인지 전수 확인한다.
@@ -212,10 +212,11 @@ public class AuditionService {
         User creator = entityManager.getReference(User.class, actorUserId);
         List<AuditionEntry> created = new ArrayList<>();
         if (!session) {
-            created.add(AuditionEntry.create(performanceId, song, null, null, schedule, body.memo(), creator));
+            created.add(AuditionEntry.create(performanceId, song, null, null, schedule, body.getMemo(), creator));
         } else {
             for (PerformanceMember applicant : applicants) {
-                created.add(AuditionEntry.create(performanceId, song, applicant, part, schedule, body.memo(), creator));
+                created.add(
+                        AuditionEntry.create(performanceId, song, applicant, part, schedule, body.getMemo(), creator));
             }
         }
         // 생성 결과를 먼저 확정해 ID를 얻고 각 심사별 감사 로그를 남긴다.
@@ -242,7 +243,7 @@ public class AuditionService {
             throw new BusinessException(ErrorCode.STATE_CONFLICT, "INVALID_STATE", "이 공연에서는 심사할 수 없습니다.");
         }
         if (performance.getStatus() == PerformanceStatus.LOCKED
-                && (body.reason() == null || body.reason().isBlank())) {
+                && (body.getReason() == null || body.getReason().isBlank())) {
             throw new BusinessException(
                     ErrorCode.VALIDATION_ERROR, "사유가 필요합니다.", List.of(ErrorDetail.of("reason", "REASON_REQUIRED")));
         }
@@ -250,21 +251,22 @@ public class AuditionService {
         AuditionEntry entry = repository
                 .findWithLockByIdAndPerformanceId(auditionId, performanceId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "오디션을 찾을 수 없습니다."));
-        if (!RevisionTag.from("a", entry.getId(), entry.getUpdatedAt()).equals(body.version())) {
+        if (!RevisionTag.from("a", entry.getId(), entry.getUpdatedAt()).equals(body.getVersion())) {
             throw new BusinessException(ErrorCode.VERSION_CONFLICT, "오디션이 먼저 변경되었습니다.");
         }
         // 이전 결과를 보존한 뒤 심사 결과·의견·심사자·시각을 갱신한다.
         var previous = entry.getResult();
         User reviewer = entityManager.find(User.class, actorUserId);
-        entry.review(body.result(), body.comment(), reviewer, LocalDateTime.now(ZoneOffset.UTC));
+        entry.review(body.getResult(), body.getComment(), reviewer, LocalDateTime.now(ZoneOffset.UTC));
         Map<String, Object> detail = new java.util.HashMap<>();
         detail.put("from", previous == null ? null : previous.toString());
-        detail.put("to", body.result().toString());
+        detail.put("to", body.getResult().toString());
         // 일반 심사 감사 로그와 잠금 후 예외 수정 로그를 필요에 따라 함께 남긴다.
-        auditRecorder.record(clubId, actorUserId, "AUDITION_REVIEWED", "AUDITION", auditionId, body.reason(), detail);
+        auditRecorder.record(
+                clubId, actorUserId, "AUDITION_REVIEWED", "AUDITION", auditionId, body.getReason(), detail);
         if (performance.getStatus() == PerformanceStatus.LOCKED) {
             auditRecorder.record(
-                    clubId, actorUserId, "LOCKED_EXCEPTION_EDIT", "AUDITION", auditionId, body.reason(), detail);
+                    clubId, actorUserId, "LOCKED_EXCEPTION_EDIT", "AUDITION", auditionId, body.getReason(), detail);
         }
         entityManager.flush();
         entityManager.refresh(entry);

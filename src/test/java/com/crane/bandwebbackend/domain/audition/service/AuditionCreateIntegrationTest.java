@@ -147,9 +147,9 @@ class AuditionCreateIntegrationTest {
         auditions.review(
                 1L,
                 1L,
-                Long.valueOf(created.id()),
+                Long.valueOf(created.getId()),
                 1L,
-                new AuditionReviewRequest(AuditionResult.PASSED, null, null, created.version()));
+                new AuditionReviewRequest(AuditionResult.PASSED, null, null, created.getVersion()));
         assertThat(auditions.create(1L, 1L, 1L, request())).hasSize(1);
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM audition_entry", Long.class))
                 .isEqualTo(2);
@@ -162,30 +162,30 @@ class AuditionCreateIntegrationTest {
         var created = auditions.create(1L, 1L, 1L, request()).get(0);
         var listed = auditions
                 .pageAdmin(1L, 1L, 1L, null, null, null, null, 0, 20)
-                .items()
+                .getItems()
                 .get(0);
-        assertThat(listed.version()).isEqualTo(created.version());
+        assertThat(listed.getVersion()).isEqualTo(created.getVersion());
         assertThat(mapper.valueToTree(created).has("version")).isTrue();
         assertThat(mapper.valueToTree(created).has("revision")).isFalse();
         assertThat(mapper.valueToTree(listed).has("version")).isTrue();
         assertThat(mapper.valueToTree(listed).has("revision")).isFalse();
         AuditionReviewRequest body = mapper.readValue(
-                "{\"result\":\"PASSED\",\"version\":\"" + created.version() + "\"}", AuditionReviewRequest.class);
-        var reviewed = auditions.review(1L, 1L, Long.valueOf(created.id()), 1L, body);
-        assertThat(reviewed.version()).isNotEqualTo(created.version());
+                "{\"result\":\"PASSED\",\"version\":\"" + created.getVersion() + "\"}", AuditionReviewRequest.class);
+        var reviewed = auditions.review(1L, 1L, Long.valueOf(created.getId()), 1L, body);
+        assertThat(reviewed.getVersion()).isNotEqualTo(created.getVersion());
         assertThat(mapper.valueToTree(reviewed).has("version")).isTrue();
         assertThat(mapper.valueToTree(reviewed).has("revision")).isFalse();
-        assertThatThrownBy(() -> auditions.review(1L, 1L, Long.valueOf(created.id()), 1L, body))
+        assertThatThrownBy(() -> auditions.review(1L, 1L, Long.valueOf(created.getId()), 1L, body))
                 .isInstanceOfSatisfying(
                         BusinessException.class,
                         e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.VERSION_CONFLICT));
         var corrected = auditions.review(
                 1L,
                 1L,
-                Long.valueOf(created.id()),
+                Long.valueOf(created.getId()),
                 1L,
-                new AuditionReviewRequest(AuditionResult.FAILED, "정정", null, reviewed.version()));
-        assertThat(corrected.result()).isEqualTo(AuditionResult.FAILED);
+                new AuditionReviewRequest(AuditionResult.FAILED, "정정", null, reviewed.getVersion()));
+        assertThat(corrected.getResult()).isEqualTo(AuditionResult.FAILED);
         assertThat(jdbc.queryForObject("SELECT status FROM song WHERE id=1", String.class))
                 .isEqualTo("PROPOSED");
     }
@@ -196,8 +196,8 @@ class AuditionCreateIntegrationTest {
         song();
         jdbc.update("UPDATE performance SET status='LOCKED' WHERE id=1");
         var created = auditions.create(1L, 1L, 1L, request()).get(0);
-        var body = new AuditionReviewRequest(AuditionResult.PASSED, null, null, created.version());
-        assertThatThrownBy(() -> auditions.review(1L, 1L, Long.valueOf(created.id()), 1L, body))
+        var body = new AuditionReviewRequest(AuditionResult.PASSED, null, null, created.getVersion());
+        assertThatThrownBy(() -> auditions.review(1L, 1L, Long.valueOf(created.getId()), 1L, body))
                 .isInstanceOfSatisfying(BusinessException.class, e -> {
                     assertThat(e.getErrorCode()).isEqualTo(ErrorCode.VALIDATION_ERROR);
                     assertThat(e.getDetails())
@@ -210,9 +210,9 @@ class AuditionCreateIntegrationTest {
         auditions.review(
                 1L,
                 1L,
-                Long.valueOf(created.id()),
+                Long.valueOf(created.getId()),
                 1L,
-                new AuditionReviewRequest(AuditionResult.PASSED, null, "결과 입력", created.version()));
+                new AuditionReviewRequest(AuditionResult.PASSED, null, "결과 입력", created.getVersion()));
         assertThat(jdbc.queryForObject(
                         "SELECT COUNT(*) FROM audit_log WHERE action='LOCKED_EXCEPTION_EDIT'", Long.class))
                 .isEqualTo(1);

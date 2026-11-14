@@ -51,7 +51,7 @@ public class ScheduleCreateService {
             Long clubId, Long performanceId, Long actorUserId, ScheduleCreateRequest request) {
         // 관리자 권한과 필수 시간 입력을 확인한다.
         memberships.requireAdmin(clubId, actorUserId);
-        if (request == null || request.startAt() == null || request.endAt() == null) {
+        if (request == null || request.getStartAt() == null || request.getEndAt() == null) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "시작·종료 시각이 필요합니다.");
         }
         // 동아리와 공연 상태가 일정 생성을 허용하는지 검사한다.
@@ -64,13 +64,13 @@ public class ScheduleCreateService {
                 && performance.getStatus() != PerformanceStatus.LOCKED) {
             throw new BusinessException(ErrorCode.STATE_CONFLICT, "INVALID_STATE", "일정을 만들 수 없는 공연 상태입니다.");
         }
-        if (request.status() == ScheduleStatus.CANCELED) {
+        if (request.getStatus() == ScheduleStatus.CANCELED) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "취소 상태로 생성할 수 없습니다.");
         }
-        ScheduleType type = request.eventType() == null ? ScheduleType.PRACTICE : request.eventType();
-        ScheduleStatus status = request.status() == null ? ScheduleStatus.TENTATIVE : request.status();
-        List<Long> teamIds = ids(request.teamIds(), "teamIds");
-        List<Long> songIds = ids(request.songIds(), "songIds");
+        ScheduleType type = request.getEventType() == null ? ScheduleType.PRACTICE : request.getEventType();
+        ScheduleStatus status = request.getStatus() == null ? ScheduleStatus.TENTATIVE : request.getStatus();
+        List<Long> teamIds = ids(request.getTeamIds(), "teamIds");
+        List<Long> songIds = ids(request.getSongIds(), "songIds");
         // 요청된 팀과 곡이 모두 같은 공연 소속인지 엔티티 기준으로 검증한다.
         List<Team> linkedTeams = teamIds.stream()
                 .map(id -> {
@@ -92,13 +92,13 @@ public class ScheduleCreateService {
                 .toList();
         // 제목이 없으면 공연일·대표 팀·일정 유형으로 사람이 읽을 수 있는 제목을 만든다.
         String title = ScheduleTitles.resolve(
-                request.title(),
+                request.getTitle(),
                 performance,
                 type,
                 linkedTeams.isEmpty() ? null : linkedTeams.get(0).getName(),
                 linkedTeams.size());
-        if ((request.location() != null && request.location().length() > 200)
-                || (request.memo() != null && request.memo().length() > 500)) {
+        if ((request.getLocation() != null && request.getLocation().length() > 200)
+                || (request.getMemo() != null && request.getMemo().length() > 500)) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "일정 문자열 길이가 유효하지 않습니다.");
         }
         // 오프셋 시각을 UTC로 변환해 일정 엔티티를 생성한다.
@@ -109,11 +109,11 @@ public class ScheduleCreateService {
                     type,
                     status,
                     title,
-                    request.startAt().withOffsetSameInstant(ZoneOffset.UTC).toLocalDateTime(),
-                    request.endAt().withOffsetSameInstant(ZoneOffset.UTC).toLocalDateTime(),
-                    request.location(),
-                    Boolean.TRUE.equals(request.forAllParticipants()),
-                    request.memo(),
+                    request.getStartAt().withOffsetSameInstant(ZoneOffset.UTC).toLocalDateTime(),
+                    request.getEndAt().withOffsetSameInstant(ZoneOffset.UTC).toLocalDateTime(),
+                    request.getLocation(),
+                    Boolean.TRUE.equals(request.getForAllParticipants()),
+                    request.getMemo(),
                     entityLookup.requireActive(actorUserId));
         } catch (IllegalArgumentException exception) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, exception.getMessage());

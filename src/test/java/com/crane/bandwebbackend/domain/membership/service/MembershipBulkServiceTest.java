@@ -59,13 +59,15 @@ class MembershipBulkServiceTest {
                 20L,
                 new MembershipBulkRequest(List.of("1", "2"), MembershipBulkRequest.Action.CHANGE_STATUS, params, null));
 
-        assertThat(result.succeeded()).extracting(item -> item.membershipId()).containsExactly("2");
-        assertThat(result.failed())
-                .extracting(item -> item.membershipId() + ":" + item.reason())
+        assertThat(result.getSucceeded())
+                .extracting(item -> item.getMembershipId())
+                .containsExactly("2");
+        assertThat(result.getFailed())
+                .extracting(item -> item.getMembershipId() + ":" + item.getReason())
                 .containsExactly("1:CONFLICT");
-        assertThat(result.summary().requested()).isEqualTo(2);
-        assertThat(result.summary().succeeded()).isEqualTo(1);
-        assertThat(result.summary().failed()).isEqualTo(1);
+        assertThat(result.getSummary().getRequested()).isEqualTo(2);
+        assertThat(result.getSummary().getSucceeded()).isEqualTo(1);
+        assertThat(result.getSummary().getFailed()).isEqualTo(1);
         verify(statusService, times(2)).transition(anyLong(), anyLong(), anyLong(), any(), nullable(String.class));
     }
 }

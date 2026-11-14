@@ -43,15 +43,15 @@ public class PerformanceCreateService {
             throw new BusinessException(ErrorCode.STATE_CONFLICT, "CLUB_INACTIVE", "비활성 동아리에서는 공연을 만들 수 없습니다.");
         }
         if (request == null
-                || request.title() == null
-                || request.title().isBlank()
-                || request.title().length() > 200
-                || (request.location() != null && request.location().length() > 200)) {
+                || request.getTitle() == null
+                || request.getTitle().isBlank()
+                || request.getTitle().length() > 200
+                || (request.getLocation() != null && request.getLocation().length() > 200)) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "공연 기본 정보가 유효하지 않습니다.");
         }
         // 프리셋과 선택 정책 덮어쓰기의 구조 및 CUSTOM 필수 필드를 검증한다.
-        PerformancePreset preset = request.preset() == null ? PerformancePreset.CUSTOM : request.preset();
-        JsonNode overrides = request.policy();
+        PerformancePreset preset = request.getPreset() == null ? PerformancePreset.CUSTOM : request.getPreset();
+        JsonNode overrides = request.getPolicy();
         if (overrides != null && !overrides.isObject()) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "policy는 객체여야 합니다.");
         }
@@ -71,9 +71,9 @@ public class PerformanceCreateService {
         try {
             performance = Performance.draft(
                     actor.getClub(),
-                    request.title(),
-                    request.performDate(),
-                    request.location(),
+                    request.getTitle(),
+                    request.getPerformDate(),
+                    request.getLocation(),
                     preset,
                     actor.getUser());
         } catch (IllegalArgumentException exception) {

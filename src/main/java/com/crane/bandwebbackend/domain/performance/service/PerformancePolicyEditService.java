@@ -135,20 +135,20 @@ public class PerformancePolicyEditService {
         // 기존 입력은 삭제하지 않으므로 축소된 기간·한도 영향을 경고로 알려 준다.
         List<PolicyUpdateResponse.Warning> warnings = new ArrayList<>();
         if (performance.getPerformDate() != null
-                && values.practiceSeasonEnd() != null
-                && values.practiceSeasonEnd().isAfter(performance.getPerformDate())) {
+                && values.getPracticeSeasonEnd() != null
+                && values.getPracticeSeasonEnd().isAfter(performance.getPerformDate())) {
             warnings.add(new PolicyUpdateResponse.Warning("SEASON_ENDS_AFTER_PERFORM_DATE", "합주 시즌이 공연일 이후까지예요."));
         }
-        if (decreased(oldCandidateLimit, values.candidateLimitPerMember())
-                || decreased(oldVoteLimit, values.voteMaxChoices())
-                || decreased(oldSongLimit, values.maxSongsPerMember())) {
+        if (decreased(oldCandidateLimit, values.getCandidateLimitPerMember())
+                || decreased(oldVoteLimit, values.getVoteMaxChoices())
+                || decreased(oldSongLimit, values.getMaxSongsPerMember())) {
             warnings.add(new PolicyUpdateResponse.Warning("LIMIT_REDUCED", "기존 입력은 유지되며 새 한도는 다음 입력부터 적용됩니다."));
         }
         if (oldSeasonStart != null
                 && oldSeasonEnd != null
-                && values.practiceSeasonStart() != null
-                && (values.practiceSeasonStart().isAfter(oldSeasonStart)
-                        || values.practiceSeasonEnd().isBefore(oldSeasonEnd))) {
+                && values.getPracticeSeasonStart() != null
+                && (values.getPracticeSeasonStart().isAfter(oldSeasonStart)
+                        || values.getPracticeSeasonEnd().isBefore(oldSeasonEnd))) {
             warnings.add(
                     new PolicyUpdateResponse.Warning("PRACTICE_SEASON_REDUCED", "시즌 밖의 기존 가능 시간은 유지되며 계산에서 제외됩니다."));
         }

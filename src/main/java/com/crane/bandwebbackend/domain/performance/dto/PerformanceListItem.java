@@ -4,6 +4,7 @@ import com.crane.bandwebbackend.domain.participant.entity.PerformanceMemberStatu
 import com.crane.bandwebbackend.domain.performance.entity.FeatureState;
 import com.crane.bandwebbackend.domain.performance.entity.Performance;
 import com.crane.bandwebbackend.domain.performance.entity.PerformancePolicy;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
@@ -11,23 +12,68 @@ import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 /** API-037 목록 항목. */
-public record PerformanceListItem(
-        String id,
-        String clubId,
-        String title,
-        LocalDate performDate,
-        String location,
-        String preset,
-        String status,
-        String createdByUserId,
-        String version,
-        OffsetDateTime createdAt,
-        OffsetDateTime updatedAt,
-        PerformanceMemberStatus myParticipationStatus,
-        List<OpenFeature> openFeatures) {
-    public record OpenFeature(String feature, OffsetDateTime deadlineAt) {}
+@Getter
+@AllArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@EqualsAndHashCode
+public class PerformanceListItem {
+    @JsonProperty("id")
+    private String id;
+
+    @JsonProperty("clubId")
+    private String clubId;
+
+    @JsonProperty("title")
+    private String title;
+
+    @JsonProperty("performDate")
+    private LocalDate performDate;
+
+    @JsonProperty("location")
+    private String location;
+
+    @JsonProperty("preset")
+    private String preset;
+
+    @JsonProperty("status")
+    private String status;
+
+    @JsonProperty("createdByUserId")
+    private String createdByUserId;
+
+    @JsonProperty("version")
+    private String version;
+
+    @JsonProperty("createdAt")
+    private OffsetDateTime createdAt;
+
+    @JsonProperty("updatedAt")
+    private OffsetDateTime updatedAt;
+
+    @JsonProperty("myParticipationStatus")
+    private PerformanceMemberStatus myParticipationStatus;
+
+    @JsonProperty("openFeatures")
+    private List<OpenFeature> openFeatures;
+
+    @Getter
+    @AllArgsConstructor
+    @NoArgsConstructor(access = AccessLevel.PROTECTED)
+    @EqualsAndHashCode
+    public static class OpenFeature {
+        @JsonProperty("feature")
+        private String feature;
+
+        @JsonProperty("deadlineAt")
+        private OffsetDateTime deadlineAt;
+    }
 
     /** 공연 엔티티를 응답 데이터로 변환한다 */
     public static PerformanceListItem from(

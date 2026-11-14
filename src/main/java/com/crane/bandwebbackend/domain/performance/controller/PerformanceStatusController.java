@@ -100,7 +100,7 @@ public class PerformanceStatusController {
             @Valid @RequestBody PerformanceTransitionRequest body,
             HttpServletRequest request) {
         return ResponseEntity.ok(ApiResponse.ok(PerformanceResponse.from(service.revertToDraft(
-                id(clubId), id(performanceId), actor.requireUserId(), body.version(), body.reason()))));
+                id(clubId), id(performanceId), actor.requireUserId(), body.getVersion(), body.getReason()))));
     }
 
     /** 공연 상태 변경 엔드포인트의 공통 호출과 응답 생성을 처리한다. */
@@ -112,7 +112,13 @@ public class PerformanceStatusController {
             PerformanceStatus target,
             HttpServletRequest request) {
         return ApiResponse.ok(PerformanceResponse.from(service.change(
-                id(clubId), id(performanceId), actor.requireUserId(), source, target, body.version(), body.reason())));
+                id(clubId),
+                id(performanceId),
+                actor.requireUserId(),
+                source,
+                target,
+                body.getVersion(),
+                body.getReason())));
     }
 
     /** 경로 식별자를 양의 정수로 검증해 변환한다. */

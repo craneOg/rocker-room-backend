@@ -37,8 +37,8 @@ public class PerformanceLockController {
             @PathVariable String performanceId,
             @Valid @RequestBody LockValidateRequest body,
             HttpServletRequest request) {
-        return ResponseEntity.ok(
-                ApiResponse.ok(service.validate(id(clubId), id(performanceId), actor.requireUserId(), body.version())));
+        return ResponseEntity.ok(ApiResponse.ok(
+                service.validate(id(clubId), id(performanceId), actor.requireUserId(), body.getVersion())));
     }
 
     /** 공연 최종 확정한다 */
@@ -52,8 +52,8 @@ public class PerformanceLockController {
                 id(clubId),
                 id(performanceId),
                 actor.requireUserId(),
-                body.version(),
-                Boolean.TRUE.equals(body.confirmed()))));
+                body.getVersion(),
+                Boolean.TRUE.equals(body.getConfirmed()))));
     }
 
     /** 공연 확정 점검 항목을 조회한다 */

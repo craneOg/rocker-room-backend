@@ -46,8 +46,8 @@ class JoinBulkDecisionServiceTest {
                                 java.util.List.of("1", "2", "3", "4", "5"),
                                 JoinBulkDecisionRequest.Decision.APPROVE,
                                 null));
-        assertThat(result.failed())
-                .extracting(item -> item.reason())
+        assertThat(result.getFailed())
+                .extracting(item -> item.getReason())
                 .containsExactly("NOT_PENDING", "CLUB_INACTIVE", "STATE_CONFLICT", "OTHER_REASON", "NOT_FOUND");
     }
 
@@ -79,13 +79,15 @@ class JoinBulkDecisionServiceTest {
                 new JoinBulkDecisionRequest(
                         java.util.List.of("1", "2", "3", "4"), JoinBulkDecisionRequest.Decision.APPROVE, null));
 
-        assertThat(result.succeeded()).extracting(item -> item.membershipId()).containsExactly("4");
-        assertThat(result.failed())
-                .extracting(item -> item.membershipId() + ":" + item.reason())
+        assertThat(result.getSucceeded())
+                .extracting(item -> item.getMembershipId())
+                .containsExactly("4");
+        assertThat(result.getFailed())
+                .extracting(item -> item.getMembershipId() + ":" + item.getReason())
                 .containsExactly("1:CONFLICT", "2:CONFLICT", "3:PROCESSING_FAILED");
-        assertThat(result.summary().requested()).isEqualTo(4);
-        assertThat(result.summary().succeeded()).isEqualTo(1);
-        assertThat(result.summary().failed()).isEqualTo(3);
+        assertThat(result.getSummary().getRequested()).isEqualTo(4);
+        assertThat(result.getSummary().getSucceeded()).isEqualTo(1);
+        assertThat(result.getSummary().getFailed()).isEqualTo(3);
         verify(decisions, times(4)).decide(anyLong(), anyLong(), anyLong(), any(), any(), nullable(String.class));
     }
 }
