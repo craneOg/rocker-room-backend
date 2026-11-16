@@ -65,17 +65,24 @@ public class MemberDirectoryService {
     public Page<Object> list(
             Long clubId,
             Long actorUserId,
+            boolean superAdmin,
             String q,
             String statuses,
             MembershipRole role,
             MemberType type,
             String partIds,
             Pageable pageable) {
-        // 요청자의 소속과 역할을 읽어 관리자 전용 필터 사용 가능 여부를 결정한다.
-        Membership actor = membershipService.requireMember(clubId, actorUserId);
-        boolean admin = actor.getRole() == MembershipRole.CLUB_ADMIN;
-        if (!admin && actor.getMemberType() != MemberType.REGULAR) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "부원 목록을 찾을 수 없습니다.");
+        // API-020: 인증된 SA는 소속 없이 후임 후보를 조회하되 동아리 존재 여부는 확인한다.
+        boolean admin;
+        if (superAdmin) {
+            entityLookup.require(clubId);
+            admin = true;
+        } else {
+            Membership actor = membershipService.requireMember(clubId, actorUserId);
+            admin = actor.getRole() == MembershipRole.CLUB_ADMIN;
+            if (!admin && actor.getMemberType() != MemberType.REGULAR) {
+                throw new BusinessException(ErrorCode.NOT_FOUND, "부원 목록을 찾을 수 없습니다.");
+            }
         }
         if (!admin && statuses != null) {
             throw new BusinessException(ErrorCode.FORBIDDEN, "부원은 상태 필터를 사용할 수 없습니다.");

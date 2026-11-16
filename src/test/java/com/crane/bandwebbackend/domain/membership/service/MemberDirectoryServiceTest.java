@@ -30,7 +30,7 @@ class MemberDirectoryServiceTest {
         when(actor.getMemberType()).thenReturn(MemberType.GUEST);
         MemberDirectoryService service = new MemberDirectoryService(memberships, repository, partReader, entityLookup);
 
-        assertThatThrownBy(() -> service.list(1L, 7L, null, null, null, null, null, PageRequest.of(0, 20)))
+        assertThatThrownBy(() -> service.list(1L, 7L, false, null, null, null, null, null, PageRequest.of(0, 20)))
                 .isInstanceOfSatisfying(
                         BusinessException.class,
                         exception -> assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.NOT_FOUND));

@@ -24,6 +24,7 @@ import com.crane.bandwebbackend.global.error.ErrorCode;
 import com.crane.bandwebbackend.global.response.ApiIds;
 import com.crane.bandwebbackend.global.response.ApiResponse;
 import com.crane.bandwebbackend.global.response.PageResponse;
+import com.crane.bandwebbackend.global.security.AuthPrincipal;
 import com.crane.bandwebbackend.global.security.CurrentActor;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -32,6 +33,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -67,6 +69,7 @@ public class MembershipController {
             @RequestParam(required = false) String partId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
+            @AuthenticationPrincipal AuthPrincipal principal,
             HttpServletRequest request) {
         if (page < 0 || size < 1 || size > 100) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "page 또는 size가 유효하지 않습니다.");
@@ -75,6 +78,7 @@ public class MembershipController {
         Page<Object> items = directory.list(
                 ApiIds.positive(clubId, "clubId"),
                 actorId,
+                principal.isSuperAdmin(),
                 q,
                 status,
                 role,
