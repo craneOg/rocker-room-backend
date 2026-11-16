@@ -2,7 +2,7 @@ package com.crane.bandwebbackend.domain.membership.service;
 
 import com.crane.bandwebbackend.domain.club.entity.Club;
 import com.crane.bandwebbackend.domain.club.entity.ClubStatus;
-import com.crane.bandwebbackend.domain.home.service.SuccessionNoticeService;
+import com.crane.bandwebbackend.domain.home.service.SuccessionNoticeWriter;
 import com.crane.bandwebbackend.domain.membership.dto.MembershipResponse;
 import com.crane.bandwebbackend.domain.membership.dto.MembershipWithdrawalRequest;
 import com.crane.bandwebbackend.domain.membership.dto.MembershipWithdrawalResult;
@@ -48,7 +48,7 @@ public class MembershipWithdrawalService {
     private final ParticipantAssignmentService assignments;
     private final ParticipantRemovalPolicy removalPolicy;
     private final TeamLeaderSuccession succession;
-    private final SuccessionNoticeService notices;
+    private final SuccessionNoticeWriter notices;
     private final ScheduleLookup schedules;
     private final MembershipPartReader parts;
     private final EntityManager entityManager;

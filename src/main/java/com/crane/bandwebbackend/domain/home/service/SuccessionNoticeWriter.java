@@ -14,7 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 @Transactional(propagation = Propagation.MANDATORY)
-public class SuccessionNoticeService {
+public class SuccessionNoticeWriter {
     private final EntityManager entityManager;
 
     public void admin(Long clubId, Long successorUserId) {
