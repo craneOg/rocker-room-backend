@@ -1,6 +1,6 @@
 package com.crane.bandwebbackend.domain.participant.service;
 
-import com.crane.bandwebbackend.domain.home.service.SuccessionNoticeService;
+import com.crane.bandwebbackend.domain.home.service.SuccessionNoticeWriter;
 import com.crane.bandwebbackend.domain.performance.entity.Performance;
 import com.crane.bandwebbackend.global.error.BusinessException;
 import com.crane.bandwebbackend.global.error.ErrorCode;
@@ -28,7 +28,7 @@ public class TeamLeaderSuccession {
     }
 
     private final EntityManager entityManager;
-    private final SuccessionNoticeService notices;
+    private final SuccessionNoticeWriter notices;
 
     /** 지정값은 처리한 팀마다 소비하며, 호출자는 전체 처리 후 남은 지정값을 거부한다. */
     public Set<Long> apply(Long performanceId, Long memberId, Map<Long, Long> specified, Mode mode) {

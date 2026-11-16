@@ -43,7 +43,7 @@ class MembershipWithdrawalServiceTest {
                 mock(com.crane.bandwebbackend.domain.participant.service.ParticipantAssignmentService.class),
                 mock(com.crane.bandwebbackend.domain.participant.service.ParticipantRemovalPolicy.class),
                 mock(com.crane.bandwebbackend.domain.participant.service.TeamLeaderSuccession.class),
-                mock(com.crane.bandwebbackend.domain.home.service.SuccessionNoticeService.class),
+                mock(com.crane.bandwebbackend.domain.home.service.SuccessionNoticeWriter.class),
                 mock(ScheduleLookup.class),
                 mock(MembershipPartReader.class),
                 entityManager,
