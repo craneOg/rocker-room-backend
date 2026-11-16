@@ -33,4 +33,20 @@ public class PracticeScheduleSong {
     // 공연 경계 전파 컬럼. 복합 FK로 일정·곡이 같은 공연임을 DB가 보장
     @Column(nullable = false, updatable = false)
     private Long performanceId;
+
+    /** 일정 연결 항목을 생성한다 */
+    public static PracticeScheduleSong link(PracticeSchedule schedule, Song song) {
+        if (schedule == null
+                || song == null
+                || !schedule.getPerformance()
+                        .getId()
+                        .equals(song.getPerformance().getId())) {
+            throw new IllegalArgumentException("일정과 곡의 공연이 다릅니다.");
+        }
+        PracticeScheduleSong link = new PracticeScheduleSong();
+        link.practiceSchedule = schedule;
+        link.song = song;
+        link.performanceId = schedule.getPerformance().getId();
+        return link;
+    }
 }

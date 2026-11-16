@@ -73,4 +73,12 @@ public class Club extends BaseTimeEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by", nullable = false)
     private User createdBy;
+
+    /** 후임 임원이 없는 동아리를 비활성 상태로 전환한다. */
+    public void deactivate() {
+        if (status != ClubStatus.ACTIVE) {
+            throw new IllegalStateException("활성 동아리만 비활성화할 수 있습니다.");
+        }
+        status = ClubStatus.INACTIVE;
+    }
 }
