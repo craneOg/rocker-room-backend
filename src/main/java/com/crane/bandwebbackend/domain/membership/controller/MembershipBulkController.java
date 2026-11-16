@@ -9,7 +9,6 @@ import com.crane.bandwebbackend.global.security.CurrentActor;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -19,7 +18,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/clubs/{clubId}/memberships/bulk")
-@ConditionalOnProperty(prefix = "rocker.api-v1", name = "enabled", havingValue = "true")
 @RequiredArgsConstructor
 public class MembershipBulkController {
     private final MembershipBulkService service;

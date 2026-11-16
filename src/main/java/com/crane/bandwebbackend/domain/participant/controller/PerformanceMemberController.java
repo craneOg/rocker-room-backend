@@ -28,7 +28,6 @@ import jakarta.validation.Valid;
 import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -40,13 +39,11 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * PAR-02/03. 인증·CSRF·Idempotency-Key 저장소가 연결될 때까지 라우트를 등록하지 않는다.
- * 권한 판단은 서비스가 현재 소속 행을 다시 읽어 수행한다. 요청의 membershipId는 ADMIN 대상이며
- * 로그인 사용자 ID로 사용하지 않는다.
+ * PAR-02/03: 공연 참여 신청·관리자 등록. 권한은 서비스에서 현재 소속을 기준으로 확인한다.
+ * 요청의 membershipId는 관리자 등록 대상이며, 요청자 ID는 CurrentActor에서만 읽는다.
  */
 @RestController
 @RequestMapping("/api/v1/clubs/{clubId}/performances/{performanceId}")
-@ConditionalOnProperty(prefix = "rocker.api-v1", name = "enabled", havingValue = "true")
 @RequiredArgsConstructor
 public class PerformanceMemberController {
     private final PerformanceMemberService service;

@@ -12,7 +12,6 @@ import com.crane.bandwebbackend.global.security.CurrentActor;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -24,7 +23,6 @@ import org.springframework.web.bind.annotation.RestController;
 /** 인증 필터와 API 스위치가 연결되면 API-050~052를 노출한다. */
 @RestController
 @RequestMapping("/api/v1/clubs/{clubId}/performances/{performanceId}")
-@ConditionalOnProperty(prefix = "rocker.api-v1", name = "enabled", havingValue = "true")
 @RequiredArgsConstructor
 public class PerformanceLockController {
     private final PerformanceLockService service;

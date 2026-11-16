@@ -10,7 +10,6 @@ import com.crane.bandwebbackend.global.security.CurrentActor;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -21,7 +20,6 @@ import org.springframework.web.bind.annotation.RestController;
 /** API-045~049, 152. 인증과 CSRF 필터가 제공될 때 api-v1 스위치를 켠다. */
 @RestController
 @RequestMapping("/api/v1/clubs/{clubId}/performances/{performanceId}")
-@ConditionalOnProperty(prefix = "rocker.api-v1", name = "enabled", havingValue = "true")
 @RequiredArgsConstructor
 public class PerformanceStatusController {
     private final PerformanceTransitionService service;

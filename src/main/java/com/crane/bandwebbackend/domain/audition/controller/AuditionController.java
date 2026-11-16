@@ -12,7 +12,6 @@ import com.crane.bandwebbackend.global.security.CurrentActor;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -24,13 +23,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-/**
- * AUD-03 상세 조회. 결과 등록과 정정은 version 검사·감사 로그·LOCKED 예외를 묶어야 하므로
- * 해당 서비스와 인증 필터가 완성된 뒤 라우트를 등록한다.
- */
+/** API-147~149: 오디션 목록·등록·심사. version 검사·감사·LOCKED 예외 처리는 서비스에 맡긴다. */
 @RestController
 @RequestMapping("/api/v1/clubs/{clubId}/performances/{performanceId}/auditions")
-@ConditionalOnProperty(prefix = "rocker.api-v1", name = "enabled", havingValue = "true")
 @RequiredArgsConstructor
 public class AuditionController {
     private final AuditionService service;

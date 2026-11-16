@@ -19,7 +19,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.jdbc.Sql;
 import org.springframework.test.web.servlet.MockMvc;
 
-@SpringBootTest(properties = "rocker.api-v1.enabled=true")
+@SpringBootTest
 @ActiveProfiles("test")
 @AutoConfigureMockMvc
 @Import(TestcontainersConfiguration.class)

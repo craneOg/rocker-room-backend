@@ -28,7 +28,6 @@ import com.crane.bandwebbackend.global.security.CurrentActor;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
@@ -43,18 +42,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-/**
- * MEM-01/03. 인증이 없는 현재 상태에서는 이 컨트롤러를 등록하지 않는다.
- *
- * <p>CurrentActor 구현과 인증 필터의 토큰 검증/CSRF 헤더 검사 → 변경 POST의
- * Idempotency-Key 저장 및 재시도
- * 응답 처리 → rocker.api-v1.enabled=true.
- * 현재는 헤더의 형식과 존재만 검사한다. 멱등 저장소를 연결하기 전에 플래그를 켜면 안 된다.
- * actorUserId는 반드시 CurrentActor에서만 받는다. 서비스는 요청마다 membership.role을 조회한다.
- */
+/** MEM-01/03. 인증 사용자는 CurrentActor에서 읽고, 권한은 서비스에서 현재 소속을 기준으로 확인한다. */
 @RestController
 @RequestMapping("/api/v1/clubs/{clubId}/memberships")
-@ConditionalOnProperty(prefix = "rocker.api-v1", name = "enabled", havingValue = "true")
 @RequiredArgsConstructor
 public class MembershipController {
     private final MembershipService service;

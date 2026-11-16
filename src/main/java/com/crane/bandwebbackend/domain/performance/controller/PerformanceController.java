@@ -27,7 +27,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.time.LocalDate;
 import lombok.RequiredArgsConstructor;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
@@ -42,13 +41,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-/**
- * PERF-01 목록. 생성·상세·정책 수정은 프리셋 기본값(D-01 등), 정책 공개 범위 및
- * 곡/팀 집계와 인증 필터가 준비된 뒤 API 스위치로 등록한다.
- */
+/** PERF-01: 공연 목록·생성·상세·정책 변경. 인증과 CSRF 헤더 검사는 공통 보안 필터를 따른다. */
 @RestController
 @RequestMapping("/api/v1/clubs/{clubId}/performances")
-@ConditionalOnProperty(prefix = "rocker.api-v1", name = "enabled", havingValue = "true")
 @RequiredArgsConstructor
 public class PerformanceController {
     private final PerformanceService service;
