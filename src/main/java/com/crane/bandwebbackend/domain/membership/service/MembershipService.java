@@ -168,6 +168,11 @@ public class MembershipService {
                 Membership.invite(club, user, type, displayName, LocalDateTime.now(ZoneOffset.UTC)));
     }
 
+    /** API-011: 동아리 생성 트랜잭션 안에서 생성자 소속을 만든다. 권한 검사 없음 */
+    public Membership createCreatorMembership(Club club, User user) {
+        return repository.save(Membership.createForCreator(club, user, LocalDateTime.now(ZoneOffset.UTC)));
+    }
+
     /** 선택 표시명의 공백 여부와 최대 길이를 검증한다. */
     private static void validateDisplayName(String displayName) {
         if (displayName != null && (displayName.isBlank() || displayName.length() > 50)) {

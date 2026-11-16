@@ -31,6 +31,7 @@ import org.springframework.web.multipart.MultipartFile;
 public class ProfileImageService {
 
     private static final String PERMANENT_PREFIX = "users/";
+    private static final String CLUB_PERMANENT_PREFIX = "clubs/";
     private static final Pattern PERMANENT_KEY = Pattern.compile(
             "(users/[0-9]+/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\.(?:jpg|png|webp))$");
     private static final String TMP_KEY_FORMAT =
@@ -70,7 +71,24 @@ public class ProfileImageService {
     // 영구 위치로 복사하고 임시 객체를 지운 뒤 영구 공개 주소를 돌려준다
     // ponytail: DB 커밋 실패 시 복사본이 고아로 남는다. 사진 수가 늘면 정리 배치로 users/ 접두사의 미참조 객체를 지운다
     public String promote(long userId, String key) {
-        String prefix = ImagePurpose.USER_PROFILE.tmpPrefixFor(userId);
+        String fileName = requireTmpKey(ImagePurpose.USER_PROFILE, userId, key);
+        String permanentKey = PERMANENT_PREFIX + userId + "/" + fileName;
+        storage.copy(key, permanentKey);
+        return storage.publicUrl(permanentKey);
+    }
+
+    // API 11: 본인이 올린 CLUB_PROFILE 임시 키를 clubs/{clubId}/ 영구 위치로 복사한다. 검사와 실패 응답은 promote와 같다
+    // ponytail: DB 커밋 실패 시 clubs/ 복사본이 고아로 남고 정리 배치는 clubs/를 훑지 않는다. 필요해지면 배치에 이 접두사를 추가한다
+    public String promoteClub(long userId, long clubId, String key) {
+        String fileName = requireTmpKey(ImagePurpose.CLUB_PROFILE, userId, key);
+        String permanentKey = CLUB_PERMANENT_PREFIX + clubId + "/" + fileName;
+        storage.copy(key, permanentKey);
+        return storage.publicUrl(permanentKey);
+    }
+
+    // 접두사·형식·만료를 검사하고 임시 키의 파일명 부분({uuid}.{ext})을 돌려준다
+    private String requireTmpKey(ImagePurpose purpose, long userId, String key) {
+        String prefix = purpose.tmpPrefixFor(userId);
         if (key.length() > 200
                 || !key.startsWith(prefix)
                 || !Pattern.matches(TMP_KEY_FORMAT, key.substring(prefix.length()))) {
@@ -81,9 +99,7 @@ public class ProfileImageService {
                 || !Instant.now(clock).isBefore(uploadedAt.get().plus(properties.tmpTtl()))) {
             throw keyNotFound();
         }
-        String permanentKey = PERMANENT_PREFIX + userId + "/" + key.substring(prefix.length());
-        storage.copy(key, permanentKey);
-        return storage.publicUrl(permanentKey);
+        return key.substring(prefix.length());
     }
 
     // 임시 객체는 DB 커밋 뒤에 지운다. 커밋 전에 지우면 롤백된 요청이 같은 키로 재시도할 수 없다

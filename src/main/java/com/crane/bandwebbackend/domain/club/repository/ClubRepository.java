@@ -23,4 +23,6 @@ public interface ClubRepository extends JpaRepository<Club, Long> {
     boolean existsByNameKey(String nameKey);
 
     boolean existsByNameKeyAndIdNot(String nameKey, Long id);
+
+    boolean existsByJoinCode(String joinCode);
 }
