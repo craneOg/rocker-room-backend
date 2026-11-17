@@ -84,10 +84,9 @@ class JoinRequestApiTest {
     }
 
     @Test
-    @DisplayName("C-08: 코드를 보내지 않거나 동아리 코드가 없으면 404, 비공개 SEARCH도 404")
+    @DisplayName("C-08: 동아리 코드가 없으면 404, 비공개 SEARCH도 404")
     void missingCodeAndPrivateSearch() throws Exception {
         setUp(true, false);
-        apply(5, "{\"source\":\"JOIN_CODE\"}").andExpect(status().isNotFound());
         apply(5, "{\"source\":\"SEARCH\"}").andExpect(status().isNotFound());
         jdbc.update("UPDATE club SET join_code = NULL WHERE id = 1");
         apply(5, "{\"source\":\"JOIN_CODE\",\"joinCode\":\"" + CODE + "\"}").andExpect(status().isNotFound());
@@ -113,6 +112,25 @@ class JoinRequestApiTest {
         apply(5, "{\"source\":\"SEARCH\"}")
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.error.details[0].reason").value("DUPLICATE_MEMBERSHIP"));
+    }
+
+    @Test
+    @DisplayName("API-014: INVITED 소속이 있으면 409 DUPLICATE_MEMBERSHIP")
+    void invitedDuplicate() throws Exception {
+        setUp(false, true);
+        jdbc.update("UPDATE membership SET status = 'INVITED', invited_at = NOW(6) WHERE id = 3");
+        apply(3, "{\"source\":\"SEARCH\"}")
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.details[0].reason").value("DUPLICATE_MEMBERSHIP"));
+    }
+
+    @Test
+    @DisplayName("API-014: source가 JOIN_CODE인데 joinCode가 없으면 400")
+    void missingJoinCode() throws Exception {
+        setUp(true, true);
+        apply(5, "{\"source\":\"JOIN_CODE\"}")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
     }
 
     @ParameterizedTest
@@ -175,6 +193,17 @@ class JoinRequestApiTest {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.error.code").value("STATE_CONFLICT"))
                 .andExpect(jsonPath("$.error.details[0].reason").value("INVALID_STATE"));
+    }
+
+    @Test
+    @DisplayName("API-028: 비활성 동아리에서는 409 CLUB_INACTIVE")
+    void cancelInactiveClub() throws Exception {
+        setUp(false, true);
+        jdbc.update("UPDATE membership SET status = 'PENDING' WHERE id = 3");
+        jdbc.update("UPDATE club SET status = 'INACTIVE' WHERE id = 1");
+        cancel(3, 3)
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.details[0].reason").value("CLUB_INACTIVE"));
     }
 
     private ResultActions apply(long userId, String body) throws Exception {

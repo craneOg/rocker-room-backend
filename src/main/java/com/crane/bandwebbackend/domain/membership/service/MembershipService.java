@@ -185,13 +185,14 @@ public class MembershipService {
         if (source != JoinSource.JOIN_CODE && source != JoinSource.SEARCH) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "source가 유효하지 않습니다.");
         }
+        if (source == JoinSource.JOIN_CODE && joinCode == null) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "joinCode가 필요합니다.");
+        }
         Club club = requireClub(clubId);
         User user = entityLookup.requireActive(userId);
         // 비활성·비공개·코드 불일치(형식 오류, 코드 없음 포함)는 모두 같은 404(C-08)
         boolean joinable = club.getStatus() == ClubStatus.ACTIVE
-                && (source == JoinSource.SEARCH
-                        ? club.isSearchable()
-                        : joinCode != null && joinCode.equals(club.getJoinCode()));
+                && (source == JoinSource.SEARCH ? club.isSearchable() : joinCode.equals(club.getJoinCode()));
         if (!joinable) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "동아리를 찾을 수 없습니다.");
         }
@@ -201,13 +202,13 @@ public class MembershipService {
             throw duplicateMembership();
         }
         // 동시 신청은 uk_membership_club_user 위반으로 걸러 같은 409로 돌려준다
-        try {
-            if (existing == null) {
-                return repository.saveAndFlush(Membership.apply(club, user, source, displayName));
-            }
+        if (existing != null) {
             existing.restartApplication(source, displayName);
             repository.flush();
             return existing;
+        }
+        try {
+            return repository.saveAndFlush(Membership.apply(club, user, source, displayName));
         } catch (DataIntegrityViolationException exception) {
             throw duplicateMembership();
         }
@@ -216,6 +217,8 @@ public class MembershipService {
     /** API-028: 신청자 본인이 대기 중인 가입 신청을 취소한다 */
     @Transactional
     public Membership cancelJoinRequest(Long clubId, Long requestId, Long actorUserId) {
+        // 승인과 직렬화하고 비활성 동아리는 거부한다(§0.4, G-08)
+        entityLookup.lockActiveClub(clubId);
         Membership request = require(clubId, requestId);
         if (!request.getUser().getId().equals(actorUserId)) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "소속을 찾을 수 없습니다.");

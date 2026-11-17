@@ -161,7 +161,6 @@ public class Membership extends BaseTimeEntity {
             throw new IllegalStateException("대기 중인 신청만 취소할 수 있습니다.");
         }
         this.status = MembershipStatus.WITHDRAWN;
-        this.approvedAt = null;
     }
 
     /** 소속 초대를 다시 시작한다 */

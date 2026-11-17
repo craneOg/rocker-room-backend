@@ -1,5 +1,6 @@
 package com.crane.bandwebbackend.domain.membership.service;
 
+import com.crane.bandwebbackend.domain.club.entity.Club;
 import com.crane.bandwebbackend.domain.club.entity.ClubStatus;
 import com.crane.bandwebbackend.domain.club.entity.ClubType;
 import com.crane.bandwebbackend.domain.membership.entity.Membership;
@@ -11,6 +12,7 @@ import com.crane.bandwebbackend.global.audit.AuditRecorder;
 import com.crane.bandwebbackend.global.error.BusinessException;
 import com.crane.bandwebbackend.global.error.ErrorCode;
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.Map;
@@ -38,6 +40,8 @@ public class MembershipDecisionService {
             MembershipStatus expectedSource,
             MembershipStatus target,
             String reason) {
+        // 취소·승인 직렬화(§0.4): 동아리 행을 먼저 잠근다.
+        entityManager.find(Club.class, clubId, LockModeType.PESSIMISTIC_WRITE);
         // 요청자가 기대한 원본 상태와 현재 데이터가 같은지 먼저 확인한다.
         Membership member = members.require(clubId, membershipId);
         if (member.getStatus() != expectedSource) {
