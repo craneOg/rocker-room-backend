@@ -37,7 +37,6 @@ public class HomeAdminService {
                 .mapToLong(c -> c.getTotal() - c.getSatisfied())
                 .sum();
         Map<String, Long> byStatus = new TreeMap<>(repository.performanceStatusCounts(clubId));
-        byStatus.values().removeIf(n -> n == 0);
         return ClubDashboardResponse.builder()
                 .pendingMemberships(members.getPending())
                 .invitedMemberships(members.getInvited())
@@ -52,27 +51,6 @@ public class HomeAdminService {
     @Transactional(readOnly = true)
     public HomeAdminResponse adminHome(Long clubId, Long userId) {
         membershipService.requireAdmin(clubId, userId);
-        return build(clubId);
-    }
-
-    // API 139가 임원 합계를 구할 때도 쓴다(권한은 호출자가 확인)
-    @Transactional(readOnly = true)
-    public HomeAdminResponse.Pending pending(Long clubId) {
-        return pending(repository.memberCounts(clubId, utcNow()), repository.workCounts(clubId));
-    }
-
-    private static HomeAdminResponse.Pending pending(
-            HomeQueryRepository.MemberCounts members, HomeQueryRepository.WorkCounts work) {
-        return HomeAdminResponse.Pending.builder()
-                .joinRequests(members.getPending())
-                .invitesWaiting(members.getInvited())
-                .participationRequests(work.getAppliedMembers())
-                .teamReviews(work.getSubmittedTeams())
-                .auditionReviews(work.getPendingAuditions())
-                .build();
-    }
-
-    private HomeAdminResponse build(Long clubId) {
         HomeQueryRepository.MemberCounts members = repository.memberCounts(clubId, utcNow());
         HomeQueryRepository.WorkCounts work = repository.workCounts(clubId);
         Map<String, Long> status = repository.performanceStatusCounts(clubId);
@@ -91,6 +69,23 @@ public class HomeAdminService {
                                 .finished(status.getOrDefault("FINISHED", 0L))
                                 .build())
                         .build())
+                .build();
+    }
+
+    // API 139가 임원 합계를 구할 때도 쓴다(권한은 호출자가 확인)
+    @Transactional(readOnly = true)
+    public HomeAdminResponse.Pending pending(Long clubId) {
+        return pending(repository.memberCounts(clubId, utcNow()), repository.workCounts(clubId));
+    }
+
+    private static HomeAdminResponse.Pending pending(
+            HomeQueryRepository.MemberCounts members, HomeQueryRepository.WorkCounts work) {
+        return HomeAdminResponse.Pending.builder()
+                .joinRequests(members.getPending())
+                .invitesWaiting(members.getInvited())
+                .participationRequests(work.getAppliedMembers())
+                .teamReviews(work.getSubmittedTeams())
+                .auditionReviews(work.getPendingAuditions())
                 .build();
     }
 
