@@ -220,6 +220,22 @@ class HomeApiTest extends HomeApiTestBase {
     }
 
     @Test
+    @DisplayName("V-05 한도가 투표할 수 있는 PROPOSED 곡 수보다 커도 모든 곡에 투표하면 VOTE 할 일과 배지에서 제외")
+    void voteTodoCappedByVotableSongs() throws Exception {
+        long perf = performance("ACTIVE");
+        policy(perf, "vote_state = 'OPEN', vote_max_choices = 3");
+        long pm = participation(perf, memberMid, "APPROVED");
+        long s1 = song(perf, "PROPOSED", adminMid, null);
+        long s2 = song(perf, "PROPOSED", adminMid, null);
+        vote(s1, perf, pm);
+        assertThat(types(memberUser)).containsExactly("VOTE");
+        vote(s2, perf, pm);
+        assertThat(types(memberUser)).isEmpty();
+        mockMvc.perform(get(path("/home/badge")).cookie(access(memberUser)))
+                .andExpect(jsonPath("$.data.count").value(0));
+    }
+
+    @Test
     @DisplayName("V-05 투표할 PROPOSED 곡이 없으면 VOTE 할 일과 배지에서 제외")
     void voteTodoNeedsVotableSong() throws Exception {
         long perf = performance("ACTIVE");
@@ -359,6 +375,29 @@ class HomeApiTest extends HomeApiTestBase {
                 .andExpect(jsonPath("$.data.myPerformances[1].performanceId").value(String.valueOf(locked)))
                 .andExpect(jsonPath("$.data.myPerformances[1].myStatus").value("APPLIED"))
                 .andExpect(jsonPath("$.data.myPerformances[1].songCount").value(0));
+    }
+
+    @Test
+    @DisplayName("§2.1 일반 부원에게 DRAFT 공연은 할 일과 내 공연에 나오지 않는다")
+    void draftHiddenFromMember() throws Exception {
+        long draft = performance("DRAFT");
+        policy(draft, "candidate_state = 'OPEN'");
+        participation(draft, memberMid, "APPROVED");
+        assertThat(types(memberUser)).isEmpty();
+        mockMvc.perform(get(path("/home")).cookie(access(memberUser)))
+                .andExpect(jsonPath("$.data.myPerformances.length()").value(0));
+    }
+
+    @Test
+    @DisplayName("G-06 객원에게 참여하지 않은 공연은 할 일과 내 공연에 나오지 않는다")
+    void nonParticipatingPerformanceHiddenFromGuest() throws Exception {
+        long guestUser = user();
+        member(guestUser, "MEMBER", "ACTIVE", "GUEST", "ADMIN_ADDED", null);
+        long perf = performance("ACTIVE");
+        policy(perf, "application_state = " + OPEN);
+        assertThat(types(guestUser)).isEmpty();
+        mockMvc.perform(get(path("/home")).cookie(access(guestUser)))
+                .andExpect(jsonPath("$.data.myPerformances.length()").value(0));
     }
 
     @Test

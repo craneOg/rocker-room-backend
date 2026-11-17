@@ -48,8 +48,7 @@ public class HomeService {
         LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
         // 객원·초안 가시성은 PerformanceService.list가 처리한다(G-06)
         List<Performance> visible = performanceService.list(clubId, userId);
-        Map<Long, Performance> byId =
-                visible.stream().collect(Collectors.toMap(Performance::getId, Function.identity()));
+        Map<Long, Performance> byId = byId(visible);
         Map<Long, HomeQueryRepository.TodoRow> rows = rows(m, visible);
 
         List<HomeResponse.Banner> banners = new ArrayList<>();
@@ -108,14 +107,16 @@ public class HomeService {
     public HomeBadgeResponse badge(Long clubId, Long userId) {
         Membership m = membershipService.requireMember(clubId, userId);
         List<Performance> visible = performanceService.list(clubId, userId);
-        Map<Long, Performance> byId =
-                visible.stream().collect(Collectors.toMap(Performance::getId, Function.identity()));
-        long count = todos(m, byId, rows(m, visible), LocalDateTime.now(ZoneOffset.UTC))
+        long count = todos(m, byId(visible), rows(m, visible), LocalDateTime.now(ZoneOffset.UTC))
                 .size();
         if (isAdmin(m)) {
             count += homeAdminService.pending(clubId).total();
         }
         return HomeBadgeResponse.builder().count(count).build();
+    }
+
+    private static Map<Long, Performance> byId(List<Performance> visible) {
+        return visible.stream().collect(Collectors.toMap(Performance::getId, Function.identity()));
     }
 
     // 진행 중 공연(DRAFT·ACTIVE·LOCKED)별 내 판정 재료
@@ -165,14 +166,11 @@ public class HomeService {
             if (active && participant && r.getPlayability().open(now) && r.getUnanswered() > 0) {
                 add(out, p, "PLAYABILITY", "가불 응답 (" + r.getUnanswered() + "곡 남음)", null, r.getPlayability());
             }
-            // V-05: 찬성 방식의 한도가 있을 때만 한도까지, 아니면 1건 투표 시 완료
+            // V-05: 찬성 방식의 한도가 있을 때만 한도까지(투표할 수 있는 곡 수가 한도보다 적으면 그 수까지), 아니면 1건 투표 시 완료
             Integer max = r.getVoteMaxChoices();
             boolean limited = max != null && "APPROVAL".equals(r.getVoteMethod());
-            if (active
-                    && approved
-                    && r.getVote().open(now)
-                    && r.getVotable() > 0
-                    && r.getMyVotes() < (limited ? max : 1)) {
+            long target = limited ? Math.min(max, r.getVotable()) : 1;
+            if (active && approved && r.getVote().open(now) && r.getVotable() > 0 && r.getMyVotes() < target) {
                 String label = limited ? "투표 (선택 " + r.getMyVotes() + "/" + max + "곡)" : "투표";
                 add(out, p, "VOTE", label, null, r.getVote());
             }
