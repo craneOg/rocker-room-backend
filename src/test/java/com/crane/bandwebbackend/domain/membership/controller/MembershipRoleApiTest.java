@@ -63,6 +63,17 @@ class MembershipRoleApiTest {
     }
 
     @Test
+    @DisplayName("API-031: 다른 임원이 있으면 임원 본인도 자신의 역할을 해제할 수 있다")
+    void revokeSelf() throws Exception {
+        jdbc.update("UPDATE membership SET role = 'CLUB_ADMIN' WHERE id = 2");
+        change(1, 1, "MEMBER", "null")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.role").value("MEMBER"));
+        assertThat(jdbc.queryForObject("SELECT role FROM membership WHERE id = 1", String.class))
+                .isEqualTo("MEMBER");
+    }
+
+    @Test
     @DisplayName("API-031: 객원·졸업·PENDING 대상은 422 ADMIN_TARGET_NOT_ELIGIBLE")
     void notEligible() throws Exception {
         jdbc.update("UPDATE membership SET member_type = 'GUEST' WHERE id = 2");

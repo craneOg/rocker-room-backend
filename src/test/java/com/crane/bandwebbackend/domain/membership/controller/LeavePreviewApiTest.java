@@ -99,6 +99,13 @@ class LeavePreviewApiTest {
     }
 
     @Test
+    @DisplayName("API-145: PENDING 신청자는 활동 가능한 소속이 아니므로 403")
+    void pendingUser() throws Exception {
+        jdbc.update("UPDATE membership SET status = 'PENDING' WHERE id = 3");
+        preview(3).andExpect(status().isForbidden());
+    }
+
+    @Test
     @DisplayName("G-04: 이 동아리 소속이 아니면 404")
     void notMember() throws Exception {
         jdbc.update("INSERT INTO users (id, name, handle) VALUES (5, '외부인', 'outsider_5')");
