@@ -322,6 +322,17 @@ class ClubSettingsApiTest {
     }
 
     @Test
+    @DisplayName("API 16: 본인의 USER_PROFILE 임시 키도 404 IMAGE_KEY_NOT_FOUND")
+    void userProfileKeyRejected() throws Exception {
+        String key = "tmp/users/" + me + "/" + UUID.randomUUID() + ".png";
+        storage.put(key, new byte[] {1, 2, 3}, "image/png");
+        mockMvc.perform(patchMine("{\"profileImageKey\":\"" + key + "\"}"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error.details[0].reason").value("IMAGE_KEY_NOT_FOUND"));
+        assertThat(storage.exists(key)).isTrue();
+    }
+
+    @Test
     @DisplayName("API 16: name·isSearchable·clubType을 명시적 null로 보내면 400")
     void explicitNull() throws Exception {
         for (String field : new String[] {"name", "isSearchable", "clubType"}) {
