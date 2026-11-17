@@ -1,10 +1,10 @@
 package com.crane.bandwebbackend.domain.part.service;
 
 import com.crane.bandwebbackend.domain.club.entity.Club;
-import com.crane.bandwebbackend.domain.club.entity.ClubStatus;
 import com.crane.bandwebbackend.domain.membership.entity.MemberType;
 import com.crane.bandwebbackend.domain.membership.entity.Membership;
 import com.crane.bandwebbackend.domain.membership.entity.MembershipStatus;
+import com.crane.bandwebbackend.domain.membership.service.CoreEntityLookupService;
 import com.crane.bandwebbackend.domain.membership.service.MembershipService;
 import com.crane.bandwebbackend.domain.part.entity.MembershipPart;
 import com.crane.bandwebbackend.domain.part.entity.Part;
@@ -38,6 +38,7 @@ public class PartService {
     private final ParticipationLookup participationLookup;
     private final EntityManager entityManager;
     private final MembershipPartRepository membershipPartRepository;
+    private final CoreEntityLookupService entityLookup;
 
     /** PART-01. 객원은 참여 공연이 있을 때 활성 파트와 본인의 과거 참조 파트만 본다. */
     @Transactional(readOnly = true)
@@ -144,13 +145,7 @@ public class PartService {
     /** API-032. 동아리 행을 먼저 잠가 같은 소속의 동시 저장을 직렬화한다. 임원은 모든 소속, 일반 부원은 본인 소속만 저장한다 */
     @Transactional
     public Membership replaceMemberParts(Long clubId, Long membershipId, Long actorUserId, List<String> partIds) {
-        Club club = entityManager.find(Club.class, clubId, LockModeType.PESSIMISTIC_WRITE);
-        if (club == null) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "동아리를 찾을 수 없습니다.");
-        }
-        if (club.getStatus() != ClubStatus.ACTIVE) {
-            throw new BusinessException(ErrorCode.STATE_CONFLICT, "CLUB_INACTIVE", "비활성 동아리에서는 변경할 수 없습니다.");
-        }
+        entityLookup.lockActiveClub(clubId);
         Membership target = membershipService.require(clubId, membershipId);
         if (!target.getUser().getId().equals(actorUserId)) {
             membershipService.requireAdmin(clubId, actorUserId);
