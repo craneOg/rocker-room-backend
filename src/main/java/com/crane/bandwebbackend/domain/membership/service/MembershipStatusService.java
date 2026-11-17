@@ -80,6 +80,47 @@ public class MembershipStatusService {
         return member;
     }
 
+    /** API-031: 임원 역할을 부여하거나 해제한다. 동아리 행을 먼저 잠가 마지막 임원 계산을 직렬화한다 */
+    @Transactional
+    public Membership changeRole(
+            Long clubId, Long membershipId, Long actorUserId, MembershipRole target, String reason) {
+        String note = reason == null ? null : reason.strip();
+        if (target == null || (note != null && (note.isEmpty() || note.length() > 500))) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "role 또는 reason이 유효하지 않습니다.");
+        }
+        lockClub(clubId);
+        membershipService.requireAdmin(clubId, actorUserId);
+        Membership member = membershipService.require(clubId, membershipId);
+        MembershipRole previous = member.getRole();
+        if (previous == target) {
+            throw new BusinessException(ErrorCode.STATE_CONFLICT, "RELATION_CONFLICT", "이미 같은 역할입니다.");
+        }
+        if (target == MembershipRole.CLUB_ADMIN) {
+            // 엔티티 changeRole 예외 전에 정회원 활동·휴학 조건을 422로 막는다
+            if (member.getMemberType() != MemberType.REGULAR
+                    || (member.getStatus() != MembershipStatus.ACTIVE
+                            && member.getStatus() != MembershipStatus.ON_LEAVE)) {
+                throw new BusinessException(
+                        ErrorCode.RULE_VIOLATION, "ADMIN_TARGET_NOT_ELIGIBLE", "활동·휴학 중인 정회원만 임원이 될 수 있습니다.");
+            }
+        } else if (!repository.existsByClub_IdAndIdNotAndRoleAndStatusIn(
+                clubId,
+                member.getId(),
+                MembershipRole.CLUB_ADMIN,
+                List.of(MembershipStatus.ACTIVE, MembershipStatus.ON_LEAVE))) {
+            throw new BusinessException(ErrorCode.RULE_VIOLATION, "LAST_ADMIN", "마지막 임원은 해제할 수 없습니다.");
+        }
+        member.changeRole(target);
+        audit(
+                clubId,
+                actorUserId,
+                target == MembershipRole.CLUB_ADMIN ? "ADMIN_GRANTED" : "ADMIN_REVOKED",
+                member,
+                note,
+                Map.of("from", previous.toString(), "to", target.toString()));
+        return member;
+    }
+
     /** 소속 유형을 변경한다 */
     @Transactional
     public Membership changeType(Long clubId, Long membershipId, Long actorUserId, MemberType target, String reason) {

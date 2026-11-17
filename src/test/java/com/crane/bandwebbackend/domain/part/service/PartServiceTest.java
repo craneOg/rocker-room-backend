@@ -30,8 +30,12 @@ class PartServiceTest {
     private final MembershipService membershipService = mock(MembershipService.class);
     private final ParticipationLookup participationLookup = mock(ParticipationLookup.class);
     private final EntityManager entityManager = mock(EntityManager.class);
-    private final PartService service =
-            new PartService(repository, membershipService, participationLookup, entityManager);
+    private final PartService service = new PartService(
+            repository,
+            membershipService,
+            participationLookup,
+            entityManager,
+            mock(com.crane.bandwebbackend.domain.part.repository.MembershipPartRepository.class));
 
     @Test
     void part03RejectsStaleRevisionAfterLock() {

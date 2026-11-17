@@ -2,19 +2,25 @@ package com.crane.bandwebbackend.domain.membership.service;
 
 import com.crane.bandwebbackend.domain.club.entity.Club;
 import com.crane.bandwebbackend.domain.club.entity.ClubStatus;
+import com.crane.bandwebbackend.domain.membership.entity.JoinSource;
 import com.crane.bandwebbackend.domain.membership.entity.MemberType;
 import com.crane.bandwebbackend.domain.membership.entity.Membership;
 import com.crane.bandwebbackend.domain.membership.entity.MembershipRole;
 import com.crane.bandwebbackend.domain.membership.entity.MembershipStatus;
 import com.crane.bandwebbackend.domain.membership.repository.MembershipRepository;
 import com.crane.bandwebbackend.domain.user.entity.User;
+import com.crane.bandwebbackend.global.audit.AuditRecorder;
 import com.crane.bandwebbackend.global.error.BusinessException;
 import com.crane.bandwebbackend.global.error.ErrorCode;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,6 +30,11 @@ import org.springframework.transaction.annotation.Transactional;
 public class MembershipService {
     private final MembershipRepository repository;
     private final CoreEntityLookupService entityLookup;
+    private final AuditRecorder auditRecorder;
+
+    // C-06: 이 상태의 소속 행은 재신청으로 되살린다
+    private static final Set<MembershipStatus> REAPPLICABLE =
+            EnumSet.of(MembershipStatus.WITHDRAWN, MembershipStatus.REJECTED, MembershipStatus.DECLINED);
 
     @Transactional(readOnly = true)
     public List<Membership> membershipsOfUser(Long userId) {
@@ -166,6 +177,66 @@ public class MembershipService {
         }
         return repository.saveAndFlush(
                 Membership.invite(club, user, type, displayName, LocalDateTime.now(ZoneOffset.UTC)));
+    }
+
+    /** API-014: 가입 코드 또는 검색으로 가입을 신청한다. 코드·공개 여부가 맞지 않으면 존재를 숨겨 404 */
+    @Transactional
+    public Membership applyToJoin(Long clubId, Long userId, JoinSource source, String joinCode, String displayName) {
+        if (source != JoinSource.JOIN_CODE && source != JoinSource.SEARCH) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "source가 유효하지 않습니다.");
+        }
+        Club club = requireClub(clubId);
+        User user = entityLookup.requireActive(userId);
+        // 비활성·비공개·코드 불일치(형식 오류, 코드 없음 포함)는 모두 같은 404(C-08)
+        boolean joinable = club.getStatus() == ClubStatus.ACTIVE
+                && (source == JoinSource.SEARCH
+                        ? club.isSearchable()
+                        : joinCode != null && joinCode.equals(club.getJoinCode()));
+        if (!joinable) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "동아리를 찾을 수 없습니다.");
+        }
+        validateDisplayName(displayName);
+        Membership existing = repository.findByClub_IdAndUser_Id(clubId, userId).orElse(null);
+        if (existing != null && !REAPPLICABLE.contains(existing.getStatus())) {
+            throw duplicateMembership();
+        }
+        // 동시 신청은 uk_membership_club_user 위반으로 걸러 같은 409로 돌려준다
+        try {
+            if (existing == null) {
+                return repository.saveAndFlush(Membership.apply(club, user, source, displayName));
+            }
+            existing.restartApplication(source, displayName);
+            repository.flush();
+            return existing;
+        } catch (DataIntegrityViolationException exception) {
+            throw duplicateMembership();
+        }
+    }
+
+    /** API-028: 신청자 본인이 대기 중인 가입 신청을 취소한다 */
+    @Transactional
+    public Membership cancelJoinRequest(Long clubId, Long requestId, Long actorUserId) {
+        Membership request = require(clubId, requestId);
+        if (!request.getUser().getId().equals(actorUserId)) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "소속을 찾을 수 없습니다.");
+        }
+        if (request.getStatus() != MembershipStatus.PENDING) {
+            throw BusinessException.invalidState("대기 중인 신청만 취소할 수 있습니다.");
+        }
+        request.cancelApplication();
+        auditRecorder.record(
+                clubId,
+                actorUserId,
+                "JOIN_REQUEST_CANCELED",
+                "MEMBERSHIP",
+                requestId,
+                null,
+                Map.of("from", "PENDING", "to", "WITHDRAWN"));
+        return request;
+    }
+
+    private static BusinessException duplicateMembership() {
+        return new BusinessException(ErrorCode.DUPLICATE, "DUPLICATE_MEMBERSHIP", "이미 소속이 있거나 신청 중입니다.");
     }
 
     /** API-011: 동아리 생성 트랜잭션 안에서 생성자 소속을 만든다. 권한 검사 없음 */
