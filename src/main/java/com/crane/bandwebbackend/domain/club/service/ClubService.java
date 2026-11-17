@@ -32,6 +32,7 @@ public class ClubService {
     // 가입 코드: 10자, A-Z와 2-9(ck_club_join_code_format)
     private static final String JOIN_CODE_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ23456789";
     private static final int JOIN_CODE_LENGTH = 10;
+    private static final String NAME_UNIQUE_CONSTRAINT = "uk_club_name_key";
 
     private final ClubRepository clubRepository;
     private final UserLookupService userLookupService;
@@ -48,12 +49,10 @@ public class ClubService {
         if (name.isEmpty() || name.length() > 100) {
             throw invalid("name");
         }
-        String description = request.getDescription() == null
-                ? null
-                : request.getDescription().strip();
-        if (description != null && description.isEmpty()) {
-            description = null;
-        }
+        String description =
+                request.getDescription() == null || request.getDescription().isBlank()
+                        ? null
+                        : request.getDescription().strip();
         if (description != null && description.length() > 500) {
             throw invalid("description");
         }
@@ -74,7 +73,12 @@ public class ClubService {
             club = clubRepository.saveAndFlush(
                     Club.create(name, description, clubType, request.isSearchable(), themeColor, joinCode, creator));
         } catch (DataIntegrityViolationException e) {
-            throw nameTaken();
+            // 이름 유니크 제약만 CLUB_NAME_TAKEN으로 변환하고, 다른 제약 위반은 전역 핸들러가 처리한다
+            String message = e.getMostSpecificCause().getMessage();
+            if (message != null && message.contains(NAME_UNIQUE_CONSTRAINT)) {
+                throw nameTaken();
+            }
+            throw e;
         }
         membershipService.createCreatorMembership(club, creator);
         partService.createDefaults(club);
