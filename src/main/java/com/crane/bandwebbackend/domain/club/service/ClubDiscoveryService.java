@@ -75,7 +75,7 @@ public class ClubDiscoveryService {
         if (stripped.isEmpty() || stripped.length() > 100) {
             throw invalid("name");
         }
-        String nameKey = WHITESPACE.matcher(stripped).replaceAll("").toLowerCase(Locale.ROOT);
+        String nameKey = nameKeyOf(stripped);
         boolean taken;
         if (excludeClubId == null || excludeClubId.isBlank()) {
             taken = clubRepository.existsByNameKey(nameKey);
@@ -83,6 +83,11 @@ public class ClubDiscoveryService {
             taken = clubRepository.existsByNameKeyAndIdNot(nameKey, parseId(excludeClubId));
         }
         return new NameAvailabilityResponse(!taken);
+    }
+
+    // C-15: 이름 중복 비교 키(공백 제거 + 소문자). 동아리 생성도 같은 규칙을 쓴다
+    public static String nameKeyOf(String strippedName) {
+        return WHITESPACE.matcher(strippedName).replaceAll("").toLowerCase(Locale.ROOT);
     }
 
     private java.util.Optional<Club> findActiveByCode(String code) {

@@ -74,6 +74,31 @@ public class Club extends BaseTimeEntity {
     @JoinColumn(name = "created_by", nullable = false)
     private User createdBy;
 
+    /** API-011: NOT NULL 컬럼(이름·유형·상태·공개 여부·생성자)을 모두 여기서 채운다. */
+    public static Club create(
+            String name,
+            String description,
+            ClubType clubType,
+            boolean isSearchable,
+            String themeColor,
+            String joinCode,
+            User createdBy) {
+        Club club = new Club();
+        club.name = name;
+        club.description = description;
+        club.clubType = clubType;
+        club.status = ClubStatus.ACTIVE;
+        club.joinCode = joinCode;
+        club.themeColor = themeColor;
+        club.isSearchable = isSearchable;
+        club.createdBy = createdBy;
+        return club;
+    }
+
+    public void changeProfileImage(String profileImageUrl) {
+        this.profileImageUrl = profileImageUrl;
+    }
+
     /** 후임 임원이 없는 동아리를 비활성 상태로 전환한다. */
     public void deactivate() {
         if (status != ClubStatus.ACTIVE) {

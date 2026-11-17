@@ -1,5 +1,6 @@
 package com.crane.bandwebbackend.domain.part.service;
 
+import com.crane.bandwebbackend.domain.club.entity.Club;
 import com.crane.bandwebbackend.domain.membership.entity.MemberType;
 import com.crane.bandwebbackend.domain.membership.entity.Membership;
 import com.crane.bandwebbackend.domain.membership.service.MembershipService;
@@ -11,6 +12,7 @@ import com.crane.bandwebbackend.global.error.ErrorCode;
 import com.crane.bandwebbackend.global.response.RevisionTag;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
+import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -20,6 +22,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class PartService {
+    private static final List<String> DEFAULT_NAMES = List.of("보컬", "기타", "베이스", "키보드", "드럼", "그 외");
+
     private final PartRepository repository;
     private final MembershipService membershipService;
     private final ParticipationLookup participationLookup;
@@ -69,6 +73,16 @@ public class PartService {
         } catch (DataIntegrityViolationException exception) {
             throw new BusinessException(ErrorCode.DUPLICATE, "같은 이름의 파트가 있습니다.");
         }
+    }
+
+    // 동아리 생성(API-011) 전용: 권한 검사 없이 기본 파트 6개를 만든다. 다른 곳에서 호출하지 않는다
+    @Transactional
+    public void createDefaults(Club club) {
+        List<Part> parts = new ArrayList<>();
+        for (int order = 0; order < DEFAULT_NAMES.size(); order++) {
+            parts.add(Part.create(club, DEFAULT_NAMES.get(order), order));
+        }
+        repository.saveAll(parts);
     }
 
     /** PART-03. 예상 revision은 파트 잠금 후 다시 계산한다. */

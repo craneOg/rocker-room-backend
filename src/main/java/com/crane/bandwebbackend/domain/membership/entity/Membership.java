@@ -103,6 +103,22 @@ public class Membership extends BaseTimeEntity {
         return membership;
     }
 
+    /** API-011: 동아리 생성자는 곧바로 정회원 임원(ACTIVE)으로 소속된다 */
+    public static Membership createForCreator(Club club, User user, LocalDateTime now) {
+        if (club == null || user == null || now == null) {
+            throw new IllegalArgumentException("생성자 소속 필수 값이 없습니다.");
+        }
+        Membership membership = new Membership();
+        membership.club = club;
+        membership.user = user;
+        membership.joinSource = JoinSource.CLUB_CREATOR;
+        membership.memberType = MemberType.REGULAR;
+        membership.role = MembershipRole.CLUB_ADMIN;
+        membership.status = MembershipStatus.ACTIVE;
+        membership.approvedAt = now;
+        return membership;
+    }
+
     /** 소속 초대를 다시 시작한다 */
     public void restartInvitation(MemberType type, String displayName, LocalDateTime now) {
         if (status != MembershipStatus.WITHDRAWN
