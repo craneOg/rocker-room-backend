@@ -2,10 +2,12 @@ package com.crane.bandwebbackend.domain.club.repository;
 
 import com.crane.bandwebbackend.domain.club.entity.Club;
 import com.crane.bandwebbackend.domain.club.entity.ClubStatus;
+import jakarta.persistence.LockModeType;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -25,4 +27,8 @@ public interface ClubRepository extends JpaRepository<Club, Long> {
     boolean existsByNameKeyAndIdNot(String nameKey, Long id);
 
     boolean existsByJoinCode(String joinCode);
+
+    // API 16·18·19: 동아리 행을 먼저 잠가 동시 임원 변경과 순서를 맞춘다
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    Optional<Club> findWithLockById(Long id);
 }

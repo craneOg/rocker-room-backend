@@ -124,6 +124,18 @@ public class ProfileImageService {
                 .ifPresent(this::deleteQuietly);
     }
 
+    // 이전 사진이 이 동아리의 영구 위치(clubs/{clubId}/)에 있을 때만 지운다(permanentKeyOf는 users/ 전용이라 따로 둔다)
+    public void deletePreviousClub(long clubId, String previousUrl) {
+        if (previousUrl == null) {
+            return;
+        }
+        Matcher m = Pattern.compile("(?:^|/)(clubs/" + clubId + "/" + TMP_KEY_FORMAT + ")$")
+                .matcher(previousUrl);
+        if (m.find()) {
+            deleteQuietly(m.group(1));
+        }
+    }
+
     private void deleteQuietly(String key) {
         try {
             storage.delete(key);

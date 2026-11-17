@@ -99,6 +99,21 @@ public class Club extends BaseTimeEntity {
         this.profileImageUrl = profileImageUrl;
     }
 
+    /** API-016: 이름·설명·공개 여부·유형·색상을 바꾼다(바꾸지 않을 값은 현재 값을 넘긴다). */
+    public void changeSettings(
+            String name, String description, ClubType clubType, boolean isSearchable, String themeColor) {
+        this.name = name;
+        this.description = description;
+        this.clubType = clubType;
+        this.isSearchable = isSearchable;
+        this.themeColor = themeColor;
+    }
+
+    /** API-018·019: 가입 코드를 교체한다. null이면 코드 가입을 끈다. */
+    public void changeJoinCode(String joinCode) {
+        this.joinCode = joinCode;
+    }
+
     /** 후임 임원이 없는 동아리를 비활성 상태로 전환한다. */
     public void deactivate() {
         if (status != ClubStatus.ACTIVE) {
