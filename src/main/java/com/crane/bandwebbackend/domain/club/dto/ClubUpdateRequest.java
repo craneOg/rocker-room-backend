@@ -2,8 +2,6 @@ package com.crane.bandwebbackend.domain.club.dto;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonSetter;
-import java.util.HashSet;
-import java.util.Set;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -29,49 +27,83 @@ public class ClubUpdateRequest {
 
     private String themeColor;
 
-    // 서버 내부 상태다. getter를 통해 입력 속성으로 추론되지 않도록 @JsonIgnore를 붙인다
+    // 서버 내부 상태다. getter를 통해 입력 속성으로 추론되지 않도록 @Getter(AccessLevel.NONE)을 붙인다
     @Getter(AccessLevel.NONE)
-    private final Set<String> specified = new HashSet<>();
+    private boolean nameSet;
+
+    @Getter(AccessLevel.NONE)
+    private boolean descriptionSet;
+
+    @Getter(AccessLevel.NONE)
+    private boolean searchableSet;
+
+    @Getter(AccessLevel.NONE)
+    private boolean clubTypeSet;
+
+    @Getter(AccessLevel.NONE)
+    private boolean profileImageKeySet;
+
+    @Getter(AccessLevel.NONE)
+    private boolean themeColorSet;
 
     @JsonSetter("name")
     private void readName(String name) {
         this.name = name;
-        specified.add("name");
+        nameSet = true;
     }
 
     @JsonSetter("description")
     private void readDescription(String description) {
         this.description = description;
-        specified.add("description");
+        descriptionSet = true;
     }
 
     // JSON 이름은 isSearchable이고 필드명(searchable)으로는 받지 않는다
     @JsonSetter("isSearchable")
     private void readSearchable(Boolean searchable) {
         this.searchable = searchable;
-        specified.add("isSearchable");
+        searchableSet = true;
     }
 
     @JsonSetter("clubType")
     private void readClubType(String clubType) {
         this.clubType = clubType;
-        specified.add("clubType");
+        clubTypeSet = true;
     }
 
     @JsonSetter("profileImageKey")
     private void readProfileImageKey(String profileImageKey) {
         this.profileImageKey = profileImageKey;
-        specified.add("profileImageKey");
+        profileImageKeySet = true;
     }
 
     @JsonSetter("themeColor")
     private void readThemeColor(String themeColor) {
         this.themeColor = themeColor;
-        specified.add("themeColor");
+        themeColorSet = true;
     }
 
-    @JsonIgnore
-    public boolean isSpecified(String field) {
-        return specified.contains(field);
+    public boolean hasName() {
+        return nameSet;
+    }
+
+    public boolean hasDescription() {
+        return descriptionSet;
+    }
+
+    public boolean hasSearchable() {
+        return searchableSet;
+    }
+
+    public boolean hasClubType() {
+        return clubTypeSet;
+    }
+
+    public boolean hasProfileImageKey() {
+        return profileImageKeySet;
+    }
+
+    public boolean hasThemeColor() {
+        return themeColorSet;
     }
 }

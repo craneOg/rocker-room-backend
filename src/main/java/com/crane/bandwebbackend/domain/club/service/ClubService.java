@@ -96,7 +96,7 @@ public class ClubService {
 
         // 사진 복사는 외부 저장소 작업이라 실패할 수 있는 DB 작업이 모두 끝난 뒤 마지막에 한다
         if (request.getProfileImageKey() != null) {
-            applyProfileImage(club, userId, request.getProfileImageKey());
+            replaceProfileImage(club, userId, request.getProfileImageKey());
         }
         clubRepository.flush();
         return ClubResponse.from(club);
@@ -116,14 +116,14 @@ public class ClubService {
         Club club = lockForAdmin(clubId, userId);
 
         String name = club.getName();
-        if (request.isSpecified("name")) {
+        if (request.hasName()) {
             name = request.getName() == null ? "" : request.getName().strip();
             if (name.isEmpty() || name.length() > 100) {
                 throw invalid("name");
             }
         }
         String description = club.getDescription();
-        if (request.isSpecified("description")) {
+        if (request.hasDescription()) {
             description =
                     request.getDescription() == null || request.getDescription().isBlank()
                             ? null
@@ -133,18 +133,18 @@ public class ClubService {
             }
         }
         boolean searchable = club.isSearchable();
-        if (request.isSpecified("isSearchable")) {
+        if (request.hasSearchable()) {
             if (request.getSearchable() == null) {
                 throw invalid("isSearchable");
             }
             searchable = request.getSearchable();
         }
         ClubType clubType = club.getClubType();
-        if (request.isSpecified("clubType")) {
+        if (request.hasClubType()) {
             clubType = parseClubType(request.getClubType());
         }
         String themeColor = club.getThemeColor();
-        if (request.isSpecified("themeColor")) {
+        if (request.hasThemeColor()) {
             themeColor = request.getThemeColor();
             if (themeColor != null && !THEME_COLOR.matcher(themeColor).matches()) {
                 throw invalid("themeColor");
@@ -157,8 +157,7 @@ public class ClubService {
             typeChangeReason = requireReason(request.getClubTypeChangeReason(), "clubTypeChangeReason", true);
         }
         // C-15: 서비스가 먼저 검사하고 DB 유니크 제약은 동시 요청의 안전망으로만 쓴다
-        if (request.isSpecified("name")
-                && clubRepository.existsByNameKeyAndIdNot(ClubDiscoveryService.nameKeyOf(name), clubId)) {
+        if (request.hasName() && clubRepository.existsByNameKeyAndIdNot(ClubDiscoveryService.nameKeyOf(name), clubId)) {
             throw nameTaken();
         }
 
@@ -184,7 +183,7 @@ public class ClubService {
                     Map.of("from", previousType.name(), "to", clubType.name()));
         }
         // 사진 복사는 외부 저장소 작업이라 실패할 수 있는 DB 작업이 모두 끝난 뒤 마지막에 한다
-        if (request.isSpecified("profileImageKey")) {
+        if (request.hasProfileImageKey()) {
             replaceProfileImage(club, userId, request.getProfileImageKey());
         }
         clubRepository.flush();
@@ -265,17 +264,6 @@ public class ClubService {
                 if (key != null) {
                     profileImages.deleteTmp(key);
                 }
-            }
-        });
-    }
-
-    // 키(API 129)를 영구 위치로 복사해 연결한다. 임시 객체는 커밋 뒤에 지운다
-    private void applyProfileImage(Club club, long userId, String key) {
-        club.changeProfileImage(profileImages.promoteClub(userId, club.getId(), key));
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                profileImages.deleteTmp(key);
             }
         });
     }

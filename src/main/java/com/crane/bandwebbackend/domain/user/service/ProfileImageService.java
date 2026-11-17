@@ -36,6 +36,7 @@ public class ProfileImageService {
             "(users/[0-9]+/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\.(?:jpg|png|webp))$");
     private static final String TMP_KEY_FORMAT =
             "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\.(jpg|png|webp)";
+    private static final Pattern CLUB_KEY = Pattern.compile("(?:^|/)(clubs/[0-9]+/" + TMP_KEY_FORMAT + ")$");
 
     private final ImageStorage storage;
     private final StorageProperties properties;
@@ -129,9 +130,8 @@ public class ProfileImageService {
         if (previousUrl == null) {
             return;
         }
-        Matcher m = Pattern.compile("(?:^|/)(clubs/" + clubId + "/" + TMP_KEY_FORMAT + ")$")
-                .matcher(previousUrl);
-        if (m.find()) {
+        Matcher m = CLUB_KEY.matcher(previousUrl);
+        if (m.find() && m.group(1).startsWith(CLUB_PERMANENT_PREFIX + clubId + "/")) {
             deleteQuietly(m.group(1));
         }
     }
