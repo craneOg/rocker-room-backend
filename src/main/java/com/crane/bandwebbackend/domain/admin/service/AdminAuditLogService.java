@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
@@ -31,6 +32,22 @@ public class AdminAuditLogService {
 
     @Transactional(readOnly = true)
     public PageResponse<AuditLogResponse> search(
+            String clubId,
+            String action,
+            String targetType,
+            String targetId,
+            String actorUserId,
+            OffsetDateTime from,
+            OffsetDateTime to,
+            int page,
+            int size) {
+        return PageResponse.from(searchLogs(clubId, action, targetType, targetId, actorUserId, from, to, page, size)
+                .map(log -> AuditLogResponse.from(log, objectMapper)));
+    }
+
+    // API 125·116 공용 검색(필터 검증 포함). 최근 기록부터
+    @Transactional(readOnly = true)
+    public Page<AuditLog> searchLogs(
             String clubId,
             String action,
             String targetType,
@@ -73,9 +90,8 @@ public class AdminAuditLogService {
             }
             return cb.and(where.toArray(Predicate[]::new));
         };
-        return PageResponse.from(auditLogRepository
-                .findAll(spec, PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt", "id")))
-                .map(log -> AuditLogResponse.from(log, objectMapper)));
+        return auditLogRepository.findAll(
+                spec, PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt", "id")));
     }
 
     private static List<String> parseActions(String action) {
