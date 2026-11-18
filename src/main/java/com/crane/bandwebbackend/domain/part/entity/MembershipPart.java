@@ -29,4 +29,11 @@ public class MembershipPart {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "part_id")
     private Part part;
+
+    public static MembershipPart of(Membership membership, Part part) {
+        MembershipPart link = new MembershipPart();
+        link.membership = membership;
+        link.part = part;
+        return link;
+    }
 }

@@ -1,9 +1,12 @@
 package com.crane.bandwebbackend.domain.membership.controller;
 
+import com.crane.bandwebbackend.domain.membership.dto.LeavePreviewResponse;
 import com.crane.bandwebbackend.domain.membership.dto.MembershipInviteRequest;
+import com.crane.bandwebbackend.domain.membership.dto.MembershipPartsRequest;
 import com.crane.bandwebbackend.domain.membership.dto.MembershipProfileRequest;
 import com.crane.bandwebbackend.domain.membership.dto.MembershipReasonRequest;
 import com.crane.bandwebbackend.domain.membership.dto.MembershipResponse;
+import com.crane.bandwebbackend.domain.membership.dto.MembershipRoleRequest;
 import com.crane.bandwebbackend.domain.membership.dto.MembershipTypeRequest;
 import com.crane.bandwebbackend.domain.membership.dto.MembershipWithdrawalRequest;
 import com.crane.bandwebbackend.domain.membership.dto.MembershipWithdrawalResult;
@@ -19,6 +22,7 @@ import com.crane.bandwebbackend.domain.membership.service.MembershipStatusServic
 import com.crane.bandwebbackend.domain.membership.service.MembershipWithdrawalPreviewService;
 import com.crane.bandwebbackend.domain.membership.service.MembershipWithdrawalService;
 import com.crane.bandwebbackend.domain.part.service.MembershipPartReader;
+import com.crane.bandwebbackend.domain.part.service.PartService;
 import com.crane.bandwebbackend.global.error.BusinessException;
 import com.crane.bandwebbackend.global.error.ErrorCode;
 import com.crane.bandwebbackend.global.response.ApiIds;
@@ -57,6 +61,7 @@ public class MembershipController {
     private final MembershipWithdrawalPreviewService withdrawalPreview;
     private final MembershipWithdrawalService withdrawalService;
     private final CurrentActor currentActor;
+    private final PartService partService;
 
     /** 소속 목록을 조회한다 */
     @GetMapping
@@ -123,6 +128,14 @@ public class MembershipController {
                 ApiIds.positive(clubId, "clubId"),
                 ApiIds.positive(membershipId, "membershipId"),
                 currentActor.requireUserId())));
+    }
+
+    /** 본인이 나가기 전 영향을 미리 조회한다 */
+    @GetMapping("/me/leave-preview")
+    public ResponseEntity<ApiResponse<LeavePreviewResponse>> leavePreview(
+            @PathVariable String clubId, HttpServletRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(
+                withdrawalPreview.leavePreview(ApiIds.positive(clubId, "clubId"), currentActor.requireUserId())));
     }
 
     /** 소속 철회하거나 탈퇴한다 */
@@ -267,6 +280,39 @@ public class MembershipController {
                         currentActor.requireUserId(),
                         body.getMemberType(),
                         body.getReason()),
+                request));
+    }
+
+    /** 임원 역할을 부여하거나 해제한다 */
+    @PutMapping("/{membershipId}/role")
+    public ResponseEntity<ApiResponse<MembershipResponse>> role(
+            @PathVariable String clubId,
+            @PathVariable String membershipId,
+            @Valid @RequestBody MembershipRoleRequest body,
+            HttpServletRequest request) {
+        return ResponseEntity.ok(response(
+                statusService.changeRole(
+                        ApiIds.positive(clubId, "clubId"),
+                        ApiIds.positive(membershipId, "membershipId"),
+                        currentActor.requireUserId(),
+                        body.getRole(),
+                        body.getReason()),
+                request));
+    }
+
+    /** 소속의 보유 파트를 전체 교체한다 */
+    @PutMapping("/{membershipId}/parts")
+    public ResponseEntity<ApiResponse<MembershipResponse>> parts(
+            @PathVariable String clubId,
+            @PathVariable String membershipId,
+            @Valid @RequestBody MembershipPartsRequest body,
+            HttpServletRequest request) {
+        return ResponseEntity.ok(response(
+                partService.replaceMemberParts(
+                        ApiIds.positive(clubId, "clubId"),
+                        ApiIds.positive(membershipId, "membershipId"),
+                        currentActor.requireUserId(),
+                        body.getPartIds()),
                 request));
     }
 

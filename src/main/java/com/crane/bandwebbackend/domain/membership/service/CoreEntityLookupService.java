@@ -1,11 +1,13 @@
 package com.crane.bandwebbackend.domain.membership.service;
 
 import com.crane.bandwebbackend.domain.club.entity.Club;
+import com.crane.bandwebbackend.domain.club.entity.ClubStatus;
 import com.crane.bandwebbackend.domain.user.entity.User;
 import com.crane.bandwebbackend.domain.user.entity.UserStatus;
 import com.crane.bandwebbackend.global.error.BusinessException;
 import com.crane.bandwebbackend.global.error.ErrorCode;
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -25,6 +27,32 @@ public class CoreEntityLookupService {
         // 존재하지 않는 식별자는 이후 서비스가 null을 다루지 않도록 즉시 404로 변환한다.
         if (club == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "동아리를 찾을 수 없습니다.");
+        }
+        return club;
+    }
+
+    /** 동아리 행을 쓰기 잠금으로 조회하고 없으면 404를 반환한다. 상태 검사는 호출자가 한다. */
+    @Transactional
+    public Club lockClub(Long clubId) {
+        Club club = entityManager.find(Club.class, clubId, LockModeType.PESSIMISTIC_WRITE);
+        if (club == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "동아리를 찾을 수 없습니다.");
+        }
+        return club;
+    }
+
+    /** 이미 읽은 엔티티를 쓰기 잠금으로 다시 읽는다. 잠금 읽기라 트랜잭션 스냅숏과 관계없이 최신 커밋 값을 본다. */
+    @Transactional
+    public void lockAndRefresh(Object entity) {
+        entityManager.refresh(entity, LockModeType.PESSIMISTIC_WRITE);
+    }
+
+    /** 동아리 행을 쓰기 잠금으로 조회하고 없으면 404, 비활성이면 409 CLUB_INACTIVE를 반환한다. */
+    @Transactional
+    public Club lockActiveClub(Long clubId) {
+        Club club = lockClub(clubId);
+        if (club.getStatus() != ClubStatus.ACTIVE) {
+            throw new BusinessException(ErrorCode.STATE_CONFLICT, "CLUB_INACTIVE", "비활성 동아리에서는 변경할 수 없습니다.");
         }
         return club;
     }

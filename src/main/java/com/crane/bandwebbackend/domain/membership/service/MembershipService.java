@@ -2,19 +2,25 @@ package com.crane.bandwebbackend.domain.membership.service;
 
 import com.crane.bandwebbackend.domain.club.entity.Club;
 import com.crane.bandwebbackend.domain.club.entity.ClubStatus;
+import com.crane.bandwebbackend.domain.membership.entity.JoinSource;
 import com.crane.bandwebbackend.domain.membership.entity.MemberType;
 import com.crane.bandwebbackend.domain.membership.entity.Membership;
 import com.crane.bandwebbackend.domain.membership.entity.MembershipRole;
 import com.crane.bandwebbackend.domain.membership.entity.MembershipStatus;
 import com.crane.bandwebbackend.domain.membership.repository.MembershipRepository;
 import com.crane.bandwebbackend.domain.user.entity.User;
+import com.crane.bandwebbackend.global.audit.AuditRecorder;
 import com.crane.bandwebbackend.global.error.BusinessException;
 import com.crane.bandwebbackend.global.error.ErrorCode;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,6 +30,11 @@ import org.springframework.transaction.annotation.Transactional;
 public class MembershipService {
     private final MembershipRepository repository;
     private final CoreEntityLookupService entityLookup;
+    private final AuditRecorder auditRecorder;
+
+    // C-06: 이 상태의 소속 행은 재신청으로 되살린다
+    private static final Set<MembershipStatus> REAPPLICABLE =
+            EnumSet.of(MembershipStatus.WITHDRAWN, MembershipStatus.REJECTED, MembershipStatus.DECLINED);
 
     @Transactional(readOnly = true)
     public List<Membership> membershipsOfUser(Long userId) {
@@ -168,6 +179,72 @@ public class MembershipService {
                 Membership.invite(club, user, type, displayName, LocalDateTime.now(ZoneOffset.UTC)));
     }
 
+    /** API-014: 가입 코드 또는 검색으로 가입을 신청한다. 코드·공개 여부가 맞지 않으면 존재를 숨겨 404 */
+    @Transactional
+    public Membership applyToJoin(Long clubId, Long userId, JoinSource source, String joinCode, String displayName) {
+        if (source != JoinSource.JOIN_CODE && source != JoinSource.SEARCH) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "source가 유효하지 않습니다.");
+        }
+        if (source == JoinSource.JOIN_CODE && joinCode == null) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "joinCode가 필요합니다.");
+        }
+        // 틀린 코드 요청이 동아리 잠금을 잡지 않도록 잠금 없이 먼저 확인한다
+        Club club = requireClub(clubId);
+        requireJoinable(club, source, joinCode);
+        User user = entityLookup.requireActive(userId);
+        validateDisplayName(displayName);
+        // 재신청이 승인·초대 수락과 같은 소속 행을 덮어쓰지 않도록 동아리 행을 잠근다(§0.4, decide와 같은 잠금).
+        // 위 읽기로 스냅숏이 이미 정해졌으므로 잠금 읽기(refresh)로 최신값을 다시 읽어 확인한다
+        entityLookup.lockAndRefresh(club);
+        requireJoinable(club, source, joinCode);
+        Membership existing = repository.findByClub_IdAndUser_Id(clubId, userId).orElse(null);
+        if (existing != null) {
+            entityLookup.lockAndRefresh(existing);
+        }
+        if (existing != null && !REAPPLICABLE.contains(existing.getStatus())) {
+            throw duplicateMembership();
+        }
+        // 동시 신청은 uk_membership_club_user 위반으로 걸러 같은 409로 돌려준다
+        if (existing != null) {
+            existing.restartApplication(source, displayName);
+            repository.flush();
+            return existing;
+        }
+        try {
+            return repository.saveAndFlush(Membership.apply(club, user, source, displayName));
+        } catch (DataIntegrityViolationException exception) {
+            throw duplicateMembership();
+        }
+    }
+
+    /** API-028: 신청자 본인이 대기 중인 가입 신청을 취소한다 */
+    @Transactional
+    public Membership cancelJoinRequest(Long clubId, Long requestId, Long actorUserId) {
+        // 승인과 직렬화하고 비활성 동아리는 거부한다(§0.4, G-08)
+        entityLookup.lockActiveClub(clubId);
+        Membership request = require(clubId, requestId);
+        if (!request.getUser().getId().equals(actorUserId)) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "소속을 찾을 수 없습니다.");
+        }
+        if (request.getStatus() != MembershipStatus.PENDING) {
+            throw BusinessException.invalidState("대기 중인 신청만 취소할 수 있습니다.");
+        }
+        request.cancelApplication();
+        auditRecorder.record(
+                clubId,
+                actorUserId,
+                "JOIN_REQUEST_CANCELED",
+                "MEMBERSHIP",
+                requestId,
+                null,
+                Map.of("from", "PENDING", "to", "WITHDRAWN"));
+        return request;
+    }
+
+    private static BusinessException duplicateMembership() {
+        return new BusinessException(ErrorCode.DUPLICATE, "DUPLICATE_MEMBERSHIP", "이미 소속이 있거나 신청 중입니다.");
+    }
+
     /** API-011: 동아리 생성 트랜잭션 안에서 생성자 소속을 만든다. 권한 검사 없음 */
     public Membership createCreatorMembership(Club club, User user) {
         return repository.save(Membership.createForCreator(club, user, LocalDateTime.now(ZoneOffset.UTC)));
@@ -177,6 +254,15 @@ public class MembershipService {
     private static void validateDisplayName(String displayName) {
         if (displayName != null && (displayName.isBlank() || displayName.length() > 50)) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "표시명은 1~50자여야 합니다.");
+        }
+    }
+
+    // 비활성·비공개·코드 불일치(형식 오류, 코드 없음 포함)는 모두 같은 404(C-08)
+    private static void requireJoinable(Club club, JoinSource source, String joinCode) {
+        boolean joinable = club.getStatus() == ClubStatus.ACTIVE
+                && (source == JoinSource.SEARCH ? club.isSearchable() : joinCode.equals(club.getJoinCode()));
+        if (!joinable) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "동아리를 찾을 수 없습니다.");
         }
     }
 

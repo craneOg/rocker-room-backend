@@ -18,7 +18,10 @@ import org.junit.jupiter.api.Test;
 
 class MembershipDetailAccessTest {
     private final MembershipRepository repository = mock(MembershipRepository.class);
-    private final MembershipService service = new MembershipService(repository, mock(CoreEntityLookupService.class));
+    private final MembershipService service = new MembershipService(
+            repository,
+            mock(CoreEntityLookupService.class),
+            mock(com.crane.bandwebbackend.global.audit.AuditRecorder.class));
 
     @Test
     void api21RegularMemberCanReadCompletedMembershipButNotPendingRecord() {

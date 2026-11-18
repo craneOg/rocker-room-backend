@@ -119,6 +119,50 @@ public class Membership extends BaseTimeEntity {
         return membership;
     }
 
+    /** API-014: 가입 신청은 정회원 PENDING으로 시작한다 */
+    public static Membership apply(Club club, User user, JoinSource source, String displayName) {
+        if (club == null || user == null || source == null) {
+            throw new IllegalArgumentException("가입 신청 필수 값이 없습니다.");
+        }
+        Membership membership = new Membership();
+        membership.club = club;
+        membership.user = user;
+        membership.joinSource = source;
+        membership.displayName = displayName;
+        membership.memberType = MemberType.REGULAR;
+        membership.role = MembershipRole.MEMBER;
+        membership.status = MembershipStatus.PENDING;
+        return membership;
+    }
+
+    /** API-014: 거절·탈퇴한 소속 행으로 가입 신청을 다시 시작한다 */
+    public void restartApplication(JoinSource source, String displayName) {
+        if (status != MembershipStatus.WITHDRAWN
+                && status != MembershipStatus.REJECTED
+                && status != MembershipStatus.DECLINED) {
+            throw new IllegalStateException("기존 소속으로 다시 신청할 수 없습니다.");
+        }
+        if (source == null) {
+            throw new IllegalArgumentException("재신청 필수 값이 없습니다.");
+        }
+        this.joinSource = source;
+        this.displayName = displayName;
+        this.memberType = MemberType.REGULAR;
+        this.role = MembershipRole.MEMBER;
+        this.status = MembershipStatus.PENDING;
+        this.approvedAt = null;
+        this.invitedAt = null;
+        this.leftAt = null;
+    }
+
+    /** API-028: 대기 중인 가입 신청을 취소한다(leftAt은 채우지 않는다) */
+    public void cancelApplication() {
+        if (status != MembershipStatus.PENDING) {
+            throw new IllegalStateException("대기 중인 신청만 취소할 수 있습니다.");
+        }
+        this.status = MembershipStatus.WITHDRAWN;
+    }
+
     /** 소속 초대를 다시 시작한다 */
     public void restartInvitation(MemberType type, String displayName, LocalDateTime now) {
         if (status != MembershipStatus.WITHDRAWN

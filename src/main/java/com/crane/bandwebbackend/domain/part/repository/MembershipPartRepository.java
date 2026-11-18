@@ -9,4 +9,6 @@ public interface MembershipPartRepository extends JpaRepository<MembershipPart, 
     List<MembershipPart> findByMembership_Id(Long membershipId);
 
     List<MembershipPart> findByMembership_IdIn(List<Long> membershipIds);
+
+    void deleteByMembership_Id(Long membershipId);
 }

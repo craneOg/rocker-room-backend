@@ -1,5 +1,6 @@
 package com.crane.bandwebbackend.domain.membership.service;
 
+import com.crane.bandwebbackend.domain.membership.dto.LeavePreviewResponse;
 import com.crane.bandwebbackend.domain.membership.dto.WithdrawalPreviewResponse;
 import com.crane.bandwebbackend.domain.membership.entity.MemberType;
 import com.crane.bandwebbackend.domain.membership.entity.Membership;
@@ -32,7 +33,28 @@ public class MembershipWithdrawalPreviewService {
     public WithdrawalPreviewResponse preview(Long clubId, Long membershipId, Long actorUserId) {
         // 실제 내보내기와 동일하게 관리자 권한과 대상 소속을 확인한다.
         memberships.requireAdmin(clubId, actorUserId);
-        Membership target = memberships.require(clubId, membershipId);
+        return compute(clubId, memberships.require(clubId, membershipId));
+    }
+
+    /** API-145: 본인이 나갈 때의 영향. 146과 같은 계산에 role만 담고, 후임이 없으면 비활성화 경고를 더한다 */
+    @Transactional(readOnly = true)
+    public LeavePreviewResponse leavePreview(Long clubId, Long actorUserId) {
+        WithdrawalPreviewResponse result = compute(clubId, memberships.requireMember(clubId, actorUserId));
+        List<String> warnings = new ArrayList<>(result.getWarnings());
+        if (result.getSuccession() != null && result.getSuccession().getCandidateMembershipId() == null) {
+            warnings.add("동아리가 비활성화됩니다.");
+        }
+        return new LeavePreviewResponse(
+                result.getTarget().getRole(),
+                result.getSuccession(),
+                result.getPerformanceImpacts(),
+                result.getTeamLeaderCandidates(),
+                warnings);
+    }
+
+    /** 146·145 공통: 대상 소속이 나갈 때의 승계·공연 영향·팀장 후보를 계산한다 */
+    private WithdrawalPreviewResponse compute(Long clubId, Membership target) {
+        Long membershipId = target.getId();
         List<Membership> clubMembers = repository.findByClub_Id(clubId);
         // 대상이 유효한 마지막 관리자인지 계산해 관리자 승계 필요 여부를 판단한다.
         boolean soleAdmin = target.getRole() == MembershipRole.CLUB_ADMIN

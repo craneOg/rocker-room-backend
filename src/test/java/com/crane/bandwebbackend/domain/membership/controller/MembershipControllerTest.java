@@ -53,7 +53,8 @@ class MembershipControllerTest {
                     directory,
                     withdrawalPreview,
                     withdrawalService,
-                    actor))
+                    actor,
+                    mock(com.crane.bandwebbackend.domain.part.service.PartService.class)))
             .addFilters(
                     new RequestIdFilter(),
                     new com.crane.bandwebbackend.global.security.RequestedWithFilter(
