@@ -1,5 +1,8 @@
 package com.crane.bandwebbackend.domain.auth.service;
 
+import com.crane.bandwebbackend.domain.user.repository.UserWithdrawalArchiveRepository;
+import java.time.Clock;
+import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -13,6 +16,9 @@ import org.springframework.stereotype.Component;
 public class AuthTokenCleanupScheduler {
 
     private final AuthTokenCleanupService cleanup;
+    private final AccountRestorationService restoration;
+    private final UserWithdrawalArchiveRepository archives;
+    private final Clock clock;
 
     @Scheduled(initialDelayString = "PT1M", fixedDelayString = "PT5M")
     public void clearExpiredProfiles() {
@@ -30,5 +36,23 @@ public class AuthTokenCleanupScheduler {
                 deleted.getOneTimeTokens(),
                 deleted.getRefreshTokens(),
                 deleted.getBlacklistEntries());
+    }
+
+    // U-11: 탈퇴 90일이 지난 보관 계정을 파기한다. 한 건이 실패해도 다음 건으로 간다
+    // ponytail: 한 번에 전부 처리. 탈퇴자가 하루 수천 명이 되면 페이지 단위로 나눈다
+    @Scheduled(cron = "0 0 4 * * *", zone = "Asia/Seoul")
+    public void purgeWithdrawnAccounts() {
+        int purged = 0;
+        for (Long userId : archives.findUserIdsWithdrawnAtOrBefore(
+                LocalDateTime.now(clock).minus(AccountRestorationService.RESTORABLE_PERIOD))) {
+            try {
+                if (restoration.purgeExpired(userId)) {
+                    purged++;
+                }
+            } catch (RuntimeException e) {
+                log.error("탈퇴 계정 파기 실패 userId={}", userId, e);
+            }
+        }
+        log.info("탈퇴 계정 파기 count={}", purged);
     }
 }

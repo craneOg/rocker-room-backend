@@ -105,10 +105,7 @@ public class AccountRestorationService {
                 .orElseThrow(AccountRestorationService::notRestorable);
         String providerUid = identity.getProviderUid();
 
-        archiveRepository.findById(old.getId()).ifPresent(archiveRepository::delete);
-        identityRepository.delete(identity);
-        identityRepository.flush();
-        oneTimeTokenRepository.deleteUnusedByUser(old.getId());
+        purge(old);
 
         User fresh = userRepository.save(User.createFromProvider(
                 KakaoAccountService.name(token.getProfileName()),
@@ -119,6 +116,33 @@ public class AccountRestorationService {
 
         AuthSessionService.Tokens tokens = sessions.start(fresh, ip, userAgent);
         return new Result(new RestorationResult(LoginResult.NEW_USER), tokens);
+    }
+
+    // U-11: 보관 90일이 지난 탈퇴 계정을 파기한다. 복구·새로 시작과 경합하면 사용자 행 잠금으로 직렬화하고, 이미 처리됐으면 건너뛴다
+    @Transactional
+    public boolean purgeExpired(long userId) {
+        User user = userRepository.findByIdForUpdate(userId).orElse(null);
+        if (user == null || user.getStatus() != UserStatus.WITHDRAWN) {
+            return false;
+        }
+        UserWithdrawalArchive archive = archiveRepository.findById(userId).orElse(null);
+        if (archive == null
+                || LocalDateTime.now(clock).isBefore(archive.getWithdrawnAt().plus(RESTORABLE_PERIOD))) {
+            return false;
+        }
+        purge(user);
+        auditRecorder.record(null, null, "ACCOUNT_PURGED", "USER", userId, null, Map.of());
+        return true;
+    }
+
+    // 보관 행·카카오 identity·미사용 1회용 토큰을 지운다(사진 파일은 사진 정리 배치가 지운다)
+    private void purge(User user) {
+        archiveRepository.findById(user.getId()).ifPresent(archiveRepository::delete);
+        identityRepository
+                .findByUserIdAndProvider(user.getId(), AuthProvider.KAKAO)
+                .ifPresent(identityRepository::delete);
+        identityRepository.flush();
+        oneTimeTokenRepository.deleteUnusedByUser(user.getId());
     }
 
     private User consumeAndLockWithdrawnUser(String restorationToken) {
