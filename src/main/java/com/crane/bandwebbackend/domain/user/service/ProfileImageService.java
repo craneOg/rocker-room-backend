@@ -36,6 +36,7 @@ public class ProfileImageService {
             "(users/[0-9]+/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\.(?:jpg|png|webp))$");
     private static final String TMP_KEY_FORMAT =
             "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\.(jpg|png|webp)";
+    private static final Pattern CLUB_KEY = Pattern.compile("(?:^|/)(clubs/[0-9]+/" + TMP_KEY_FORMAT + ")$");
 
     private final ImageStorage storage;
     private final StorageProperties properties;
@@ -122,6 +123,17 @@ public class ProfileImageService {
         permanentKeyOf(previousUrl)
                 .filter(key -> key.startsWith(PERMANENT_PREFIX + userId + "/"))
                 .ifPresent(this::deleteQuietly);
+    }
+
+    // 이전 사진이 이 동아리의 영구 위치(clubs/{clubId}/)에 있을 때만 지운다(permanentKeyOf는 users/ 전용이라 따로 둔다)
+    public void deletePreviousClub(long clubId, String previousUrl) {
+        if (previousUrl == null) {
+            return;
+        }
+        Matcher m = CLUB_KEY.matcher(previousUrl);
+        if (m.find() && m.group(1).startsWith(CLUB_PERMANENT_PREFIX + clubId + "/")) {
+            deleteQuietly(m.group(1));
+        }
     }
 
     private void deleteQuietly(String key) {
