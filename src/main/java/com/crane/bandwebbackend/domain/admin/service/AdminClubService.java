@@ -27,6 +27,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -186,12 +187,13 @@ public class AdminClubService {
                 .orElseThrow(() -> new BusinessException(
                         ErrorCode.RULE_VIOLATION, "SUCCESSOR_NOT_ELIGIBLE", "동아리 임원 후임으로 지정할 수 없습니다."));
         successor.changeRole(MembershipRole.CLUB_ADMIN);
-        List<Long> revoked = memberships.findByClub_Id(clubId).stream()
-                .filter(m ->
-                        m.getRole() == MembershipRole.CLUB_ADMIN && !m.getId().equals(successor.getId()))
-                .peek(m -> m.changeRole(MembershipRole.MEMBER))
-                .map(Membership::getId)
-                .toList();
+        List<Long> revoked = new ArrayList<>();
+        for (Membership m : memberships.findByClub_Id(clubId)) {
+            if (m.getRole() == MembershipRole.CLUB_ADMIN && !m.getId().equals(successor.getId())) {
+                m.changeRole(MembershipRole.MEMBER);
+                revoked.add(m.getId());
+            }
+        }
         notices.admin(clubId, successor.getUser().getId());
         auditRecorder.record(
                 clubId,
