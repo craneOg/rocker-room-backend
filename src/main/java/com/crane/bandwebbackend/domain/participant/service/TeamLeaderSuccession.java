@@ -99,6 +99,24 @@ public class TeamLeaderSuccession {
         return affectedUsers;
     }
 
+    /** API-134: apply의 후임 후보와 같은 조건·순서의 읽기. 행은 (참여 id, 소속 id, 사용자 id). apply 쪽 SQL을 고치면 함께 고친다. */
+    @SuppressWarnings("unchecked")
+    public List<Object[]> candidatesOf(Long teamId, Long memberId) {
+        return entityManager
+                .createNativeQuery("""
+                SELECT pm.id, m.id, m.user_id FROM team_member tm
+                JOIN performance_member pm ON pm.id = tm.performance_member_id
+                JOIN membership m ON m.id = pm.membership_id
+                WHERE tm.team_id = :teamId AND pm.id <> :memberId
+                  AND pm.status IN ('APPLIED','APPROVED')
+                  AND m.status IN ('ACTIVE','ON_LEAVE','GRADUATED')
+                ORDER BY tm.created_at, tm.id
+                """)
+                .setParameter("teamId", teamId)
+                .setParameter("memberId", memberId)
+                .getResultList();
+    }
+
     private void deleteDraft(Long teamId, Set<Long> affectedUsers) {
         @SuppressWarnings("unchecked")
         List<Number> users =

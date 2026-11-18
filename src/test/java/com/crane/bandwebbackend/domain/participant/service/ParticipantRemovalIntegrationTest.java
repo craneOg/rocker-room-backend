@@ -357,6 +357,8 @@ class ParticipantRemovalIntegrationTest {
         jdbc.update("UPDATE membership SET member_type='GUEST' WHERE id IN (2,3)");
         withdrawal.withdraw(1L, 1L, 1L, null);
         assertThat(value("SELECT status FROM club WHERE id=1")).isEqualTo("INACTIVE");
+        assertThat(count("SELECT COUNT(*) FROM audit_log WHERE action='CLUB_DEACTIVATED' AND target_id=1"))
+                .isEqualTo(1);
         assertThat(count("SELECT COUNT(*) FROM succession_notice")).isZero();
     }
 

@@ -41,6 +41,12 @@ public class BusinessException extends RuntimeException {
         return new BusinessException(ErrorCode.CONFIRMATION_REQUIRED, message, List.of(), warnings);
     }
 
+    // API-009: details에 reason을 함께 담아 확인 요청을 돌려준다
+    public static BusinessException confirmationRequired(
+            String message, List<ErrorDetail> details, List<Map<String, Object>> warnings) {
+        return new BusinessException(ErrorCode.CONFIRMATION_REQUIRED, message, details, warnings);
+    }
+
     public static BusinessException invalidState(String message) {
         return new BusinessException(ErrorCode.STATE_CONFLICT, "INVALID_STATE", message);
     }

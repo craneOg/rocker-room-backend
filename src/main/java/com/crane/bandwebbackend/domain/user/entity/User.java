@@ -91,6 +91,16 @@ public class User extends BaseTimeEntity {
         this.tokenVersion++;
     }
 
+    // 서비스 탈퇴(U-04): 이름·handle·사진을 비우고 토큰 버전을 올린다. 원래 이름·사진은 호출자가 먼저 보관한다
+    public void withdraw(LocalDateTime now) {
+        this.name = "탈퇴한 사용자";
+        this.handle = null;
+        this.profileImageUrl = null;
+        this.status = UserStatus.WITHDRAWN;
+        this.withdrawnAt = now;
+        this.tokenVersion++;
+    }
+
     // 카카오 최초 로그인 시 생성. handle은 온보딩에서 정한다
     public static User createFromProvider(String name, String profileImageUrl) {
         User user = new User();
