@@ -41,6 +41,12 @@ public class CoreEntityLookupService {
         return club;
     }
 
+    /** 이미 읽은 엔티티를 쓰기 잠금으로 다시 읽는다. 잠금 읽기라 트랜잭션 스냅숏과 관계없이 최신 커밋 값을 본다. */
+    @Transactional
+    public void lockAndRefresh(Object entity) {
+        entityManager.refresh(entity, LockModeType.PESSIMISTIC_WRITE);
+    }
+
     /** 동아리 행을 쓰기 잠금으로 조회하고 없으면 404, 비활성이면 409 CLUB_INACTIVE를 반환한다. */
     @Transactional
     public Club lockActiveClub(Long clubId) {

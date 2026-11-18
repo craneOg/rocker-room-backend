@@ -188,17 +188,19 @@ public class MembershipService {
         if (source == JoinSource.JOIN_CODE && joinCode == null) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "joinCode가 필요합니다.");
         }
-        // 재신청이 승인·초대 수락과 같은 소속 행을 덮어쓰지 않도록 동아리 행을 먼저 잠근다(§0.4, decide와 같은 잠금)
-        Club club = entityLookup.lockClub(clubId);
+        // 틀린 코드 요청이 동아리 잠금을 잡지 않도록 잠금 없이 먼저 확인한다
+        Club club = requireClub(clubId);
+        requireJoinable(club, source, joinCode);
         User user = entityLookup.requireActive(userId);
-        // 비활성·비공개·코드 불일치(형식 오류, 코드 없음 포함)는 모두 같은 404(C-08)
-        boolean joinable = club.getStatus() == ClubStatus.ACTIVE
-                && (source == JoinSource.SEARCH ? club.isSearchable() : joinCode.equals(club.getJoinCode()));
-        if (!joinable) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "동아리를 찾을 수 없습니다.");
-        }
         validateDisplayName(displayName);
+        // 재신청이 승인·초대 수락과 같은 소속 행을 덮어쓰지 않도록 동아리 행을 잠근다(§0.4, decide와 같은 잠금).
+        // 위 읽기로 스냅숏이 이미 정해졌으므로 잠금 읽기(refresh)로 최신값을 다시 읽어 확인한다
+        entityLookup.lockAndRefresh(club);
+        requireJoinable(club, source, joinCode);
         Membership existing = repository.findByClub_IdAndUser_Id(clubId, userId).orElse(null);
+        if (existing != null) {
+            entityLookup.lockAndRefresh(existing);
+        }
         if (existing != null && !REAPPLICABLE.contains(existing.getStatus())) {
             throw duplicateMembership();
         }
@@ -252,6 +254,15 @@ public class MembershipService {
     private static void validateDisplayName(String displayName) {
         if (displayName != null && (displayName.isBlank() || displayName.length() > 50)) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "표시명은 1~50자여야 합니다.");
+        }
+    }
+
+    // 비활성·비공개·코드 불일치(형식 오류, 코드 없음 포함)는 모두 같은 404(C-08)
+    private static void requireJoinable(Club club, JoinSource source, String joinCode) {
+        boolean joinable = club.getStatus() == ClubStatus.ACTIVE
+                && (source == JoinSource.SEARCH ? club.isSearchable() : joinCode.equals(club.getJoinCode()));
+        if (!joinable) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "동아리를 찾을 수 없습니다.");
         }
     }
 

@@ -8,7 +8,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.crane.bandwebbackend.TestcontainersConfiguration;
 import com.crane.bandwebbackend.global.security.AuthPrincipal;
+import java.time.Duration;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -24,6 +27,8 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.jdbc.Sql;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /** API-014 가입 신청, API-028 가입 신청 취소. */
 @SpringBootTest
@@ -40,6 +45,9 @@ class JoinRequestApiTest {
 
     @Autowired
     JdbcTemplate jdbc;
+
+    @Autowired
+    PlatformTransactionManager transactionManager;
 
     private void setUp(boolean withCode, boolean searchable) {
         jdbc.update("INSERT INTO users (id, name, handle) VALUES (5, '신청자', 'applicant_5')");
@@ -90,6 +98,34 @@ class JoinRequestApiTest {
         apply(5, "{\"source\":\"SEARCH\"}").andExpect(status().isNotFound());
         jdbc.update("UPDATE club SET join_code = NULL WHERE id = 1");
         apply(5, "{\"source\":\"JOIN_CODE\",\"joinCode\":\"" + CODE + "\"}").andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("API-014: 틀린 코드는 동아리 잠금을 기다리지 않고 바로 404")
+    void wrongCodeDoesNotWaitForClubLock() throws Exception {
+        setUp(true, false);
+        CountDownLatch locked = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        // 다른 트랜잭션(임원 쓰기 등)이 동아리 행을 잠그고 있는 상황
+        Thread holder = new Thread(() -> new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+            jdbc.queryForObject("SELECT id FROM club WHERE id = 1 FOR UPDATE", Long.class);
+            locked.countDown();
+            try {
+                release.await(10, TimeUnit.SECONDS);
+            } catch (InterruptedException exception) {
+                Thread.currentThread().interrupt();
+            }
+        }));
+        holder.start();
+        try {
+            assertThat(locked.await(5, TimeUnit.SECONDS)).isTrue();
+            long start = System.nanoTime();
+            apply(5, "{\"source\":\"JOIN_CODE\",\"joinCode\":\"WRONGCODE2\"}").andExpect(status().isNotFound());
+            assertThat(Duration.ofNanos(System.nanoTime() - start)).isLessThan(Duration.ofSeconds(3));
+        } finally {
+            release.countDown();
+            holder.join();
+        }
     }
 
     @Test
