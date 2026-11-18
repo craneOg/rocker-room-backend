@@ -195,10 +195,15 @@ public class MembershipController {
     public ResponseEntity<ApiResponse<MembershipResponse>> decline(
             @PathVariable String clubId,
             @PathVariable String membershipId,
-            @Valid @RequestBody MembershipReasonRequest body,
+            @Valid @RequestBody(required = false) MembershipReasonRequest body,
             HttpServletRequest request) {
         return ResponseEntity.ok(decide(
-                clubId, membershipId, MembershipStatus.INVITED, MembershipStatus.DECLINED, body.getReason(), request));
+                clubId,
+                membershipId,
+                MembershipStatus.INVITED,
+                MembershipStatus.DECLINED,
+                body == null ? null : body.getReason(),
+                request));
     }
 
     /** 가입 신청 또는 초대에 대한 단건 결정을 공통 처리한다. */
