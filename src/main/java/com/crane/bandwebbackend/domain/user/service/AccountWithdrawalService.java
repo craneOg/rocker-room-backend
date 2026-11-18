@@ -104,7 +104,7 @@ public class AccountWithdrawalService {
         }
         // 소속 동아리 집합을 먼저 읽고 잠근 뒤 다시 읽어 같은지 본다. 다르면 한 번만 다시 시도한다
         for (int attempt = 0; ; attempt++) {
-            Set<Long> clubIds = readOnly().execute(status -> validClubIds(userId));
+            Set<Long> clubIds = readOnly().execute(status -> lockedClubIds(memberships.membershipsOfUser(userId)));
             try {
                 return new TransactionTemplate(transactionManager).execute(status -> execute(userId, parsed, clubIds));
             } catch (ClubSetChanged e) {
@@ -278,10 +278,14 @@ public class AccountWithdrawalService {
         return parsed;
     }
 
-    private Set<Long> validClubIds(long userId) {
+    // 잠글 동아리: 유효 소속과 PENDING·INVITED 소속의 동아리. PENDING·INVITED도 이 트랜잭션에서 바꾸므로
+    // 승인·초대 수락(decide, 동아리 잠금)과 직렬화해야 한다(§0.4)
+    private Set<Long> lockedClubIds(List<Membership> mine) {
         Set<Long> clubIds = new TreeSet<>();
-        memberships
-                .accessibleMembershipsOfUser(userId)
+        mine.stream()
+                .filter(member -> isValid(member.getStatus())
+                        || member.getStatus() == MembershipStatus.PENDING
+                        || member.getStatus() == MembershipStatus.INVITED)
                 .forEach(member -> clubIds.add(member.getClub().getId()));
         return clubIds;
     }
@@ -294,13 +298,14 @@ public class AccountWithdrawalService {
         // 동아리 행을 먼저 잠근 뒤에야 처음으로 일반 읽기를 해서, 잠금 전 스냅숏이 낡은 값을 보이지 않게 한다
         clubIds.forEach(lookup::lockClub);
         List<Membership> mine = memberships.membershipsOfUser(userId);
-        Set<Long> current = new TreeSet<>();
-        mine.stream()
-                .filter(member -> isValid(member.getStatus()))
-                .forEach(member -> current.add(member.getClub().getId()));
-        if (!current.equals(clubIds)) {
+        if (!lockedClubIds(mine).equals(clubIds)) {
             throw new ClubSetChanged();
         }
+        // 승계·소속 탈퇴는 유효 소속의 동아리만 처리한다
+        Set<Long> validClubIds = new TreeSet<>();
+        mine.stream()
+                .filter(member -> isValid(member.getStatus()))
+                .forEach(member -> validClubIds.add(member.getClub().getId()));
         // 팀장 지정값을 동아리별로 나눈다. 본인이 팀장이 아닌 팀은 422
         Map<Long, Long> teamClubs = queries.teamClubIds(userId);
         Map<Long, Map<Long, Long>> teamLeadersByClub = new HashMap<>();
@@ -313,7 +318,7 @@ public class AccountWithdrawalService {
         });
         Set<Long> unusedSuccessors = new HashSet<>(parsed.successors.keySet());
         Map<Long, Long> clubSuccessions = new TreeMap<>();
-        for (Long clubId : clubIds) {
+        for (Long clubId : validClubIds) {
             unusedSuccessors.remove(clubId);
             Map<Long, Long> teamLeaders = teamLeadersByClub.remove(clubId);
             Long successorUserId = clubWithdrawals.withdrawForAccount(
