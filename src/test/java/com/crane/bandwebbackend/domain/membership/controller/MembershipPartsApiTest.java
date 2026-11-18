@@ -51,6 +51,24 @@ class MembershipPartsApiTest {
     }
 
     @Test
+    @DisplayName("API-032: 바뀌면 본인·임원 모두 MEMBERSHIP_PARTS_CHANGED를 남기고, 같은 목록이면 남기지 않는다")
+    void auditOnlyWhenChanged() throws Exception {
+        save(2, 2, "[\"1\"]").andExpect(status().isOk());
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM audit_log", Integer.class))
+                .isZero();
+        save(2, 2, "[\"2\",\"1\"]").andExpect(status().isOk());
+        save(1, 2, "[]").andExpect(status().isOk());
+        assertThat(jdbc.queryForList(
+                        "SELECT actor_user_id FROM audit_log WHERE action = 'MEMBERSHIP_PARTS_CHANGED'"
+                                + " AND target_id = 2 ORDER BY id",
+                        Long.class))
+                .containsExactly(2L, 1L);
+        assertThat(jdbc.queryForObject(
+                        "SELECT JSON_EXTRACT(detail, '$.to') FROM audit_log ORDER BY id LIMIT 1", String.class))
+                .isEqualTo("[\"1\", \"2\"]");
+    }
+
+    @Test
     @DisplayName("API-032: 임원은 다른 소속의 파트도 저장하고, 빈 배열이면 모두 비운다")
     void adminAndEmpty() throws Exception {
         save(1, 3, "[\"1\"]").andExpect(status().isOk());

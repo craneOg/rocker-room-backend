@@ -36,7 +36,8 @@ class PartServiceTest {
             participationLookup,
             entityManager,
             mock(com.crane.bandwebbackend.domain.part.repository.MembershipPartRepository.class),
-            mock(com.crane.bandwebbackend.domain.membership.service.CoreEntityLookupService.class));
+            mock(com.crane.bandwebbackend.domain.membership.service.CoreEntityLookupService.class),
+            mock(com.crane.bandwebbackend.global.audit.AuditRecorder.class));
 
     @Test
     void part03RejectsStaleRevisionAfterLock() {

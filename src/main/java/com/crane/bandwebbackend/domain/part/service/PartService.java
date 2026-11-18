@@ -11,6 +11,7 @@ import com.crane.bandwebbackend.domain.part.entity.Part;
 import com.crane.bandwebbackend.domain.part.repository.MembershipPartRepository;
 import com.crane.bandwebbackend.domain.part.repository.PartRepository;
 import com.crane.bandwebbackend.domain.participant.service.ParticipationLookup;
+import com.crane.bandwebbackend.global.audit.AuditRecorder;
 import com.crane.bandwebbackend.global.error.BusinessException;
 import com.crane.bandwebbackend.global.error.ErrorCode;
 import com.crane.bandwebbackend.global.error.ErrorDetail;
@@ -19,8 +20,10 @@ import com.crane.bandwebbackend.global.response.RevisionTag;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -39,6 +42,7 @@ public class PartService {
     private final EntityManager entityManager;
     private final MembershipPartRepository membershipPartRepository;
     private final CoreEntityLookupService entityLookup;
+    private final AuditRecorder auditRecorder;
 
     /** PART-01. 객원은 참여 공연이 있을 때 활성 파트와 본인의 과거 참조 파트만 본다. */
     @Transactional(readOnly = true)
@@ -171,12 +175,28 @@ public class PartService {
             }
             parts.add(part);
         }
+        // 본인·임원 저장 모두 감사 기록을 남기되, 바뀐 것이 없으면 남기지 않는다(API-019와 같은 기준)
+        if (!held.equals(new HashSet<>(ids))) {
+            auditRecorder.record(
+                    clubId,
+                    actorUserId,
+                    "MEMBERSHIP_PARTS_CHANGED",
+                    "MEMBERSHIP",
+                    membershipId,
+                    null,
+                    Map.of("from", sortedIds(held), "to", sortedIds(ids)));
+        }
         // 삭제를 먼저 반영해야 같은 (소속, 파트) 키를 다시 넣을 때 충돌하지 않는다
         membershipPartRepository.deleteByMembership_Id(membershipId);
         membershipPartRepository.flush();
         membershipPartRepository.saveAll(
                 parts.stream().map(part -> MembershipPart.of(target, part)).toList());
         return target;
+    }
+
+    // 감사 detail은 ID 문자열을 오름차순으로 담는다(U-09)
+    private static List<String> sortedIds(Collection<Long> ids) {
+        return ids.stream().sorted().map(String::valueOf).toList();
     }
 
     /** partIds는 필수이며 양수 ID 형식·중복 없음을 요구한다. 오류는 field partIds로 돌려준다 */
