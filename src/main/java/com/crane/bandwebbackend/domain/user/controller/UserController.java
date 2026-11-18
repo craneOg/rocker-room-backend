@@ -1,16 +1,22 @@
 package com.crane.bandwebbackend.domain.user.controller;
 
 import com.crane.bandwebbackend.domain.membership.entity.MembershipStatus;
+import com.crane.bandwebbackend.domain.user.dto.AccountWithdrawalPreviewResponse;
+import com.crane.bandwebbackend.domain.user.dto.AccountWithdrawalRequest;
+import com.crane.bandwebbackend.domain.user.dto.AccountWithdrawalResponse;
 import com.crane.bandwebbackend.domain.user.dto.HandleAvailabilityResponse;
 import com.crane.bandwebbackend.domain.user.dto.ImageUploadResponse;
 import com.crane.bandwebbackend.domain.user.dto.LastViewedResponse;
 import com.crane.bandwebbackend.domain.user.dto.MyMembershipsResponse;
 import com.crane.bandwebbackend.domain.user.dto.UpdateProfileRequest;
 import com.crane.bandwebbackend.domain.user.dto.UserProfileResponse;
+import com.crane.bandwebbackend.domain.user.service.AccountWithdrawalService;
 import com.crane.bandwebbackend.domain.user.service.MyMembershipService;
 import com.crane.bandwebbackend.domain.user.service.ProfileImageService;
 import com.crane.bandwebbackend.domain.user.service.UserProfileService;
+import com.crane.bandwebbackend.global.response.ApiResponse;
 import com.crane.bandwebbackend.global.security.AuthPrincipal;
+import com.crane.bandwebbackend.global.security.CookieFactory;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -18,8 +24,10 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Positive;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -42,6 +50,8 @@ public class UserController {
     private final UserProfileService userProfileService;
     private final ProfileImageService profileImageService;
     private final MyMembershipService myMembershipService;
+    private final AccountWithdrawalService accountWithdrawalService;
+    private final CookieFactory cookies;
 
     // API 7
     @GetMapping("/me")
@@ -89,5 +99,24 @@ public class UserController {
     public LastViewedResponse touchLastViewed(
             @AuthenticationPrincipal AuthPrincipal principal, @PathVariable @Positive Long membershipId) {
         return myMembershipService.touchLastViewed(principal.userId(), membershipId);
+    }
+
+    // API 134: 탈퇴 전 승계 미리보기. 데이터를 바꾸지 않는다
+    @GetMapping("/me/withdrawal-preview")
+    public AccountWithdrawalPreviewResponse withdrawalPreview(@AuthenticationPrincipal AuthPrincipal principal) {
+        return accountWithdrawalService.preview(principal.userId());
+    }
+
+    // API 9: 서비스 탈퇴. 본문을 생략하면 {}로 본다. 성공하면 로그인 쿠키를 지운다
+    @PostMapping(value = "/me/withdrawal", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ApiResponse<AccountWithdrawalResponse>> withdraw(
+            @AuthenticationPrincipal AuthPrincipal principal,
+            @RequestBody(required = false) AccountWithdrawalRequest request) {
+        AccountWithdrawalResponse response = accountWithdrawalService.withdraw(principal.userId(), request);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CACHE_CONTROL, "no-store")
+                .header(HttpHeaders.SET_COOKIE, cookies.deleteAccess().toString())
+                .header(HttpHeaders.SET_COOKIE, cookies.deleteRefresh().toString())
+                .body(ApiResponse.ok(response));
     }
 }

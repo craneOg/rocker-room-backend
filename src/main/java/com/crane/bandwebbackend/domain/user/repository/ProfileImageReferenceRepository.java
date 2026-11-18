@@ -17,4 +17,8 @@ public interface ProfileImageReferenceRepository extends Repository<User, Long> 
                             + " UNION SELECT profile_image_url FROM user_withdrawal_archive WHERE profile_image_url LIKE '%/users/%'",
             nativeQuery = true)
     List<String> findStoredPhotoUrls();
+
+    // 동아리 사진 주소. 동아리 행은 지우지 않으므로 비활성 동아리의 사진도 참조로 남는다
+    @Query(value = "SELECT profile_image_url FROM club WHERE profile_image_url LIKE '%/clubs/%'", nativeQuery = true)
+    List<String> findStoredClubPhotoUrls();
 }

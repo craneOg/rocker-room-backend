@@ -42,6 +42,7 @@ class ProfileImageCleanupServiceTest {
 
     @AfterEach
     void clean() {
+        jdbc.update("DELETE FROM club");
         jdbc.update("DELETE FROM user_withdrawal_archive");
         jdbc.update("DELETE FROM users");
         storage.clear();
@@ -131,24 +132,84 @@ class ProfileImageCleanupServiceTest {
     }
 
     @Test
-    @DisplayName("관리 대상이 아닌 접두사(clubs/ 등)는 건드리지 않는다")
+    @DisplayName("관리 대상이 아닌 접두사(misc/ 등)와 users/·clubs/ 아래의 사진 키 형식이 아닌 객체는 건드리지 않는다")
     void otherPrefixesUntouched() {
         String current = object("users/" + userId + "/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa.png", 600);
         profileUses(current);
-        object("clubs/1/logo.png", 6000);
         object("misc/x.png", 6000);
+        object("users/" + userId + "/note.png", 6000);
+        object("clubs/1/poster/" + uuid(1), 6000);
 
         cleanup.cleanup();
 
-        assertThat(storage.exists("clubs/1/logo.png")).isTrue();
         assertThat(storage.exists("misc/x.png")).isTrue();
+        assertThat(storage.exists("users/" + userId + "/note.png")).isTrue();
+        assertThat(storage.exists("clubs/1/poster/" + uuid(1))).isTrue();
+    }
+
+    // 사진 키 형식({uuid}.png)의 파일 이름. i마다 다르다
+    private static String uuid(int i) {
+        return String.format("%08d-0000-0000-0000-000000000000.png", i);
+    }
+
+    // ---- 동아리 사진(clubs/) ----
+
+    private String clubPhoto(long clubId, char c, long minutesAgo) {
+        return object(
+                "clubs/" + clubId + "/" + String.valueOf(c).repeat(8) + "-cccc-cccc-cccc-cccccccccccc.png", minutesAgo);
+    }
+
+    private long club(String name, String status, String photoKey) {
+        jdbc.update(
+                "INSERT INTO club (name, created_by, status, profile_image_url) VALUES (?, ?, ?, ?)",
+                name,
+                userId,
+                status,
+                photoKey == null ? null : storage.publicUrl(photoKey));
+        return jdbc.queryForObject("SELECT MAX(id) FROM club", Long.class);
+    }
+
+    @Test
+    @DisplayName("clubs/ 객체는 어떤 동아리도 참조하지 않고 유예가 지난 것만 지운다(비활성 동아리 사진은 유지)")
+    void clubOrphans() {
+        String active = clubPhoto(1, 'a', 600);
+        String inactive = clubPhoto(2, 'b', 600);
+        String orphan = clubPhoto(3, 'c', 600);
+        String justCopied = clubPhoto(4, 'd', 5);
+        club("활성", "ACTIVE", active);
+        club("비활성", "INACTIVE", inactive);
+
+        ProfileImageCleanupService.Result result = cleanup.cleanup();
+
+        assertThat(result.getOrphansDeleted()).isEqualTo(1);
+        assertThat(result.isOrphanScanAborted()).isFalse();
+        assertThat(storage.exists(orphan)).isFalse();
+        assertThat(storage.exists(active)).isTrue();
+        assertThat(storage.exists(inactive)).isTrue();
+        assertThat(storage.exists(justCopied)).isTrue();
+    }
+
+    @Test
+    @DisplayName("clubs/ 안전장치가 걸려도 users/ 정리는 진행하고, 중단 여부는 결과에 true로 남는다")
+    void clubGuardDoesNotBlockUsers() {
+        String orphanUser = object("users/" + userId + "/eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee.png", 600);
+        for (int i = 0; i < ProfileImageCleanupService.MISCONFIG_GUARD_MIN_CANDIDATES; i++) {
+            object("clubs/1/" + uuid(i), 600);
+        }
+
+        ProfileImageCleanupService.Result result = cleanup.cleanup();
+
+        assertThat(result.isOrphanScanAborted()).isTrue();
+        assertThat(result.getOrphansDeleted()).isEqualTo(1);
+        assertThat(storage.exists(orphanUser)).isFalse();
+        assertThat(storage.size()).isEqualTo(ProfileImageCleanupService.MISCONFIG_GUARD_MIN_CANDIDATES);
     }
 
     @Test
     @DisplayName("후보가 20건 이상인데 참조가 하나도 없으면(공개 주소 설정 불일치 의심) 영구 객체를 지우지 않는다")
     void misconfigurationGuard() {
         for (int i = 0; i < ProfileImageCleanupService.MISCONFIG_GUARD_MIN_CANDIDATES; i++) {
-            object("users/" + userId + "/p" + i + ".png", 600);
+            object("users/" + userId + "/" + uuid(i), 600);
         }
 
         ProfileImageCleanupService.Result result = cleanup.cleanup();
@@ -165,7 +226,7 @@ class ProfileImageCleanupServiceTest {
         profileUses(keep);
         int total = ProfileImageCleanupService.MAX_DELETES_PER_RUN + 10;
         for (int i = 0; i < total; i++) {
-            object("users/" + userId + "/o" + i + ".png", 600);
+            object("users/" + userId + "/" + uuid(i), 600);
         }
 
         assertThat(cleanup.cleanup().getOrphansDeleted()).isEqualTo(ProfileImageCleanupService.MAX_DELETES_PER_RUN);

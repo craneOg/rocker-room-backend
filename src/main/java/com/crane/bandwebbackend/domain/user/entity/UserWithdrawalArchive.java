@@ -38,4 +38,14 @@ public class UserWithdrawalArchive extends BaseCreatedTimeEntity {
     // 파기 기준 시각(withdrawn_at + 90일)
     @Column(nullable = false)
     private LocalDateTime withdrawnAt;
+
+    // 탈퇴 직전의 이름·사진을 보관한다. user.withdraw 전에 만들어야 한다
+    public static UserWithdrawalArchive of(User user, LocalDateTime now) {
+        UserWithdrawalArchive archive = new UserWithdrawalArchive();
+        archive.user = user;
+        archive.name = user.getName();
+        archive.profileImageUrl = user.getProfileImageUrl();
+        archive.withdrawnAt = now;
+        return archive;
+    }
 }

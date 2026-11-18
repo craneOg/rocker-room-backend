@@ -13,6 +13,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.crane.bandwebbackend.TestcontainersConfiguration;
 import com.crane.bandwebbackend.domain.auth.client.KakaoOAuthClient;
 import com.crane.bandwebbackend.domain.auth.dto.KakaoProfile;
+import com.crane.bandwebbackend.domain.auth.service.AuthTokenCleanupScheduler;
 import com.crane.bandwebbackend.global.security.CookieFactory;
 import com.crane.bandwebbackend.global.security.JwtProvider;
 import jakarta.servlet.http.Cookie;
@@ -63,6 +64,9 @@ class AccountRestorationFlowTest {
 
     @Autowired
     JwtProvider jwtProvider;
+
+    @Autowired
+    AuthTokenCleanupScheduler scheduler;
 
     @MockitoBean
     KakaoOAuthClient kakao;
@@ -475,5 +479,67 @@ class AccountRestorationFlowTest {
         pool.shutdown();
 
         assertThat(ok).isEqualTo(1);
+    }
+
+    // ---- U-11 파기 배치 ----
+
+    private void unusedTokenFor(long userId) {
+        jdbc.update(
+                "INSERT INTO one_time_token (token_hash, purpose, user_id, expires_at)"
+                        + " VALUES (UNHEX(SHA2('u11', 256)), 'ACCOUNT_RESTORATION', ?, '2099-01-01')",
+                userId);
+    }
+
+    @Test
+    @DisplayName("U-11: 탈퇴 90일이 지난 보관만 파기한다(보관 행·카카오 연결·미사용 토큰 삭제, ACCOUNT_PURGED)")
+    void purgeExpired() throws Exception {
+        withdrawAlice(91);
+        unusedTokenFor(oldUserId);
+
+        scheduler.purgeWithdrawnAccounts();
+
+        assertThat(count("SELECT COUNT(*) FROM user_withdrawal_archive")).isZero();
+        assertThat(count("SELECT COUNT(*) FROM auth_identity")).isZero();
+        assertThat(count("SELECT COUNT(*) FROM one_time_token WHERE user_id = ? AND used_at IS NULL", oldUserId))
+                .isZero();
+        assertThat(count(
+                        "SELECT COUNT(*) FROM audit_log WHERE action = 'ACCOUNT_PURGED' AND target_id = ?"
+                                + " AND actor_user_id IS NULL",
+                        oldUserId))
+                .isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT status FROM users WHERE id = ?", String.class, oldUserId))
+                .isEqualTo("WITHDRAWN");
+    }
+
+    @Test
+    @DisplayName("U-11: 89일 된 보관과 이미 복구된 사용자는 건드리지 않는다")
+    void purgeSkips() throws Exception {
+        withdrawAlice(89);
+        scheduler.purgeWithdrawnAccounts();
+        assertThat(count("SELECT COUNT(*) FROM user_withdrawal_archive")).isEqualTo(1);
+        assertThat(count("SELECT COUNT(*) FROM auth_identity")).isEqualTo(1);
+
+        // 기한은 지났지만 그 사이 복구돼 ACTIVE가 된 사용자
+        jdbc.update("UPDATE user_withdrawal_archive SET withdrawn_at = DATE_SUB(UTC_TIMESTAMP(6), INTERVAL 91 DAY)");
+        jdbc.update("UPDATE users SET status = 'ACTIVE', withdrawn_at = NULL");
+        scheduler.purgeWithdrawnAccounts();
+        assertThat(count("SELECT COUNT(*) FROM user_withdrawal_archive")).isEqualTo(1);
+        assertThat(count("SELECT COUNT(*) FROM auth_identity")).isEqualTo(1);
+        assertThat(count("SELECT COUNT(*) FROM audit_log WHERE action = 'ACCOUNT_PURGED'"))
+                .isZero();
+    }
+
+    @Test
+    @DisplayName("U-11: 파기 뒤 같은 카카오 계정으로 로그인하면 새 사용자로 들어간다")
+    void loginAfterPurgeIsNewUser() throws Exception {
+        withdrawAlice(91);
+        scheduler.purgeWithdrawnAccounts();
+
+        MvcResult exchange = fixture.exchange(fixture.loginUntilExchangeCookie(kakao, AGAIN));
+
+        assertThat(exchange.getResponse().getContentAsString(StandardCharsets.UTF_8))
+                .contains("\"loginResult\":\"NEW_USER\"")
+                .doesNotContain("RESTORATION_REQUIRED");
+        assertThat(count("SELECT COUNT(*) FROM users WHERE id <> ?", oldUserId)).isEqualTo(1);
     }
 }

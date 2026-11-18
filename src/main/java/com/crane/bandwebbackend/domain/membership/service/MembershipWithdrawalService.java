@@ -207,6 +207,130 @@ public class MembershipWithdrawalService {
                         affectedUsers.stream().sorted().map(String::valueOf).toList()));
     }
 
+    /** API-134: 이 소속이 다른 임원 없는 마지막 임원이라 승계가 필요한지 확인한다. */
+    @Transactional(readOnly = true)
+    public boolean requiresAdminSuccession(Long clubId, Long membershipId) {
+        return lastAdmin(clubId, memberships.require(clubId, membershipId));
+    }
+
+    /** API-134: 임원 후임 후보. 대상을 뺀 ACTIVE 정회원을 가입 승인 순으로 돌려준다(chooseSuccessor와 같은 규칙). */
+    @Transactional(readOnly = true)
+    public List<Membership> adminSuccessorCandidates(Long clubId, Long excludeMembershipId) {
+        return repository.findByClub_Id(clubId).stream()
+                .filter(member -> !member.getId().equals(excludeMembershipId))
+                .filter(member ->
+                        member.getStatus() == MembershipStatus.ACTIVE && member.getMemberType() == MemberType.REGULAR)
+                .sorted(Comparator.comparing(Membership::getApprovedAt, Comparator.nullsLast(Comparator.naturalOrder()))
+                        .thenComparing(Membership::getId))
+                .toList();
+    }
+
+    private boolean lastAdmin(Long clubId, Membership target) {
+        return target.getRole() == MembershipRole.CLUB_ADMIN
+                && !repository.existsByClub_IdAndIdNotAndRoleAndStatusIn(
+                        clubId,
+                        target.getId(),
+                        MembershipRole.CLUB_ADMIN,
+                        List.of(MembershipStatus.ACTIVE, MembershipStatus.ON_LEAVE));
+    }
+
+    /**
+     * API-009: 서비스 탈퇴 중 한 동아리 몫. 호출자가 사용자 행과 이 동아리 행을 먼저 잠근다.
+     * 030과 달리 비활성 동아리는 임원 승계만 건너뛰고, LOCKED 공연도 막지 않는다(감사만 남긴다).
+     * 임원 승계가 일어나면 후임의 사용자 ID를, 아니면 null을 돌려준다.
+     * 탈퇴 사유는 동아리 감사 기록에 남기지 않는다(계정 단위 ACCOUNT_WITHDRAWN에만 남긴다).
+     */
+    public Long withdrawForAccount(Long clubId, Long userId, Long successorUserId, Map<Long, Long> specified) {
+        Club club = entityManager.find(Club.class, clubId);
+        Membership target = repository
+                .findByClub_IdAndUser_Id(clubId, userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "소속을 찾을 수 없습니다."));
+        Long membershipId = target.getId();
+        entityManager.refresh(target, LockModeType.PESSIMISTIC_WRITE);
+        // 진행 중 공연의 유효 참여를 철회하고, 팀장이면 먼저 후임을 배정한다.
+        for (var participant : participants.membersOfMembership(membershipId).stream()
+                .sorted(Comparator.comparing(member -> member.getPerformance().getId()))
+                .toList()) {
+            entityManager.refresh(participant.getPerformance(), LockModeType.PESSIMISTIC_WRITE);
+            entityManager.refresh(participant, LockModeType.PESSIMISTIC_WRITE);
+            PerformanceStatus performanceStatus = participant.getPerformance().getStatus();
+            if ((performanceStatus != PerformanceStatus.DRAFT
+                            && performanceStatus != PerformanceStatus.ACTIVE
+                            && performanceStatus != PerformanceStatus.LOCKED)
+                    || (participant.getStatus() != PerformanceMemberStatus.APPLIED
+                            && participant.getStatus() != PerformanceMemberStatus.APPROVED)) {
+                continue;
+            }
+            succession.apply(
+                    participant.getPerformance().getId(),
+                    participant.getId(),
+                    specified,
+                    TeamLeaderSuccession.Mode.SERVICE_WITHDRAWAL);
+            assignments.removeAssignments(participant.getPerformance().getId(), participant.getId());
+            participant.transitionTo(PerformanceMemberStatus.WITHDRAWN, LocalDateTime.now(ZoneOffset.UTC));
+            auditRecorder.record(
+                    clubId,
+                    userId,
+                    "PERFORMANCE_MEMBER_WITHDRAWN",
+                    "PERFORMANCE_MEMBER",
+                    participant.getId(),
+                    null,
+                    Map.of("membershipId", membershipId));
+            removalPolicy.recordException(participant.getPerformance(), userId, participant.getId(), null);
+        }
+        // 사용되지 않은 팀장 후임 요청은 대상이 팀장이 아닌 팀을 지정한 것이다.
+        if (!specified.isEmpty()) {
+            throw new BusinessException(
+                    ErrorCode.RULE_VIOLATION, "SUCCESSOR_NOT_ELIGIBLE", "팀장 후임의 팀이 대상과 연결되지 않았습니다.");
+        }
+        boolean requiresSuccession = club.getStatus() == ClubStatus.ACTIVE && lastAdmin(clubId, target);
+        // 승계가 필요 없는 동아리에 후임을 지정하면 미리보기 뒤 상황이 바뀐 것이다.
+        if (!requiresSuccession && successorUserId != null) {
+            throw new BusinessException(ErrorCode.RULE_VIOLATION, "SUCCESSOR_NOT_ELIGIBLE", "후임 지정이 필요 없는 동아리입니다.");
+        }
+        Membership successor = null;
+        if (requiresSuccession) {
+            List<Membership> candidates = adminSuccessorCandidates(clubId, membershipId);
+            successor = successorUserId == null
+                    ? candidates.stream().findFirst().orElse(null)
+                    : candidates.stream()
+                            .filter(member -> member.getUser().getId().equals(successorUserId))
+                            .findFirst()
+                            .orElseThrow(() -> new BusinessException(
+                                    ErrorCode.RULE_VIOLATION, "SUCCESSOR_NOT_ELIGIBLE", "동아리 임원 후임으로 지정할 수 없습니다."));
+            if (successor != null) {
+                successor.changeRole(MembershipRole.CLUB_ADMIN);
+                notices.admin(clubId, successor.getUser().getId());
+            }
+        }
+        target.transitionTo(MembershipStatus.WITHDRAWN, LocalDateTime.now(ZoneOffset.UTC));
+        if (requiresSuccession) {
+            if (successor == null) {
+                club.deactivate();
+                auditRecorder.record(
+                        clubId,
+                        userId,
+                        "CLUB_DEACTIVATED",
+                        "CLUB",
+                        clubId,
+                        null,
+                        Map.of("formerAdminMembershipId", membershipId));
+            } else {
+                auditRecorder.record(
+                        clubId,
+                        userId,
+                        "ADMIN_SUCCESSION",
+                        "MEMBERSHIP",
+                        successor.getId(),
+                        null,
+                        Map.of("formerAdminMembershipId", membershipId));
+            }
+        }
+        auditRecorder.record(clubId, userId, "MEMBERSHIP_WITHDRAWN", "MEMBERSHIP", membershipId, null, Map.of());
+        entityManager.flush();
+        return successor == null ? null : successor.getUser().getId();
+    }
+
     /** 마지막 임원의 후임을 지정값 또는 가입 승인 순서로 선택한다. */
     private Membership chooseSuccessor(Long clubId, Long targetId, String desired) {
         List<Membership> candidates = repository.findByClub_Id(clubId).stream()

@@ -79,7 +79,6 @@ public class ProfileImageService {
     }
 
     // API 11: 본인이 올린 CLUB_PROFILE 임시 키를 clubs/{clubId}/ 영구 위치로 복사한다. 검사와 실패 응답은 promote와 같다
-    // ponytail: DB 커밋 실패 시 clubs/ 복사본이 고아로 남고 정리 배치는 clubs/를 훑지 않는다. 필요해지면 배치에 이 접두사를 추가한다
     public String promoteClub(long userId, long clubId, String key) {
         String fileName = requireTmpKey(ImagePurpose.CLUB_PROFILE, userId, key);
         String permanentKey = CLUB_PERMANENT_PREFIX + clubId + "/" + fileName;
@@ -125,15 +124,20 @@ public class ProfileImageService {
                 .ifPresent(this::deleteQuietly);
     }
 
-    // 이전 사진이 이 동아리의 영구 위치(clubs/{clubId}/)에 있을 때만 지운다(permanentKeyOf는 users/ 전용이라 따로 둔다)
+    // 저장된 동아리 사진 주소에서 영구 객체 키(clubs/{id}/{uuid}.ext)를 뽑는다(permanentKeyOf는 users/ 전용이라 따로 둔다)
+    public static Optional<String> clubKeyOf(String url) {
+        if (url == null) {
+            return Optional.empty();
+        }
+        Matcher m = CLUB_KEY.matcher(url);
+        return m.find() ? Optional.of(m.group(1)) : Optional.empty();
+    }
+
+    // 이전 사진이 이 동아리의 영구 위치(clubs/{clubId}/)에 있을 때만 지운다
     public void deletePreviousClub(long clubId, String previousUrl) {
-        if (previousUrl == null) {
-            return;
-        }
-        Matcher m = CLUB_KEY.matcher(previousUrl);
-        if (m.find() && m.group(1).startsWith(CLUB_PERMANENT_PREFIX + clubId + "/")) {
-            deleteQuietly(m.group(1));
-        }
+        clubKeyOf(previousUrl)
+                .filter(key -> key.startsWith(CLUB_PERMANENT_PREFIX + clubId + "/"))
+                .ifPresent(this::deleteQuietly);
     }
 
     private void deleteQuietly(String key) {
