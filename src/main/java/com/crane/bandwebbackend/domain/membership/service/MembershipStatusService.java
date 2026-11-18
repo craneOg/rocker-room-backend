@@ -17,6 +17,7 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
@@ -120,6 +121,39 @@ public class MembershipStatusService {
                 Map.of("from", previous.toString(), "to", target.toString()));
         return member;
     }
+
+    /**
+     * API-121 긴급 관리자 교체의 소속 변경. 호출자가 동아리 행 잠금을 먼저 잡는다. 동아리 상태는 검사하지 않는다.
+     * overrideActiveAdmin이면 활동 임원이 있어도 진행한다(운영자 우회).
+     */
+    public AdminReplacement replaceAdmins(Long clubId, Long successorMembershipId, boolean overrideActiveAdmin) {
+        if (!overrideActiveAdmin
+                && repository.existsByClub_IdAndRoleAndStatusIn(
+                        clubId, MembershipRole.CLUB_ADMIN, List.of(MembershipStatus.ACTIVE))) {
+            throw new BusinessException(
+                    ErrorCode.RULE_VIOLATION, "OTHER_ACTIVE_ADMIN_EXISTS", "활동 중인 동아리 임원이 있어 교체할 수 없습니다.");
+        }
+        Membership successor = repository
+                .findByIdAndClub_Id(successorMembershipId, clubId)
+                .filter(m -> m.getStatus() == MembershipStatus.ACTIVE
+                        && m.getMemberType() == MemberType.REGULAR
+                        && m.getRole() != MembershipRole.CLUB_ADMIN)
+                .orElseThrow(() -> new BusinessException(
+                        ErrorCode.RULE_VIOLATION, "SUCCESSOR_NOT_ELIGIBLE", "동아리 임원 후임으로 지정할 수 없습니다."));
+        successor.changeRole(MembershipRole.CLUB_ADMIN);
+        // ponytail: 소속 전체를 읽어 거른다. 동아리 규모가 커지면 역할 조건 조회를 저장소에 추가한다
+        List<Long> revoked = new ArrayList<>();
+        for (Membership m : repository.findByClub_Id(clubId)) {
+            if (m.getRole() == MembershipRole.CLUB_ADMIN && !m.getId().equals(successor.getId())) {
+                m.changeRole(MembershipRole.MEMBER);
+                revoked.add(m.getId());
+            }
+        }
+        return new AdminReplacement(successor, revoked);
+    }
+
+    /** 후임과 해제된 기존 임원 소속 ID. 감사 detail의 ID는 기존 관례대로 숫자로 둔다 */
+    public record AdminReplacement(Membership successor, List<Long> revokedMembershipIds) {}
 
     /** 소속 유형을 변경한다 */
     @Transactional

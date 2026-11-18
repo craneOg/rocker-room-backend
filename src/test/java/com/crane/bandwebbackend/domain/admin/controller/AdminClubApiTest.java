@@ -10,6 +10,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.crane.bandwebbackend.TestcontainersConfiguration;
 import com.crane.bandwebbackend.global.security.CookieFactory;
 import com.crane.bandwebbackend.global.security.JwtProvider;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.Cookie;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -45,6 +47,9 @@ class AdminClubApiTest {
     @Autowired
     CookieFactory cookies;
 
+    @Autowired
+    ObjectMapper objectMapper;
+
     long admin;
     long normal;
     int seq;
@@ -61,6 +66,9 @@ class AdminClubApiTest {
         jdbc.update("DELETE FROM audit_log");
         jdbc.update("DELETE FROM practice_schedule");
         jdbc.update("DELETE FROM performance");
+        jdbc.update("DELETE FROM succession_notice");
+        jdbc.update("DELETE FROM membership_part");
+        jdbc.update("DELETE FROM part");
         jdbc.update("DELETE FROM membership");
         jdbc.update("DELETE FROM club");
         jdbc.update("DELETE FROM auth_identity");
@@ -565,5 +573,172 @@ class AdminClubApiTest {
         mockMvc.perform(get("/api/v1/admin/clubs").param("status", "INACTIVE").cookie(access(admin)))
                 .andExpect(jsonPath("$.data.items", hasSize(1)))
                 .andExpect(jsonPath("$.data.items[0].id").value(String.valueOf(id)));
+    }
+
+    // ---- API 121 ----
+
+    private MockHttpServletRequestBuilder replace(long caller, long clubId, String body) {
+        return clubStatus(caller, "/api/v1/admin/clubs/" + clubId + "/replace-admin", body, true);
+    }
+
+    private String replaceBody(long membershipId) {
+        return "{\"newAdminMembershipId\":\"" + membershipId + "\",\"reason\":\"  임원 연락 두절  \"}";
+    }
+
+    // 클럽 하나, 임원(휴학) 2명, 후임 후보 ACTIVE 정회원 1명. 후임 membership id를 돌려준다
+    private long[] replaceScenario(String clubStatus) {
+        long creator = user("생성자", "alpha_creator", false, "ACTIVE", ts(2));
+        long id = club("Alpha Band", "BAND", clubStatus, creator, null);
+        long a1 = member(id, creator, "CLUB_ADMIN", "ON_LEAVE", "REGULAR", "CLUB_CREATOR");
+        long a2 = member(id, extraUser(ts(3)), "CLUB_ADMIN", "ON_LEAVE", "REGULAR", "JOIN_CODE");
+        long successor = member(id, extraUser(ts(3)), "MEMBER", "ACTIVE", "REGULAR", "JOIN_CODE");
+        return new long[] {id, successor, a1, a2};
+    }
+
+    private String roleOf(long membershipId) {
+        return jdbc.queryForObject("SELECT role FROM membership WHERE id = ?", String.class, membershipId);
+    }
+
+    @Test
+    @DisplayName("API 121: 후임이 임원이 되고 기존 임원은 해제(상태 유지), 감사 1건·승계 안내 1건, 응답은 후임 1명")
+    void replaceAdminSuccess() throws Exception {
+        long[] s = replaceScenario("ACTIVE");
+        jdbc.update("INSERT INTO part (club_id, name) VALUES (?, '기타')", s[0]);
+        long partId = jdbc.queryForObject("SELECT id FROM part WHERE club_id = ?", Long.class, s[0]);
+        jdbc.update("INSERT INTO membership_part (membership_id, part_id) VALUES (?, ?)", s[1], partId);
+
+        mockMvc.perform(replace(admin, s[0], replaceBody(s[1])))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.admins", hasSize(1)))
+                .andExpect(jsonPath("$.data.admins[0].id").value(String.valueOf(s[1])))
+                .andExpect(jsonPath("$.data.admins[0].role").value("CLUB_ADMIN"))
+                .andExpect(jsonPath("$.data.admins[0].parts", hasSize(1)));
+
+        assertThat(roleOf(s[1])).isEqualTo("CLUB_ADMIN");
+        for (int i = 2; i <= 3; i++) {
+            assertThat(roleOf(s[i])).isEqualTo("MEMBER");
+            assertThat(jdbc.queryForObject("SELECT status FROM membership WHERE id = ?", String.class, s[i]))
+                    .isEqualTo("ON_LEAVE");
+        }
+        assertThat(clubStatusColumn(s[0])).isEqualTo("ACTIVE");
+        assertThat(count("SELECT COUNT(*) FROM audit_log")).isEqualTo(1);
+        assertThat(jdbc.queryForObject(
+                        "SELECT CONCAT(action, '|', target_type, '|', target_id, '|', reason, '|', actor_user_id)"
+                                + " FROM audit_log",
+                        String.class))
+                .isEqualTo("ADMIN_EMERGENCY_REPLACED|MEMBERSHIP|" + s[1] + "|임원 연락 두절|" + admin);
+        JsonNode detail = objectMapper.readTree(jdbc.queryForObject("SELECT detail FROM audit_log", String.class));
+        assertThat(detail.size()).isEqualTo(2);
+        assertThat(detail.path("overrideActiveAdmin").asBoolean(true)).isFalse();
+        assertThat(detail.path("revokedMembershipIds").isArray()).isTrue();
+        assertThat(detail.get("revokedMembershipIds"))
+                .allMatch(JsonNode::isIntegralNumber)
+                .extracting(JsonNode::asLong)
+                .containsExactlyInAnyOrder(s[2], s[3]);
+        assertThat(count(
+                        "SELECT COUNT(*) FROM succession_notice sn JOIN membership m ON m.user_id = sn.user_id"
+                                + " WHERE m.id = ? AND sn.club_id = ? AND sn.notice_type = 'ADMIN'"
+                                + " AND sn.confirmed_at IS NULL",
+                        s[1],
+                        s[0]))
+                .isEqualTo(1);
+        assertThat(count("SELECT COUNT(*) FROM succession_notice")).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("API 121: 임원 0명이어도, 비활성 동아리여도 실행되고 동아리 상태는 그대로다")
+    void replaceAdminNoAdminAndInactive() throws Exception {
+        long[] s = replaceScenario("INACTIVE");
+        jdbc.update("UPDATE membership SET role = 'MEMBER' WHERE id IN (?, ?)", s[2], s[3]);
+        mockMvc.perform(replace(admin, s[0], replaceBody(s[1])))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.admins[0].role").value("CLUB_ADMIN"));
+        assertThat(clubStatusColumn(s[0])).isEqualTo("INACTIVE");
+    }
+
+    @Test
+    @DisplayName("API 121: ACTIVE 임원이 있으면 422 OTHER_ACTIVE_ADMIN_EXISTS(후임 부적격보다 먼저), 변경 없음")
+    void replaceAdminOtherActiveAdmin() throws Exception {
+        long[] s = replaceScenario("ACTIVE");
+        jdbc.update("UPDATE membership SET status = 'ACTIVE' WHERE id = ?", s[2]);
+        for (long target : new long[] {s[1], 999999L}) {
+            mockMvc.perform(replace(admin, s[0], replaceBody(target)))
+                    .andExpect(status().isUnprocessableEntity())
+                    .andExpect(jsonPath("$.error.code").value("RULE_VIOLATION"))
+                    .andExpect(jsonPath("$.error.details[0].reason").value("OTHER_ACTIVE_ADMIN_EXISTS"));
+        }
+        // overrideActiveAdmin을 명시적으로 false로 보내도 같다
+        mockMvc.perform(replace(admin, s[0], replaceBody(s[1]).replace("}", ",\"overrideActiveAdmin\":false}")))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.error.details[0].reason").value("OTHER_ACTIVE_ADMIN_EXISTS"));
+        assertThat(roleOf(s[1])).isEqualTo("MEMBER");
+        assertThat(roleOf(s[2])).isEqualTo("CLUB_ADMIN");
+        assertThat(count("SELECT COUNT(*) FROM audit_log")).isZero();
+        assertThat(count("SELECT COUNT(*) FROM succession_notice")).isZero();
+    }
+
+    @Test
+    @DisplayName("API 121: overrideActiveAdmin이면 ACTIVE 임원이 있어도 교체하고 그 임원도 해제하며 감사 detail에 우회를 남긴다")
+    void replaceAdminOverrideActiveAdmin() throws Exception {
+        long[] s = replaceScenario("ACTIVE");
+        jdbc.update("UPDATE membership SET status = 'ACTIVE' WHERE id = ?", s[2]);
+
+        mockMvc.perform(replace(admin, s[0], replaceBody(s[1]).replace("}", ",\"overrideActiveAdmin\":true}")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.admins[0].id").value(String.valueOf(s[1])));
+
+        assertThat(roleOf(s[1])).isEqualTo("CLUB_ADMIN");
+        assertThat(roleOf(s[2])).isEqualTo("MEMBER");
+        assertThat(roleOf(s[3])).isEqualTo("MEMBER");
+        assertThat(jdbc.queryForObject("SELECT status FROM membership WHERE id = ?", String.class, s[2]))
+                .isEqualTo("ACTIVE");
+        JsonNode detail = objectMapper.readTree(jdbc.queryForObject("SELECT detail FROM audit_log", String.class));
+        assertThat(detail.path("overrideActiveAdmin").asBoolean(false)).isTrue();
+        assertThat(detail.get("revokedMembershipIds"))
+                .extracting(JsonNode::asLong)
+                .containsExactlyInAnyOrder(s[2], s[3]);
+    }
+
+    @Test
+    @DisplayName("API 121: 후임이 GUEST·휴학·졸업·대기·초대·다른 동아리·없는 ID면 422 SUCCESSOR_NOT_ELIGIBLE")
+    void replaceAdminSuccessorNotEligible() throws Exception {
+        long[] s = replaceScenario("ACTIVE");
+        long guest = member(s[0], extraUser(ts(1)), "MEMBER", "ACTIVE", "GUEST", "ADMIN_ADDED");
+        long onLeave = member(s[0], extraUser(ts(1)), "MEMBER", "ON_LEAVE", "REGULAR", "JOIN_CODE");
+        long graduated = member(s[0], extraUser(ts(1)), "MEMBER", "GRADUATED", "REGULAR", "JOIN_CODE");
+        long pending = member(s[0], extraUser(ts(1)), "MEMBER", "PENDING", "REGULAR", "SEARCH");
+        long invited = member(s[0], extraUser(ts(1)), "MEMBER", "INVITED", "REGULAR", "ADMIN_ADDED");
+        long otherClub = club("Other", "CLUB", "ACTIVE", extraUser(ts(1)), null);
+        long foreign = member(otherClub, extraUser(ts(1)), "MEMBER", "ACTIVE", "REGULAR", "JOIN_CODE");
+        for (long target : new long[] {guest, onLeave, graduated, pending, invited, foreign, 999999L}) {
+            mockMvc.perform(replace(admin, s[0], replaceBody(target)))
+                    .andExpect(status().isUnprocessableEntity())
+                    .andExpect(jsonPath("$.error.details[0].reason").value("SUCCESSOR_NOT_ELIGIBLE"));
+        }
+        assertThat(roleOf(s[2])).isEqualTo("CLUB_ADMIN");
+        assertThat(count("SELECT COUNT(*) FROM audit_log")).isZero();
+    }
+
+    @Test
+    @DisplayName("API 121: 일반 사용자 403, 헤더 없음 403, 입력 오류 400, 없는 동아리 404")
+    void replaceAdminGuardsAndValidation() throws Exception {
+        long[] s = replaceScenario("ACTIVE");
+        mockMvc.perform(replace(normal, s[0], replaceBody(s[1]))).andExpect(status().isForbidden());
+        mockMvc.perform(clubStatus(admin, "/api/v1/admin/clubs/" + s[0] + "/replace-admin", replaceBody(s[1]), false))
+                .andExpect(status().isForbidden());
+        for (String body : new String[] {
+            "{\"newAdminMembershipId\":\"" + s[1] + "\"}",
+            "{\"newAdminMembershipId\":\"" + s[1] + "\",\"reason\":\"   \"}",
+            "{\"newAdminMembershipId\":\"" + s[1] + "\",\"reason\":\"" + "a".repeat(501) + "\"}",
+            "{\"reason\":\"x\"}",
+            "{\"newAdminMembershipId\":\"0\",\"reason\":\"x\"}",
+            "{\"newAdminMembershipId\":\"abc\",\"reason\":\"x\"}"
+        }) {
+            mockMvc.perform(replace(admin, s[0], body))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+        }
+        mockMvc.perform(replace(admin, 999999L, replaceBody(s[1]))).andExpect(status().isNotFound());
+        assertThat(roleOf(s[2])).isEqualTo("CLUB_ADMIN");
     }
 }

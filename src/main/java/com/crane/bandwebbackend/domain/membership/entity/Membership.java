@@ -82,7 +82,9 @@ public class Membership extends BaseTimeEntity {
 
     private LocalDateTime leftAt;
 
-    // 이 동아리 홈을 마지막으로 연 시각(HOME-002 최근 본 순). 갱신은 updated_at이 바뀌지 않도록 전용 쿼리로 처리
+    // 이 동아리 홈을 마지막으로 연 시각(HOME-002 최근 본 순). 갱신은 updated_at이 바뀌지 않도록 전용 쿼리로 처리.
+    // 엔티티 UPDATE에서 빼 둔다. 다른 변경이 먼저 읽은 값을 다시 써서 API 140의 갱신을 되돌리지 않게 한다
+    @Column(updatable = false)
     private LocalDateTime lastViewedAt;
 
     /** 소속 초대한다 */

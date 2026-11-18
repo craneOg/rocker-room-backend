@@ -7,10 +7,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.crane.bandwebbackend.TestcontainersConfiguration;
+import com.crane.bandwebbackend.domain.membership.entity.Membership;
 import com.crane.bandwebbackend.global.security.CookieFactory;
 import com.crane.bandwebbackend.global.security.JwtProvider;
 import com.crane.bandwebbackend.global.time.KstTime;
 import com.jayway.jsonpath.JsonPath;
+import jakarta.persistence.EntityManager;
 import jakarta.servlet.http.Cookie;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
@@ -28,6 +30,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @Import(TestcontainersConfiguration.class)
 @ActiveProfiles("test")
@@ -48,6 +51,12 @@ class MembershipLastViewedApiTest {
 
     @Autowired
     CookieFactory cookies;
+
+    @Autowired
+    EntityManager entityManager;
+
+    @Autowired
+    TransactionTemplate transactionTemplate;
 
     long me;
     long other;
@@ -123,6 +132,24 @@ class MembershipLastViewedApiTest {
         // 응답 시각은 DB에 저장한(마이크로초로 자른) 값과 같다
         assertThat(KstTime.toUtc(OffsetDateTime.parse(responded))).isEqualTo(lastViewed(id));
         assertThat(updatedAt(id)).isEqualTo(before);
+    }
+
+    @Test
+    @DisplayName("소속 엔티티를 읽은 뒤 last_viewed_at이 갱신돼도 엔티티 변경 저장이 그 값을 되돌리지 않는다")
+    void entityUpdateKeepsLastViewed() {
+        long id = membership(me, "ACTIVE");
+        LocalDateTime viewed = LocalDateTime.of(2026, 3, 1, 0, 0);
+
+        transactionTemplate.executeWithoutResult(status -> {
+            Membership member = entityManager.find(Membership.class, id);
+            // API 140의 전용 UPDATE가 엔티티를 읽은 뒤에 끼어든 상황
+            jdbc.update("UPDATE membership SET last_viewed_at = ? WHERE id = ?", viewed, id);
+            member.changeDisplayName("새이름");
+        });
+
+        assertThat(lastViewed(id)).isEqualTo(viewed);
+        assertThat(jdbc.queryForObject("SELECT display_name FROM membership WHERE id = ?", String.class, id))
+                .isEqualTo("새이름");
     }
 
     @Test
