@@ -188,7 +188,8 @@ public class MembershipService {
         if (source == JoinSource.JOIN_CODE && joinCode == null) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "joinCode가 필요합니다.");
         }
-        Club club = requireClub(clubId);
+        // 재신청이 승인·초대 수락과 같은 소속 행을 덮어쓰지 않도록 동아리 행을 먼저 잠근다(§0.4, decide와 같은 잠금)
+        Club club = entityLookup.lockClub(clubId);
         User user = entityLookup.requireActive(userId);
         // 비활성·비공개·코드 불일치(형식 오류, 코드 없음 포함)는 모두 같은 404(C-08)
         boolean joinable = club.getStatus() == ClubStatus.ACTIVE

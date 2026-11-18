@@ -31,13 +31,20 @@ public class CoreEntityLookupService {
         return club;
     }
 
-    /** 동아리 행을 쓰기 잠금으로 조회하고 없으면 404, 비활성이면 409 CLUB_INACTIVE를 반환한다. */
+    /** 동아리 행을 쓰기 잠금으로 조회하고 없으면 404를 반환한다. 상태 검사는 호출자가 한다. */
     @Transactional
-    public Club lockActiveClub(Long clubId) {
+    public Club lockClub(Long clubId) {
         Club club = entityManager.find(Club.class, clubId, LockModeType.PESSIMISTIC_WRITE);
         if (club == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "동아리를 찾을 수 없습니다.");
         }
+        return club;
+    }
+
+    /** 동아리 행을 쓰기 잠금으로 조회하고 없으면 404, 비활성이면 409 CLUB_INACTIVE를 반환한다. */
+    @Transactional
+    public Club lockActiveClub(Long clubId) {
+        Club club = lockClub(clubId);
         if (club.getStatus() != ClubStatus.ACTIVE) {
             throw new BusinessException(ErrorCode.STATE_CONFLICT, "CLUB_INACTIVE", "비활성 동아리에서는 변경할 수 없습니다.");
         }
