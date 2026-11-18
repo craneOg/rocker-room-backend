@@ -2,10 +2,10 @@ package com.crane.bandwebbackend.domain.membership.service;
 
 import com.crane.bandwebbackend.domain.club.entity.Club;
 import com.crane.bandwebbackend.domain.club.entity.ClubStatus;
-import com.crane.bandwebbackend.domain.club.entity.ClubType;
 import com.crane.bandwebbackend.domain.membership.entity.Membership;
 import com.crane.bandwebbackend.domain.membership.entity.MembershipStatus;
 import com.crane.bandwebbackend.domain.participant.service.ParticipationLookup;
+import com.crane.bandwebbackend.domain.performance.entity.PerformancePreset;
 import com.crane.bandwebbackend.domain.performance.entity.PerformanceStatus;
 import com.crane.bandwebbackend.domain.performance.service.PerformanceService;
 import com.crane.bandwebbackend.global.audit.AuditRecorder;
@@ -77,15 +77,13 @@ public class MembershipDecisionService {
         MembershipStatus before = member.getStatus();
         LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
         member.transitionTo(target, now);
-        // BAND 동아리의 신규 승인자는 진행 중인 모든 공연에 자동 참여시킨다.
-        if (before == MembershipStatus.PENDING
-                && target == MembershipStatus.ACTIVE
-                && member.getClub().getClubType() == ClubType.BAND) {
-            // C-14: 밴드형 동아리는 승인 시 진행 중 공연에 자동 편입한다.
+        // C-14: 신규 승인자는 BAND 프리셋으로 만든 DRAFT·ACTIVE 공연에 자동 편입한다.
+        // 동아리 유형이 아니라 공연 프리셋으로 판단해 clubType 변경이 기존 공연에 영향을 주지 않게 한다(API-016).
+        if (before == MembershipStatus.PENDING && target == MembershipStatus.ACTIVE) {
             performances.list(clubId, actorUserId).stream()
+                    .filter(performance -> performance.getPreset() == PerformancePreset.BAND)
                     .filter(performance -> performance.getStatus() == PerformanceStatus.DRAFT
-                            || performance.getStatus() == PerformanceStatus.ACTIVE
-                            || performance.getStatus() == PerformanceStatus.LOCKED)
+                            || performance.getStatus() == PerformanceStatus.ACTIVE)
                     .forEach(performance -> participants.ensureAdminParticipation(performance, member, now));
         }
         // 목표 상태를 도메인 감사 이벤트 이름으로 변환해 변경 내역을 기록한다.

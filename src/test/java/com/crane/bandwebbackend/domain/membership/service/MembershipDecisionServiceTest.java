@@ -10,11 +10,11 @@ import static org.mockito.Mockito.when;
 
 import com.crane.bandwebbackend.domain.club.entity.Club;
 import com.crane.bandwebbackend.domain.club.entity.ClubStatus;
-import com.crane.bandwebbackend.domain.club.entity.ClubType;
 import com.crane.bandwebbackend.domain.membership.entity.Membership;
 import com.crane.bandwebbackend.domain.membership.entity.MembershipStatus;
 import com.crane.bandwebbackend.domain.participant.service.ParticipationLookup;
 import com.crane.bandwebbackend.domain.performance.entity.Performance;
+import com.crane.bandwebbackend.domain.performance.entity.PerformancePreset;
 import com.crane.bandwebbackend.domain.performance.entity.PerformanceStatus;
 import com.crane.bandwebbackend.domain.performance.service.PerformanceService;
 import com.crane.bandwebbackend.global.error.BusinessException;
@@ -62,7 +62,6 @@ class MembershipDecisionServiceTest {
         when(member.getClub()).thenReturn(club);
         when(club.getId()).thenReturn(10L);
         when(club.getStatus()).thenReturn(ClubStatus.ACTIVE);
-        when(club.getClubType()).thenReturn(ClubType.BAND);
         Performance absent = performance(1L, club);
         Performance rejectedPerformance = performance(2L, club);
         Performance withdrawnPerformance = performance(3L, club);
@@ -83,11 +82,48 @@ class MembershipDecisionServiceTest {
         }
     }
 
+    @Test
+    void autoEnrollsOnlyBandPresetDraftOrActivePerformances() {
+        MembershipService members = mock(MembershipService.class);
+        PerformanceService performances = mock(PerformanceService.class);
+        ParticipationLookup participants = mock(ParticipationLookup.class);
+        Membership member = mock(Membership.class);
+        Club club = mock(Club.class);
+        when(members.require(10L, 20L)).thenReturn(member);
+        when(member.getStatus()).thenReturn(MembershipStatus.PENDING);
+        when(member.getClub()).thenReturn(club);
+        when(club.getStatus()).thenReturn(ClubStatus.ACTIVE);
+        Performance bandDraft = performance(1L, club, PerformancePreset.BAND, PerformanceStatus.DRAFT);
+        Performance bandActive = performance(2L, club, PerformancePreset.BAND, PerformanceStatus.ACTIVE);
+        Performance bandLocked = performance(3L, club, PerformancePreset.BAND, PerformanceStatus.LOCKED);
+        Performance teamFirst = performance(4L, club, PerformancePreset.TEAM_FIRST, PerformanceStatus.ACTIVE);
+        when(performances.list(10L, 30L)).thenReturn(List.of(bandDraft, bandActive, bandLocked, teamFirst));
+        MembershipDecisionService service = new MembershipDecisionService(
+                members,
+                performances,
+                participants,
+                mock(EntityManager.class),
+                mock(com.crane.bandwebbackend.global.audit.AuditRecorder.class));
+
+        service.decide(10L, 20L, 30L, MembershipStatus.PENDING, MembershipStatus.ACTIVE, null);
+
+        // C-14는 동아리 유형이 아니라 공연 프리셋 기준이고, 문서대로 DRAFT·ACTIVE만 대상이다
+        verify(participants).ensureAdminParticipation(eq(bandDraft), eq(member), any(LocalDateTime.class));
+        verify(participants).ensureAdminParticipation(eq(bandActive), eq(member), any(LocalDateTime.class));
+        verify(participants, never()).ensureAdminParticipation(eq(bandLocked), any(), any());
+        verify(participants, never()).ensureAdminParticipation(eq(teamFirst), any(), any());
+    }
+
     private static Performance performance(Long id, Club club) {
+        return performance(id, club, PerformancePreset.BAND, PerformanceStatus.ACTIVE);
+    }
+
+    private static Performance performance(Long id, Club club, PerformancePreset preset, PerformanceStatus status) {
         Performance performance = mock(Performance.class);
         when(performance.getId()).thenReturn(id);
         when(performance.getClub()).thenReturn(club);
-        when(performance.getStatus()).thenReturn(PerformanceStatus.ACTIVE);
+        when(performance.getPreset()).thenReturn(preset);
+        when(performance.getStatus()).thenReturn(status);
         return performance;
     }
 }
