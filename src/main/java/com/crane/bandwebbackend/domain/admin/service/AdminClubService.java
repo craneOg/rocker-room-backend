@@ -167,10 +167,11 @@ public class AdminClubService {
 
     // API 121: 동아리를 먼저 잠가 소속 변경과 직렬화한다. Super Admin은 비활성 동아리도 처리하므로 상태는 검사하지 않고 바꾸지도 않는다.
     @Transactional
-    public AdminReplaceResponse replaceAdmin(long actorUserId, long clubId, long newAdminMembershipId, String reason) {
+    public AdminReplaceResponse replaceAdmin(
+            long actorUserId, long clubId, long newAdminMembershipId, String reason, boolean overrideActiveAdmin) {
         entityLookup.lockClub(clubId);
         MembershipStatusService.AdminReplacement replaced =
-                membershipStatus.replaceAdmins(clubId, newAdminMembershipId);
+                membershipStatus.replaceAdmins(clubId, newAdminMembershipId, overrideActiveAdmin);
         Membership successor = replaced.successor();
         notices.admin(clubId, successor.getUser().getId());
         auditRecorder.record(
@@ -180,7 +181,11 @@ public class AdminClubService {
                 "MEMBERSHIP",
                 successor.getId(),
                 reason.strip(),
-                Map.of("revokedMembershipIds", replaced.revokedMembershipIds()));
+                Map.of(
+                        "revokedMembershipIds",
+                        replaced.revokedMembershipIds(),
+                        "overrideActiveAdmin",
+                        overrideActiveAdmin));
         return AdminReplaceResponse.builder()
                 .admins(List.of(MembershipResponse.from(successor, partReader.partsOf(successor.getId()), actorUserId)))
                 .build();

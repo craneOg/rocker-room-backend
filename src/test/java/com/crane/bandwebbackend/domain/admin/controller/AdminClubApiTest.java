@@ -628,7 +628,8 @@ class AdminClubApiTest {
                         String.class))
                 .isEqualTo("ADMIN_EMERGENCY_REPLACED|MEMBERSHIP|" + s[1] + "|임원 연락 두절|" + admin);
         JsonNode detail = objectMapper.readTree(jdbc.queryForObject("SELECT detail FROM audit_log", String.class));
-        assertThat(detail.size()).isEqualTo(1);
+        assertThat(detail.size()).isEqualTo(2);
+        assertThat(detail.path("overrideActiveAdmin").asBoolean(true)).isFalse();
         assertThat(detail.path("revokedMembershipIds").isArray()).isTrue();
         assertThat(detail.get("revokedMembershipIds"))
                 .allMatch(JsonNode::isIntegralNumber)
@@ -666,10 +667,36 @@ class AdminClubApiTest {
                     .andExpect(jsonPath("$.error.code").value("RULE_VIOLATION"))
                     .andExpect(jsonPath("$.error.details[0].reason").value("OTHER_ACTIVE_ADMIN_EXISTS"));
         }
+        // overrideActiveAdmin을 명시적으로 false로 보내도 같다
+        mockMvc.perform(replace(admin, s[0], replaceBody(s[1]).replace("}", ",\"overrideActiveAdmin\":false}")))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.error.details[0].reason").value("OTHER_ACTIVE_ADMIN_EXISTS"));
         assertThat(roleOf(s[1])).isEqualTo("MEMBER");
         assertThat(roleOf(s[2])).isEqualTo("CLUB_ADMIN");
         assertThat(count("SELECT COUNT(*) FROM audit_log")).isZero();
         assertThat(count("SELECT COUNT(*) FROM succession_notice")).isZero();
+    }
+
+    @Test
+    @DisplayName("API 121: overrideActiveAdmin이면 ACTIVE 임원이 있어도 교체하고 그 임원도 해제하며 감사 detail에 우회를 남긴다")
+    void replaceAdminOverrideActiveAdmin() throws Exception {
+        long[] s = replaceScenario("ACTIVE");
+        jdbc.update("UPDATE membership SET status = 'ACTIVE' WHERE id = ?", s[2]);
+
+        mockMvc.perform(replace(admin, s[0], replaceBody(s[1]).replace("}", ",\"overrideActiveAdmin\":true}")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.admins[0].id").value(String.valueOf(s[1])));
+
+        assertThat(roleOf(s[1])).isEqualTo("CLUB_ADMIN");
+        assertThat(roleOf(s[2])).isEqualTo("MEMBER");
+        assertThat(roleOf(s[3])).isEqualTo("MEMBER");
+        assertThat(jdbc.queryForObject("SELECT status FROM membership WHERE id = ?", String.class, s[2]))
+                .isEqualTo("ACTIVE");
+        JsonNode detail = objectMapper.readTree(jdbc.queryForObject("SELECT detail FROM audit_log", String.class));
+        assertThat(detail.path("overrideActiveAdmin").asBoolean(false)).isTrue();
+        assertThat(detail.get("revokedMembershipIds"))
+                .extracting(JsonNode::asLong)
+                .containsExactlyInAnyOrder(s[2], s[3]);
     }
 
     @Test

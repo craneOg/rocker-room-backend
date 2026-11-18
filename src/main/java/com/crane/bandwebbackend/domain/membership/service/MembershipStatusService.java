@@ -122,10 +122,14 @@ public class MembershipStatusService {
         return member;
     }
 
-    /** API-121 긴급 관리자 교체의 소속 변경. 호출자가 동아리 행 잠금을 먼저 잡는다. 동아리 상태는 검사하지 않는다 */
-    public AdminReplacement replaceAdmins(Long clubId, Long successorMembershipId) {
-        if (repository.existsByClub_IdAndRoleAndStatusIn(
-                clubId, MembershipRole.CLUB_ADMIN, List.of(MembershipStatus.ACTIVE))) {
+    /**
+     * API-121 긴급 관리자 교체의 소속 변경. 호출자가 동아리 행 잠금을 먼저 잡는다. 동아리 상태는 검사하지 않는다.
+     * overrideActiveAdmin이면 활동 임원이 있어도 진행한다(운영자 우회).
+     */
+    public AdminReplacement replaceAdmins(Long clubId, Long successorMembershipId, boolean overrideActiveAdmin) {
+        if (!overrideActiveAdmin
+                && repository.existsByClub_IdAndRoleAndStatusIn(
+                        clubId, MembershipRole.CLUB_ADMIN, List.of(MembershipStatus.ACTIVE))) {
             throw new BusinessException(
                     ErrorCode.RULE_VIOLATION, "OTHER_ACTIVE_ADMIN_EXISTS", "활동 중인 동아리 임원이 있어 교체할 수 없습니다.");
         }

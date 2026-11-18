@@ -95,7 +95,7 @@ public class AdminController {
                 request.isConfirmed());
     }
 
-    // API 121: 임원이 활동 중이지 않은 동아리의 긴급 관리자 교체. 후임에게 임원 권한을 주고 기존 임원은 모두 해제
+    // API 121: 임원이 활동 중이지 않은 동아리의 긴급 관리자 교체(overrideActiveAdmin이면 활동 임원이 있어도 실행). 후임에게 임원 권한을 주고 기존 임원은 모두 해제
     @PostMapping(value = "/clubs/{clubId}/replace-admin", consumes = MediaType.APPLICATION_JSON_VALUE)
     public AdminReplaceResponse replaceAdmin(
             @AuthenticationPrincipal AuthPrincipal principal,
@@ -105,7 +105,8 @@ public class AdminController {
                 principal.userId(),
                 AdminUserService.parseId(clubId, "clubId"),
                 AdminUserService.parseId(request.getNewAdminMembershipId(), "newAdminMembershipId"),
-                request.getReason());
+                request.getReason(),
+                request.isOverrideActiveAdmin());
     }
 
     // API 141: periodDays는 7, 30, 90 중 하나(기본 30)
