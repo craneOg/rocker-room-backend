@@ -311,6 +311,20 @@ class ClubSettingsApiTest {
     }
 
     @Test
+    @DisplayName("API 16: 임시 객체가 남아 같은 키를 다시 보내도 지금 연결된 사진은 지우지 않는다")
+    void sameKeyKeepsCurrentImage() throws Exception {
+        String key = tmpKey(me);
+        String permanent = "clubs/" + clubId + "/" + key.substring(key.lastIndexOf('/') + 1);
+        mockMvc.perform(patchMine("{\"profileImageKey\":\"" + key + "\"}")).andExpect(status().isOk());
+        // 커밋 뒤 임시 객체 삭제가 실패해 남아 있는 상황
+        storage.put(key, new byte[] {1, 2, 3}, "image/png");
+
+        mockMvc.perform(patchMine("{\"profileImageKey\":\"" + key + "\"}")).andExpect(status().isOk());
+        assertThat(column("profile_image_url")).isEqualTo(CDN + "/" + permanent);
+        assertThat(storage.exists(permanent)).isTrue();
+    }
+
+    @Test
     @DisplayName("API 16: 남의 키는 404 IMAGE_KEY_NOT_FOUND이고 다른 변경도 반영되지 않는다")
     void badImageKey() throws Exception {
         String othersKey = tmpKey(other);

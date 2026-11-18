@@ -25,6 +25,7 @@ import com.crane.bandwebbackend.global.error.ErrorDetail;
 import java.security.SecureRandom;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -255,12 +256,16 @@ public class ClubService {
     // null이면 사진 삭제, 키(API 129)면 영구 위치로 복사해 연결한다. 이전 사진과 임시 객체는 커밋 뒤에 지운다
     private void replaceProfileImage(Club club, long userId, String key) {
         String previousUrl = club.getProfileImageUrl();
-        club.changeProfileImage(key == null ? null : profileImages.promoteClub(userId, club.getId(), key));
+        String newUrl = key == null ? null : profileImages.promoteClub(userId, club.getId(), key);
+        club.changeProfileImage(newUrl);
         long clubId = club.getId();
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
-                profileImages.deletePreviousClub(clubId, previousUrl);
+                // 같은 임시 키를 다시 보내면 영구 키도 같다. 이때 이전 사진을 지우면 지금 연결된 사진이 사라진다
+                if (!Objects.equals(previousUrl, newUrl)) {
+                    profileImages.deletePreviousClub(clubId, previousUrl);
+                }
                 if (key != null) {
                     profileImages.deleteTmp(key);
                 }
