@@ -189,8 +189,15 @@ public class PartService {
         // 삭제를 먼저 반영해야 같은 (소속, 파트) 키를 다시 넣을 때 충돌하지 않는다
         membershipPartRepository.deleteByMembership_Id(membershipId);
         membershipPartRepository.flush();
-        membershipPartRepository.saveAll(
-                parts.stream().map(part -> MembershipPart.of(target, part)).toList());
+        // API-142 ADD는 동아리 잠금 없이 넣으므로 같은 (소속, 파트)가 먼저 들어오면 키 충돌이 난다.
+        // 500 대신 409 VERSION_CONFLICT로 돌려 FE가 다시 불러온 뒤 재시도하게 한다
+        try {
+            membershipPartRepository.saveAll(
+                    parts.stream().map(part -> MembershipPart.of(target, part)).toList());
+            membershipPartRepository.flush();
+        } catch (DataIntegrityViolationException exception) {
+            throw new BusinessException(ErrorCode.VERSION_CONFLICT, "보유 파트가 먼저 변경되었습니다.");
+        }
         return target;
     }
 
