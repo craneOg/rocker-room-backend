@@ -167,16 +167,34 @@ public class MembershipService {
                     && now.isBefore(invitationExpiresAt(existing.getInvitedAt()))) {
                 throw new BusinessException(ErrorCode.DUPLICATE, "유효한 초대가 이미 있습니다.");
             }
+            MembershipStatus before = existing.getStatus();
             try {
                 existing.restartInvitation(type, displayName, now);
                 repository.flush();
+                auditRecorder.record(
+                        clubId,
+                        actorUserId,
+                        "MEMBER_ADDED_BY_ADMIN",
+                        "MEMBERSHIP",
+                        existing.getId(),
+                        null,
+                        Map.of("from", before.toString(), "to", "INVITED"));
                 return existing;
             } catch (IllegalStateException exception) {
                 throw new BusinessException(ErrorCode.DUPLICATE, "이미 유효한 소속이 있습니다.");
             }
         }
-        return repository.saveAndFlush(
+        Membership invited = repository.saveAndFlush(
                 Membership.invite(club, user, type, displayName, LocalDateTime.now(ZoneOffset.UTC)));
+        auditRecorder.record(
+                clubId,
+                actorUserId,
+                "MEMBER_ADDED_BY_ADMIN",
+                "MEMBERSHIP",
+                invited.getId(),
+                null,
+                Map.of("to", "INVITED"));
+        return invited;
     }
 
     /** API-014: 가입 코드 또는 검색으로 가입을 신청한다. 코드·공개 여부가 맞지 않으면 존재를 숨겨 404 */
