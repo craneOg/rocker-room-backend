@@ -10,6 +10,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.crane.bandwebbackend.TestcontainersConfiguration;
 import com.crane.bandwebbackend.global.security.CookieFactory;
 import com.crane.bandwebbackend.global.security.JwtProvider;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.Cookie;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -44,6 +46,9 @@ class AdminClubApiTest {
 
     @Autowired
     CookieFactory cookies;
+
+    @Autowired
+    ObjectMapper objectMapper;
 
     long admin;
     long normal;
@@ -622,8 +627,12 @@ class AdminClubApiTest {
                                 + " FROM audit_log",
                         String.class))
                 .isEqualTo("ADMIN_EMERGENCY_REPLACED|MEMBERSHIP|" + s[1] + "|임원 연락 두절|" + admin);
-        String detail = jdbc.queryForObject("SELECT detail FROM audit_log", String.class);
-        assertThat(detail).contains(String.valueOf(s[2])).contains(String.valueOf(s[3]));
+        JsonNode detail = objectMapper.readTree(jdbc.queryForObject("SELECT detail FROM audit_log", String.class));
+        assertThat(detail.size()).isEqualTo(1);
+        assertThat(detail.get("revokedMembershipIds"))
+                .allMatch(JsonNode::isTextual)
+                .extracting(JsonNode::asText)
+                .containsExactlyInAnyOrder(String.valueOf(s[2]), String.valueOf(s[3]));
         assertThat(count(
                         "SELECT COUNT(*) FROM succession_notice sn JOIN membership m ON m.user_id = sn.user_id"
                                 + " WHERE m.id = ? AND sn.club_id = ? AND sn.notice_type = 'ADMIN'"
