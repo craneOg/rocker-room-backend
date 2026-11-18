@@ -3,6 +3,8 @@ package com.crane.bandwebbackend.domain.admin.controller;
 import com.crane.bandwebbackend.domain.admin.dto.AdminClubDetailResponse;
 import com.crane.bandwebbackend.domain.admin.dto.AdminClubResponse;
 import com.crane.bandwebbackend.domain.admin.dto.AdminOverviewResponse;
+import com.crane.bandwebbackend.domain.admin.dto.AdminReplaceRequest;
+import com.crane.bandwebbackend.domain.admin.dto.AdminReplaceResponse;
 import com.crane.bandwebbackend.domain.admin.dto.AdminUserResponse;
 import com.crane.bandwebbackend.domain.admin.dto.AuditLogResponse;
 import com.crane.bandwebbackend.domain.admin.dto.ClubStatusChangeRequest;
@@ -91,6 +93,19 @@ public class AdminController {
                 AdminUserService.parseId(clubId, "clubId"),
                 request.getReason(),
                 request.isConfirmed());
+    }
+
+    // API 121: 임원이 활동 중이지 않은 동아리의 긴급 관리자 교체. 후임에게 임원 권한을 주고 기존 임원은 모두 해제
+    @PostMapping(value = "/clubs/{clubId}/replace-admin", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public AdminReplaceResponse replaceAdmin(
+            @AuthenticationPrincipal AuthPrincipal principal,
+            @PathVariable @Pattern(regexp = "^[1-9][0-9]*$") String clubId,
+            @Valid @RequestBody AdminReplaceRequest request) {
+        return adminClubService.replaceAdmin(
+                principal.userId(),
+                AdminUserService.parseId(clubId, "clubId"),
+                AdminUserService.parseId(request.getNewAdminMembershipId(), "newAdminMembershipId"),
+                request.getReason());
     }
 
     // API 141: periodDays는 7, 30, 90 중 하나(기본 30)

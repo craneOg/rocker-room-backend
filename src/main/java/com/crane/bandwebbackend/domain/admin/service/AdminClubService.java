@@ -2,10 +2,20 @@ package com.crane.bandwebbackend.domain.admin.service;
 
 import com.crane.bandwebbackend.domain.admin.dto.AdminClubDetailResponse;
 import com.crane.bandwebbackend.domain.admin.dto.AdminClubResponse;
+import com.crane.bandwebbackend.domain.admin.dto.AdminReplaceResponse;
 import com.crane.bandwebbackend.domain.admin.repository.AdminClubQueryRepository;
 import com.crane.bandwebbackend.domain.admin.repository.AdminClubQueryRepository.ClubRow;
 import com.crane.bandwebbackend.domain.club.entity.ClubStatus;
 import com.crane.bandwebbackend.domain.club.entity.ClubType;
+import com.crane.bandwebbackend.domain.home.service.SuccessionNoticeWriter;
+import com.crane.bandwebbackend.domain.membership.dto.MembershipResponse;
+import com.crane.bandwebbackend.domain.membership.entity.MemberType;
+import com.crane.bandwebbackend.domain.membership.entity.Membership;
+import com.crane.bandwebbackend.domain.membership.entity.MembershipRole;
+import com.crane.bandwebbackend.domain.membership.entity.MembershipStatus;
+import com.crane.bandwebbackend.domain.membership.repository.MembershipRepository;
+import com.crane.bandwebbackend.domain.membership.service.CoreEntityLookupService;
+import com.crane.bandwebbackend.domain.part.service.MembershipPartReader;
 import com.crane.bandwebbackend.global.audit.AuditRecorder;
 import com.crane.bandwebbackend.global.error.BusinessException;
 import com.crane.bandwebbackend.global.error.ErrorCode;
@@ -44,6 +54,10 @@ public class AdminClubService {
 
     private final AdminClubQueryRepository clubs;
     private final AuditRecorder auditRecorder;
+    private final CoreEntityLookupService entityLookup;
+    private final MembershipRepository memberships;
+    private final SuccessionNoticeWriter notices;
+    private final MembershipPartReader partReader;
     private final Clock clock;
 
     @Transactional(readOnly = true)
@@ -152,6 +166,44 @@ public class AdminClubService {
                             .build())));
         }
         return changeStatus(actorUserId, clubId, ClubStatus.ACTIVE, "CLUB_REACTIVATED", reason);
+    }
+
+    // API 121: 동아리를 먼저 잠가 소속 변경과 직렬화한다. Super Admin은 비활성 동아리도 처리하므로 상태는 검사하지 않고 바꾸지도 않는다.
+    // ponytail: findByClub_Id로 소속 전체를 읽어 거른다. 동아리 규모가 커지면 역할 조건 조회를 저장소에 추가한다
+    @Transactional
+    public AdminReplaceResponse replaceAdmin(long actorUserId, long clubId, long newAdminMembershipId, String reason) {
+        entityLookup.lockClub(clubId);
+        if (memberships.existsByClub_IdAndRoleAndStatusIn(
+                clubId, MembershipRole.CLUB_ADMIN, List.of(MembershipStatus.ACTIVE))) {
+            throw new BusinessException(
+                    ErrorCode.RULE_VIOLATION, "OTHER_ACTIVE_ADMIN_EXISTS", "활동 중인 동아리 임원이 있어 교체할 수 없습니다.");
+        }
+        Membership successor = memberships
+                .findByIdAndClub_Id(newAdminMembershipId, clubId)
+                .filter(m -> m.getStatus() == MembershipStatus.ACTIVE
+                        && m.getMemberType() == MemberType.REGULAR
+                        && m.getRole() != MembershipRole.CLUB_ADMIN)
+                .orElseThrow(() -> new BusinessException(
+                        ErrorCode.RULE_VIOLATION, "SUCCESSOR_NOT_ELIGIBLE", "동아리 임원 후임으로 지정할 수 없습니다."));
+        successor.changeRole(MembershipRole.CLUB_ADMIN);
+        List<Long> revoked = memberships.findByClub_Id(clubId).stream()
+                .filter(m ->
+                        m.getRole() == MembershipRole.CLUB_ADMIN && !m.getId().equals(successor.getId()))
+                .peek(m -> m.changeRole(MembershipRole.MEMBER))
+                .map(Membership::getId)
+                .toList();
+        notices.admin(clubId, successor.getUser().getId());
+        auditRecorder.record(
+                clubId,
+                actorUserId,
+                "ADMIN_EMERGENCY_REPLACED",
+                "MEMBERSHIP",
+                successor.getId(),
+                reason.strip(),
+                Map.of("revokedMembershipIds", revoked));
+        return AdminReplaceResponse.builder()
+                .admins(List.of(MembershipResponse.from(successor, partReader.partsOf(successor.getId()), actorUserId)))
+                .build();
     }
 
     // 조건부 UPDATE(`status <> :status`)가 행을 잠그므로 두 운영자가 동시에 같은 전환을 해도 한 번만 바뀐다.
