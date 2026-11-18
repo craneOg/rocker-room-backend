@@ -629,10 +629,11 @@ class AdminClubApiTest {
                 .isEqualTo("ADMIN_EMERGENCY_REPLACED|MEMBERSHIP|" + s[1] + "|임원 연락 두절|" + admin);
         JsonNode detail = objectMapper.readTree(jdbc.queryForObject("SELECT detail FROM audit_log", String.class));
         assertThat(detail.size()).isEqualTo(1);
+        assertThat(detail.path("revokedMembershipIds").isArray()).isTrue();
         assertThat(detail.get("revokedMembershipIds"))
-                .allMatch(JsonNode::isTextual)
-                .extracting(JsonNode::asText)
-                .containsExactlyInAnyOrder(String.valueOf(s[2]), String.valueOf(s[3]));
+                .allMatch(JsonNode::isIntegralNumber)
+                .extracting(JsonNode::asLong)
+                .containsExactlyInAnyOrder(s[2], s[3]);
         assertThat(count(
                         "SELECT COUNT(*) FROM succession_notice sn JOIN membership m ON m.user_id = sn.user_id"
                                 + " WHERE m.id = ? AND sn.club_id = ? AND sn.notice_type = 'ADMIN'"

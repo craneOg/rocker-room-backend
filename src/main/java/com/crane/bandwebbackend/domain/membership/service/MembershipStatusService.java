@@ -138,18 +138,18 @@ public class MembershipStatusService {
                         ErrorCode.RULE_VIOLATION, "SUCCESSOR_NOT_ELIGIBLE", "동아리 임원 후임으로 지정할 수 없습니다."));
         successor.changeRole(MembershipRole.CLUB_ADMIN);
         // ponytail: 소속 전체를 읽어 거른다. 동아리 규모가 커지면 역할 조건 조회를 저장소에 추가한다
-        List<String> revoked = new ArrayList<>();
+        List<Long> revoked = new ArrayList<>();
         for (Membership m : repository.findByClub_Id(clubId)) {
             if (m.getRole() == MembershipRole.CLUB_ADMIN && !m.getId().equals(successor.getId())) {
                 m.changeRole(MembershipRole.MEMBER);
-                revoked.add(String.valueOf(m.getId()));
+                revoked.add(m.getId());
             }
         }
         return new AdminReplacement(successor, revoked);
     }
 
-    /** 해제된 소속 ID는 감사 detail에 그대로 들어가므로 JS 정밀도 손실을 피하려 문자열로 둔다 */
-    public record AdminReplacement(Membership successor, List<String> revokedMembershipIds) {}
+    /** 후임과 해제된 기존 임원 소속 ID. 감사 detail의 ID는 기존 관례대로 숫자로 둔다 */
+    public record AdminReplacement(Membership successor, List<Long> revokedMembershipIds) {}
 
     /** 소속 유형을 변경한다 */
     @Transactional
