@@ -32,7 +32,8 @@ public class WithdrawalPreviewQueryRepository {
         private final long leaderMemberId;
     }
 
-    // 본인 유효 소속의 참여가 팀장인 진행 중 공연의 팀. TeamLeaderSuccession이 승계하는 범위(확정 2)
+    // 본인 유효 소속의 참여가 팀장인 진행 중 공연의 팀. TeamLeaderSuccession이 승계하는 범위(확정 2).
+    // 팀 상태로 거르지 않는다: apply는 DRAFT를 삭제하고 그 밖(REJECTED·WITHDRAWN 포함)은 모두 팀장을 넘긴다
     public List<LedTeam> findLedTeams(long userId) {
         return jdbc.query(
                 "SELECT p.club_id, p.id AS performance_id, p.title, t.id AS team_id, t.name, t.status, t.leader_member_id"
@@ -41,7 +42,6 @@ public class WithdrawalPreviewQueryRepository {
                         + " JOIN membership m ON m.id = pm.membership_id"
                         + " WHERE m.user_id = :userId AND m.status IN ('ACTIVE','ON_LEAVE','GRADUATED')"
                         + " AND pm.status IN ('APPLIED','APPROVED') AND p.status IN ('DRAFT','ACTIVE','LOCKED')"
-                        + " AND t.status IN ('DRAFT','SUBMITTED','APPROVED')"
                         + " ORDER BY p.club_id, p.id, t.id",
                 new MapSqlParameterSource("userId", userId),
                 (rs, i) -> LedTeam.builder()

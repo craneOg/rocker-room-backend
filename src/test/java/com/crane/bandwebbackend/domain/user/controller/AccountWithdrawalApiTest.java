@@ -3,6 +3,9 @@ package com.crane.bandwebbackend.domain.user.controller;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.nullValue;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -10,6 +13,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.crane.bandwebbackend.TestcontainersConfiguration;
+import com.crane.bandwebbackend.domain.membership.service.MembershipService;
 import com.crane.bandwebbackend.global.security.CookieFactory;
 import com.crane.bandwebbackend.global.security.JwtProvider;
 import jakarta.servlet.http.Cookie;
@@ -25,6 +29,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.context.jdbc.Sql;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
@@ -52,6 +57,10 @@ class AccountWithdrawalApiTest {
 
     @Autowired
     CookieFactory cookies;
+
+    // 잠금 뒤 소속 동아리 집합이 바뀌는 재시도 경로를 재현하는 데만 스텁한다. 그 밖에는 실제 동작
+    @MockitoSpyBean
+    MembershipService membershipService;
 
     @BeforeEach
     void setUp() {
@@ -184,7 +193,7 @@ class AccountWithdrawalApiTest {
     }
 
     @Test
-    @DisplayName("API 134: 팀장인 APPROVED·SUBMITTED·DRAFT 팀은 경고 유형·기본 후임이 다르고 REJECTED 팀·종료 공연 팀은 뺀다")
+    @DisplayName("API 134: 팀장인 팀은 상태별로 경고 유형·기본 후임이 다르고(REJECTED는 TEAM_LEADER_TRANSFER) 종료 공연 팀은 뺀다")
     void previewTeams() throws Exception {
         team("승인팀", "APPROVED");
         team("제출팀", "SUBMITTED");
@@ -202,7 +211,7 @@ class AccountWithdrawalApiTest {
 
         preview(2)
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.clubs[0].teamLeaderTransfers", hasSize(3)))
+                .andExpect(jsonPath("$.data.clubs[0].teamLeaderTransfers", hasSize(4)))
                 .andExpect(jsonPath("$.data.clubs[0].teamLeaderTransfers[0].teamName")
                         .value("승인팀"))
                 .andExpect(jsonPath("$.data.clubs[0].teamLeaderTransfers[0].teamStatus")
@@ -220,6 +229,10 @@ class AccountWithdrawalApiTest {
                 .andExpect(jsonPath("$.data.clubs[0].teamLeaderTransfers[2].defaultMembershipId")
                         .value(nullValue()))
                 .andExpect(jsonPath("$.data.clubs[0].teamLeaderTransfers[2].candidates", hasSize(0)))
+                .andExpect(jsonPath("$.data.clubs[0].teamLeaderTransfers[3].teamStatus")
+                        .value("REJECTED"))
+                .andExpect(jsonPath("$.data.clubs[0].teamLeaderTransfers[3].defaultMembershipId")
+                        .value("3"))
                 .andExpect(jsonPath("$.data.warnings[0].type").value("TEAM_LEADER_TRANSFER"))
                 .andExpect(jsonPath("$.data.warnings[0].teamName").value("승인팀"))
                 .andExpect(jsonPath("$.data.warnings[0].performanceId").value("1"))
@@ -227,7 +240,9 @@ class AccountWithdrawalApiTest {
                 .andExpect(jsonPath("$.data.warnings[1].type").value("TEAM_AUTO_SUCCESSION"))
                 .andExpect(jsonPath("$.data.warnings[2].type").value("TEAM_DELETED"))
                 .andExpect(jsonPath("$.data.warnings[2].successor").value(nullValue()))
-                .andExpect(jsonPath("$.data.warnings", hasSize(3)));
+                .andExpect(jsonPath("$.data.warnings[3].type").value("TEAM_LEADER_TRANSFER"))
+                .andExpect(jsonPath("$.data.warnings[3].teamName").value("반려팀"))
+                .andExpect(jsonPath("$.data.warnings", hasSize(4)));
     }
 
     @Test
@@ -449,6 +464,65 @@ class AccountWithdrawalApiTest {
         assertThat(count("SELECT COUNT(*) FROM team WHERE id = ?", draft)).isZero();
         assertThat(count("SELECT COUNT(*) FROM succession_notice WHERE user_id = 3 AND notice_type = 'TEAM_LEADER'"))
                 .isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("API 009: REJECTED·WITHDRAWN 팀도 409 경고에 TEAM_LEADER_TRANSFER로 나오고, 실행하면 경고의 후임에게 팀장을 넘긴다")
+    void rejectedTeamWarningMatchesExecution() throws Exception {
+        long rejected = team("반려팀", "REJECTED");
+        long withdrawn = team("철회팀", "WITHDRAWN");
+        withdraw(2, "{}")
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.warnings", hasSize(2)))
+                .andExpect(jsonPath("$.error.warnings[0].type").value("TEAM_LEADER_TRANSFER"))
+                .andExpect(jsonPath("$.error.warnings[0].teamId").value(String.valueOf(rejected)))
+                .andExpect(
+                        jsonPath("$.error.warnings[0].successor.membershipId").value("3"))
+                .andExpect(jsonPath("$.error.warnings[1].type").value("TEAM_LEADER_TRANSFER"))
+                .andExpect(jsonPath("$.error.warnings[1].teamId").value(String.valueOf(withdrawn)));
+
+        confirm(2, "")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.successions.teams", hasSize(2)))
+                .andExpect(jsonPath("$.data.successions.teams[0].newLeaderMembershipId")
+                        .value("3"));
+        assertThat(count("SELECT COUNT(*) FROM team WHERE id IN (?, ?) AND leader_member_id = 3", rejected, withdrawn))
+                .isEqualTo(2);
+        assertThat(count("SELECT COUNT(*) FROM succession_notice WHERE user_id = 3 AND notice_type = 'TEAM_LEADER'"))
+                .isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("API 009: 잠근 뒤 소속 동아리 집합이 사전 읽기와 다르면 한 번 다시 시도해 탈퇴한다")
+    void clubSetChangedRetrySucceeds() throws Exception {
+        // 사전 읽기 1회차만 빈 목록 → 잠금 뒤 읽기와 달라 재시도 → 2회차는 실제 값
+        doReturn(List.of()).doCallRealMethod().when(membershipService).membershipsOfUser(2L);
+
+        confirm(2, "").andExpect(status().isOk());
+
+        verify(membershipService, times(4)).membershipsOfUser(2L);
+        assertThat(value("SELECT status FROM users WHERE id = 2")).isEqualTo("WITHDRAWN");
+        assertThat(value("SELECT status FROM membership WHERE id = 2")).isEqualTo("WITHDRAWN");
+    }
+
+    @Test
+    @DisplayName("API 009: 재시도에서도 소속 동아리 집합이 다르면 409 STATE_CONFLICT이고 아무것도 바뀌지 않는다")
+    void clubSetChangedTwiceConflicts() throws Exception {
+        doReturn(List.of())
+                .doCallRealMethod()
+                .doReturn(List.of())
+                .doCallRealMethod()
+                .when(membershipService)
+                .membershipsOfUser(2L);
+
+        confirm(2, "")
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("STATE_CONFLICT"));
+
+        verify(membershipService, times(4)).membershipsOfUser(2L);
+        assertThat(value("SELECT status FROM users WHERE id = 2")).isEqualTo("ACTIVE");
+        assertThat(value("SELECT status FROM membership WHERE id = 2")).isEqualTo("ACTIVE");
+        assertThat(count("SELECT COUNT(*) FROM audit_log")).isZero();
     }
 
     @Test

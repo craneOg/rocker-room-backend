@@ -252,7 +252,7 @@ public class MembershipWithdrawalService {
                 .sorted(Comparator.comparing(member -> member.getPerformance().getId()))
                 .toList()) {
             entityManager.refresh(participant.getPerformance(), LockModeType.PESSIMISTIC_WRITE);
-            entityManager.refresh(participant);
+            entityManager.refresh(participant, LockModeType.PESSIMISTIC_WRITE);
             PerformanceStatus performanceStatus = participant.getPerformance().getStatus();
             if ((performanceStatus != PerformanceStatus.DRAFT
                             && performanceStatus != PerformanceStatus.ACTIVE
