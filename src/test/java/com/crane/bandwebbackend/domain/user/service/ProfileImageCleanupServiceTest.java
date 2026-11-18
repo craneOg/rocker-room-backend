@@ -132,15 +132,24 @@ class ProfileImageCleanupServiceTest {
     }
 
     @Test
-    @DisplayName("관리 대상이 아닌 접두사(misc/ 등)는 건드리지 않는다")
+    @DisplayName("관리 대상이 아닌 접두사(misc/ 등)와 users/·clubs/ 아래의 사진 키 형식이 아닌 객체는 건드리지 않는다")
     void otherPrefixesUntouched() {
         String current = object("users/" + userId + "/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa.png", 600);
         profileUses(current);
         object("misc/x.png", 6000);
+        object("users/" + userId + "/note.png", 6000);
+        object("clubs/1/poster/" + uuid(1), 6000);
 
         cleanup.cleanup();
 
         assertThat(storage.exists("misc/x.png")).isTrue();
+        assertThat(storage.exists("users/" + userId + "/note.png")).isTrue();
+        assertThat(storage.exists("clubs/1/poster/" + uuid(1))).isTrue();
+    }
+
+    // 사진 키 형식({uuid}.png)의 파일 이름. i마다 다르다
+    private static String uuid(int i) {
+        return String.format("%08d-0000-0000-0000-000000000000.png", i);
     }
 
     // ---- 동아리 사진(clubs/) ----
@@ -185,7 +194,7 @@ class ProfileImageCleanupServiceTest {
     void clubGuardDoesNotBlockUsers() {
         String orphanUser = object("users/" + userId + "/eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee.png", 600);
         for (int i = 0; i < ProfileImageCleanupService.MISCONFIG_GUARD_MIN_CANDIDATES; i++) {
-            object("clubs/1/c" + i + ".png", 600);
+            object("clubs/1/" + uuid(i), 600);
         }
 
         ProfileImageCleanupService.Result result = cleanup.cleanup();
@@ -200,7 +209,7 @@ class ProfileImageCleanupServiceTest {
     @DisplayName("후보가 20건 이상인데 참조가 하나도 없으면(공개 주소 설정 불일치 의심) 영구 객체를 지우지 않는다")
     void misconfigurationGuard() {
         for (int i = 0; i < ProfileImageCleanupService.MISCONFIG_GUARD_MIN_CANDIDATES; i++) {
-            object("users/" + userId + "/p" + i + ".png", 600);
+            object("users/" + userId + "/" + uuid(i), 600);
         }
 
         ProfileImageCleanupService.Result result = cleanup.cleanup();
@@ -217,7 +226,7 @@ class ProfileImageCleanupServiceTest {
         profileUses(keep);
         int total = ProfileImageCleanupService.MAX_DELETES_PER_RUN + 10;
         for (int i = 0; i < total; i++) {
-            object("users/" + userId + "/o" + i + ".png", 600);
+            object("users/" + userId + "/" + uuid(i), 600);
         }
 
         assertThat(cleanup.cleanup().getOrphansDeleted()).isEqualTo(ProfileImageCleanupService.MAX_DELETES_PER_RUN);

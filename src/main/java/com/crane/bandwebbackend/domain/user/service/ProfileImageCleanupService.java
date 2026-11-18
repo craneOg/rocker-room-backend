@@ -102,7 +102,9 @@ public class ProfileImageCleanupService {
         Instant cutoff = now.minus(ORPHAN_GRACE);
         List<String> candidates = new ArrayList<>();
         for (StoredObject o : storage.list(prefix)) {
-            if (o.getLastModified().isBefore(cutoff)) {
+            // 이 접두사의 사진 키 형식(users/{id}/{uuid}.ext 등)만 후보로 둔다. 같은 접두사의 다른 종류 파일은 지우지 않는다
+            if (o.getLastModified().isBefore(cutoff)
+                    && keyOf.apply(o.getKey()).filter(o.getKey()::equals).isPresent()) {
                 candidates.add(o.getKey());
             }
         }
