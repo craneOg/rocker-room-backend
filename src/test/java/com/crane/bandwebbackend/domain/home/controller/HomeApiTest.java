@@ -227,8 +227,10 @@ class HomeApiTest extends HomeApiTestBase {
         long pm = participation(perf, memberMid, "APPROVED");
         long s1 = song(perf, "PROPOSED", adminMid, null);
         long s2 = song(perf, "PROPOSED", adminMid, null);
+        // 문구의 목표도 한도(3)가 아니라 투표할 수 있는 곡 수(2)로 보인다
+        assertThat(label(memberUser, "VOTE")).isEqualTo("투표 (선택 0/2곡)");
         vote(s1, perf, pm);
-        assertThat(types(memberUser)).containsExactly("VOTE");
+        assertThat(label(memberUser, "VOTE")).isEqualTo("투표 (선택 1/2곡)");
         vote(s2, perf, pm);
         assertThat(types(memberUser)).isEmpty();
         mockMvc.perform(get(path("/home/badge")).cookie(access(memberUser)))

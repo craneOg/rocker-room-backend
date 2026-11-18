@@ -171,7 +171,7 @@ public class HomeService {
             boolean limited = max != null && "APPROVAL".equals(r.getVoteMethod());
             long target = limited ? Math.min(max, r.getVotable()) : 1;
             if (active && approved && r.getVote().open(now) && r.getVotable() > 0 && r.getMyVotes() < target) {
-                String label = limited ? "투표 (선택 " + r.getMyVotes() + "/" + max + "곡)" : "투표";
+                String label = limited ? "투표 (선택 " + r.getMyVotes() + "/" + target + "곡)" : "투표";
                 add(out, p, "VOTE", label, null, r.getVote());
             }
             // AV-01: 저장된 슬롯이 없으면 미입력
