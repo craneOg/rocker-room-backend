@@ -322,11 +322,7 @@ public class AccountWithdrawalService {
             unusedSuccessors.remove(clubId);
             Map<Long, Long> teamLeaders = teamLeadersByClub.remove(clubId);
             Long successorUserId = clubWithdrawals.withdrawForAccount(
-                    clubId,
-                    userId,
-                    parsed.reason,
-                    parsed.successors.get(clubId),
-                    teamLeaders == null ? new HashMap<>() : teamLeaders);
+                    clubId, userId, parsed.successors.get(clubId), teamLeaders == null ? new HashMap<>() : teamLeaders);
             if (successorUserId != null) {
                 clubSuccessions.put(clubId, successorUserId);
             }

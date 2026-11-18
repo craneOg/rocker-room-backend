@@ -353,6 +353,9 @@ class AccountWithdrawalApiTest {
                 .isEqualTo(1);
         assertThat(count("SELECT COUNT(*) FROM audit_log WHERE action = 'PERFORMANCE_MEMBER_WITHDRAWN'"))
                 .isEqualTo(1);
+        // 탈퇴 사유는 계정 단위 기록에만 남고 동아리 감사 기록에는 남지 않는다
+        assertThat(count("SELECT COUNT(*) FROM audit_log WHERE club_id IS NOT NULL AND reason IS NOT NULL"))
+                .isZero();
         // token_version이 올라가 같은 Access Token은 더 이상 쓸 수 없다
         mockMvc.perform(get(PREVIEW).cookie(access(2))).andExpect(status().isUnauthorized());
     }
@@ -360,7 +363,7 @@ class AccountWithdrawalApiTest {
     @Test
     @DisplayName("API 009: 마지막 임원은 기본 후임(승인일 순)에게 승계하고 안내·감사를 남기며 응답에 담는다")
     void withdrawAdminDefaultSuccessor() throws Exception {
-        confirm(1, "")
+        confirm(1, ",\"reason\":\"그만둘게요\"")
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.successions.clubs", hasSize(1)))
                 .andExpect(jsonPath("$.data.successions.clubs[0].clubId").value("1"))
@@ -370,7 +373,8 @@ class AccountWithdrawalApiTest {
         assertThat(value("SELECT role FROM membership WHERE id = 3")).isEqualTo("CLUB_ADMIN");
         assertThat(count("SELECT COUNT(*) FROM succession_notice WHERE user_id = 3 AND notice_type = 'ADMIN'"))
                 .isEqualTo(1);
-        assertThat(count("SELECT COUNT(*) FROM audit_log WHERE action = 'ADMIN_SUCCESSION' AND target_id = 3"))
+        assertThat(count("SELECT COUNT(*) FROM audit_log WHERE action = 'ADMIN_SUCCESSION' AND target_id = 3"
+                        + " AND reason IS NULL"))
                 .isEqualTo(1);
         assertThat(value("SELECT status FROM club WHERE id = 1")).isEqualTo("ACTIVE");
     }
@@ -559,9 +563,9 @@ class AccountWithdrawalApiTest {
     @DisplayName("API 009: LOCKED 공연 참여도 사유 없이 탈퇴할 수 있고 LOCKED_EXCEPTION_EDIT 감사만 남긴다")
     void lockedPerformance() throws Exception {
         jdbc.update("UPDATE performance SET status = 'LOCKED' WHERE id = 1");
-        confirm(2, "").andExpect(status().isOk());
+        confirm(2, ",\"reason\":\"그만둘게요\"").andExpect(status().isOk());
         assertThat(value("SELECT status FROM performance_member WHERE id = 2")).isEqualTo("WITHDRAWN");
-        assertThat(count("SELECT COUNT(*) FROM audit_log WHERE action = 'LOCKED_EXCEPTION_EDIT'"))
+        assertThat(count("SELECT COUNT(*) FROM audit_log WHERE action = 'LOCKED_EXCEPTION_EDIT' AND reason IS NULL"))
                 .isEqualTo(1);
     }
 

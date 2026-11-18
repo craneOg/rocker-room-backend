@@ -238,9 +238,9 @@ public class MembershipWithdrawalService {
      * API-009: 서비스 탈퇴 중 한 동아리 몫. 호출자가 사용자 행과 이 동아리 행을 먼저 잠근다.
      * 030과 달리 비활성 동아리는 임원 승계만 건너뛰고, LOCKED 공연도 막지 않는다(감사만 남긴다).
      * 임원 승계가 일어나면 후임의 사용자 ID를, 아니면 null을 돌려준다.
+     * 탈퇴 사유는 동아리 감사 기록에 남기지 않는다(계정 단위 ACCOUNT_WITHDRAWN에만 남긴다).
      */
-    public Long withdrawForAccount(
-            Long clubId, Long userId, String reason, Long successorUserId, Map<Long, Long> specified) {
+    public Long withdrawForAccount(Long clubId, Long userId, Long successorUserId, Map<Long, Long> specified) {
         Club club = entityManager.find(Club.class, clubId);
         Membership target = repository
                 .findByClub_IdAndUser_Id(clubId, userId)
@@ -274,9 +274,9 @@ public class MembershipWithdrawalService {
                     "PERFORMANCE_MEMBER_WITHDRAWN",
                     "PERFORMANCE_MEMBER",
                     participant.getId(),
-                    reason,
+                    null,
                     Map.of("membershipId", membershipId));
-            removalPolicy.recordException(participant.getPerformance(), userId, participant.getId(), reason);
+            removalPolicy.recordException(participant.getPerformance(), userId, participant.getId(), null);
         }
         // 사용되지 않은 팀장 후임 요청은 대상이 팀장이 아닌 팀을 지정한 것이다.
         if (!specified.isEmpty()) {
@@ -313,7 +313,7 @@ public class MembershipWithdrawalService {
                         "CLUB_DEACTIVATED",
                         "CLUB",
                         clubId,
-                        reason,
+                        null,
                         Map.of("formerAdminMembershipId", membershipId));
             } else {
                 auditRecorder.record(
@@ -322,11 +322,11 @@ public class MembershipWithdrawalService {
                         "ADMIN_SUCCESSION",
                         "MEMBERSHIP",
                         successor.getId(),
-                        reason,
+                        null,
                         Map.of("formerAdminMembershipId", membershipId));
             }
         }
-        auditRecorder.record(clubId, userId, "MEMBERSHIP_WITHDRAWN", "MEMBERSHIP", membershipId, reason, Map.of());
+        auditRecorder.record(clubId, userId, "MEMBERSHIP_WITHDRAWN", "MEMBERSHIP", membershipId, null, Map.of());
         entityManager.flush();
         return successor == null ? null : successor.getUser().getId();
     }
