@@ -10,6 +10,7 @@ import com.crane.bandwebbackend.domain.membership.repository.MembershipRepositor
 import com.crane.bandwebbackend.domain.participant.entity.PerformanceMember;
 import com.crane.bandwebbackend.domain.participant.entity.PerformanceMemberStatus;
 import com.crane.bandwebbackend.domain.participant.service.ParticipationLookup;
+import com.crane.bandwebbackend.domain.participant.service.TeamLeaderSuccession;
 import com.crane.bandwebbackend.domain.performance.entity.PerformanceStatus;
 import jakarta.persistence.EntityManager;
 import java.util.ArrayList;
@@ -27,6 +28,7 @@ public class MembershipWithdrawalPreviewService {
     private final MembershipRepository repository;
     private final ParticipationLookup participants;
     private final EntityManager entityManager;
+    private final TeamLeaderSuccession teamSuccession;
 
     /** 소속 변경 영향을 미리 조회한다 */
     @Transactional(readOnly = true)
@@ -112,22 +114,10 @@ public class MembershipWithdrawalPreviewService {
             // 각 팀에서 후임이 될 수 있는 활성 정회원 팀원을 조회한다.
             for (Object[] leader : leaderRows) {
                 Long teamId = ((Number) leader[0]).longValue();
-                @SuppressWarnings("unchecked")
-                List<Number> candidateIds = entityManager
-                        .createNativeQuery("""
-						SELECT m.id FROM team_member tm JOIN performance_member pm
-						  ON pm.id = tm.performance_member_id
-						JOIN membership m ON m.id = pm.membership_id
-						WHERE tm.team_id = :teamId AND pm.id <> :participantId
-						AND pm.status IN ('APPLIED','APPROVED')
-						AND m.member_type = 'REGULAR' AND m.status IN ('ACTIVE','ON_LEAVE')
-						ORDER BY tm.created_at, tm.id
-						""")
-                        .setParameter("teamId", teamId)
-                        .setParameter("participantId", member.getId())
-                        .getResultList();
-                List<WithdrawalPreviewResponse.Candidate> candidates = candidateIds.stream()
-                        .map(Number::longValue)
+                // 실제 승계(TeamLeaderSuccession.apply)와 같은 후보 조건을 쓴다. 행: (참여 id, 소속 id, 사용자 id)
+                List<Object[]> candidateRows = teamSuccession.candidatesOf(teamId, member.getId());
+                List<WithdrawalPreviewResponse.Candidate> candidates = candidateRows.stream()
+                        .map(row -> ((Number) row[1]).longValue())
                         .map(id -> repository.findByIdAndClub_Id(id, clubId).orElseThrow())
                         .map(candidate -> new WithdrawalPreviewResponse.Candidate(
                                 candidate.getId().toString(), name(candidate)))

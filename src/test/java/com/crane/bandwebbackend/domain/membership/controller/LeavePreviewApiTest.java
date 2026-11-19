@@ -99,6 +99,33 @@ class LeavePreviewApiTest {
     }
 
     @Test
+    @DisplayName("API-145: 팀장 후보는 실제 승계 조건과 같다(졸업·객원 포함, 참여 철회자 제외)")
+    void teamLeaderCandidatesMatchSuccession() throws Exception {
+        jdbc.update("INSERT INTO users (id, name, handle) VALUES (5, '객원', 'guest_5'), (6, '철회자', 'quit_6')");
+        jdbc.update("INSERT INTO membership (id, club_id, user_id, role, status, join_source, member_type) VALUES"
+                + " (5, 1, 5, 'MEMBER', 'ACTIVE', 'JOIN_CODE', 'GUEST'),"
+                + " (6, 1, 6, 'MEMBER', 'ACTIVE', 'JOIN_CODE', 'REGULAR')");
+        jdbc.update("UPDATE membership SET status = 'GRADUATED' WHERE id = 3");
+        jdbc.update("INSERT INTO performance_member (id, performance_id, club_id, membership_id, status, source) VALUES"
+                + " (3, 1, 1, 3, 'APPROVED', 'APPLICATION'),"
+                + " (5, 1, 1, 5, 'APPROVED', 'APPLICATION'),"
+                + " (6, 1, 1, 6, 'WITHDRAWN', 'APPLICATION')");
+        jdbc.update("INSERT INTO team (id,performance_id,name,status,source,created_by_user_id)"
+                + " VALUES (1,1,'A팀','APPROVED','ADMIN',1)");
+        jdbc.update("INSERT INTO team_member (team_id,performance_id,performance_member_id)"
+                + " VALUES (1,1,2),(1,1,3),(1,1,5),(1,1,6)");
+        jdbc.update("UPDATE team SET leader_member_id = 2 WHERE id = 1");
+        preview(2)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.teamLeaderCandidates[0].candidates.length()")
+                        .value(2))
+                .andExpect(jsonPath("$.data.teamLeaderCandidates[0].candidates[0].membershipId")
+                        .value("3"))
+                .andExpect(jsonPath("$.data.teamLeaderCandidates[0].candidates[1].membershipId")
+                        .value("5"));
+    }
+
+    @Test
     @DisplayName("API-145: PENDING 신청자는 활동 가능한 소속이 아니므로 403")
     void pendingUser() throws Exception {
         jdbc.update("UPDATE membership SET status = 'PENDING' WHERE id = 3");
