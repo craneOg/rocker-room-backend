@@ -201,6 +201,14 @@ class PerformanceFlowTest {
         // API-101·103 가능 시간. null 구간은 500이 아니라 400
         send(put(BASE + "/availability/me"), MEMBER, """
                         {"from":"2026-12-01T00:00:00+09:00","to":"2026-12-02T00:00:00+09:00","slots":[null]}""").andExpect(status().isBadRequest());
+        // API-054 제출 전 false, 빈 목록 저장 후 true(슬롯 0)
+        send(get(BASE + "/members/me"), MEMBER, null)
+                .andExpect(jsonPath("$.data.progress.availabilitySubmitted").value(false));
+        send(put(BASE + "/availability/me"), MEMBER, """
+                        {"from":"2026-12-01T00:00:00+09:00","to":"2026-12-02T00:00:00+09:00","slots":[]}""").andExpect(status().isOk());
+        send(get(BASE + "/members/me"), MEMBER, null)
+                .andExpect(jsonPath("$.data.progress.availabilitySlotCount").value(0))
+                .andExpect(jsonPath("$.data.progress.availabilitySubmitted").value(true));
         send(put(BASE + "/availability/me"), MEMBER, """
                         {"from":"2026-12-01T00:00:00+09:00","to":"2026-12-02T00:00:00+09:00",
                          "slots":[{"startAt":"2026-12-01T19:00:00+09:00","endAt":"2026-12-01T20:00:00+09:00"}]}""")
@@ -211,6 +219,13 @@ class PerformanceFlowTest {
                 .andExpect(jsonPath("$.data.slots.length()").value(2))
                 .andExpect(
                         jsonPath("$.data.missingAvailabilityMemberIds.length()").value(1));
+        // API-103 빈 목록만 저장한 참여자도 응답자로 센다
+        send(put(BASE + "/availability/me"), 3L, """
+                        {"from":"2026-12-01T00:00:00+09:00","to":"2026-12-02T00:00:00+09:00","slots":[]}""").andExpect(status().isOk());
+        send(common().param("forAllParticipants", "true"), ADMIN, null)
+                .andExpect(jsonPath("$.data.respondedCount").value(2))
+                .andExpect(
+                        jsonPath("$.data.missingAvailabilityMemberIds.length()").value(0));
         send(common().param("forAllParticipants", "true"), MEMBER, null)
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.error.details[0].reason").value("TARGET_NOT_ALLOWED"));

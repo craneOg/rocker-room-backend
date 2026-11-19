@@ -27,8 +27,4 @@ public interface AvailableSlotRepository extends JpaRepository<AvailableSlot, Av
     @Query("select s from AvailableSlot s where s.performanceMember.id in :memberIds"
             + " and s.slotStart >= :from and s.slotStart < :to")
     List<AvailableSlot> findByMembersInRange(Collection<Long> memberIds, LocalDateTime from, LocalDateTime to);
-
-    // 한 번이라도 입력한 참여자(respondedCount)
-    @Query("select distinct s.performanceMember.id from AvailableSlot s where s.performanceMember.id in :memberIds")
-    List<Long> findRespondedMemberIds(Collection<Long> memberIds);
 }
