@@ -17,6 +17,8 @@ import com.crane.bandwebbackend.domain.performance.entity.Performance;
 import com.crane.bandwebbackend.domain.performance.entity.PerformancePreset;
 import com.crane.bandwebbackend.domain.performance.entity.PerformanceStatus;
 import com.crane.bandwebbackend.domain.performance.service.PerformanceService;
+import com.crane.bandwebbackend.domain.user.entity.User;
+import com.crane.bandwebbackend.domain.user.entity.UserStatus;
 import com.crane.bandwebbackend.global.error.BusinessException;
 import com.crane.bandwebbackend.global.error.ErrorCode;
 import jakarta.persistence.EntityManager;
@@ -60,6 +62,8 @@ class MembershipDecisionServiceTest {
         when(members.require(10L, 20L)).thenReturn(member);
         when(member.getStatus()).thenReturn(MembershipStatus.PENDING);
         when(member.getClub()).thenReturn(club);
+        User user = activeUser();
+        when(member.getUser()).thenReturn(user);
         when(club.getId()).thenReturn(10L);
         when(club.getStatus()).thenReturn(ClubStatus.ACTIVE);
         Performance absent = performance(1L, club);
@@ -93,6 +97,8 @@ class MembershipDecisionServiceTest {
         when(member.getStatus()).thenReturn(MembershipStatus.PENDING);
         when(member.getClub()).thenReturn(club);
         when(club.getStatus()).thenReturn(ClubStatus.ACTIVE);
+        User user = activeUser();
+        when(member.getUser()).thenReturn(user);
         Performance bandDraft = performance(1L, club, PerformancePreset.BAND, PerformanceStatus.DRAFT);
         Performance bandActive = performance(2L, club, PerformancePreset.BAND, PerformanceStatus.ACTIVE);
         Performance bandLocked = performance(3L, club, PerformancePreset.BAND, PerformanceStatus.LOCKED);
@@ -112,6 +118,12 @@ class MembershipDecisionServiceTest {
         verify(participants).ensureAdminParticipation(eq(bandActive), eq(member), any(LocalDateTime.class));
         verify(participants, never()).ensureAdminParticipation(eq(bandLocked), any(), any());
         verify(participants, never()).ensureAdminParticipation(eq(teamFirst), any(), any());
+    }
+
+    private static User activeUser() {
+        User user = mock(User.class);
+        when(user.getStatus()).thenReturn(UserStatus.ACTIVE);
+        return user;
     }
 
     private static Performance performance(Long id, Club club) {
