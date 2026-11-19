@@ -76,6 +76,8 @@ public class SecurityConfig {
                         .permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/auth/kakao/callback")
                         .permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/kakao/unlink-webhook")
+                        .permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/exchange")
                         .permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/refresh")

@@ -31,7 +31,9 @@ class KakaoOAuthClientTest {
 
     private KakaoOAuthClient client(String secret) {
         return new KakaoOAuthClient(
-                builder, new AuthLoginProperties("cid", secret, "http://localhost:8080/cb", "http://localhost/done"));
+                builder,
+                new AuthLoginProperties(
+                        "cid", secret, "http://localhost:8080/cb", "http://localhost/done", "adm", "app-1"));
     }
 
     @Test
@@ -107,5 +109,27 @@ class KakaoOAuthClientTest {
         server.expect(requestTo(KakaoOAuthClient.PROFILE_URL))
                 .andRespond(withSuccess("{\"kakao_account\":{}}", MediaType.APPLICATION_JSON));
         assertThatThrownBy(() -> client("s").fetchProfile("c")).isInstanceOf(KakaoOAuthException.class);
+    }
+
+    @Test
+    @DisplayName("연결 끊기는 어드민 키 헤더와 user_id 폼으로 보내고, 실패 시 응답 본문 없이 KakaoOAuthException")
+    void unlink() {
+        server.expect(requestTo(KakaoOAuthClient.UNLINK_URL))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(header("Authorization", "KakaoAK adm"))
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_FORM_URLENCODED))
+                .andExpect(content().formDataContains(Map.of("target_id_type", "user_id", "target_id", "123")))
+                .andRespond(withSuccess("{\"id\":123}", MediaType.APPLICATION_JSON));
+        client("s").unlink("123");
+        server.verify();
+
+        server.reset();
+        server.expect(requestTo(KakaoOAuthClient.UNLINK_URL))
+                .andRespond(withStatus(HttpStatus.UNAUTHORIZED)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body("{\"msg\":\"leak-me\"}"));
+        assertThatThrownBy(() -> client("s").unlink("123"))
+                .isInstanceOf(KakaoOAuthException.class)
+                .hasMessageNotContaining("leak-me");
     }
 }
