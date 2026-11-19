@@ -8,6 +8,7 @@ import com.crane.bandwebbackend.domain.participant.service.ParticipationLookup;
 import com.crane.bandwebbackend.domain.performance.entity.PerformancePreset;
 import com.crane.bandwebbackend.domain.performance.entity.PerformanceStatus;
 import com.crane.bandwebbackend.domain.performance.service.PerformanceService;
+import com.crane.bandwebbackend.domain.user.entity.UserStatus;
 import com.crane.bandwebbackend.global.audit.AuditRecorder;
 import com.crane.bandwebbackend.global.error.BusinessException;
 import com.crane.bandwebbackend.global.error.ErrorCode;
@@ -72,6 +73,10 @@ public class MembershipDecisionService {
                         && (target == MembershipStatus.ACTIVE || target == MembershipStatus.DECLINED));
         if (!allowed) {
             throw new BusinessException(ErrorCode.STATE_CONFLICT, "INVALID_STATE", "처리할 수 없는 소속 상태입니다.");
+        }
+        // #55: 탈퇴한 사용자의 소속은 ACTIVE로 만들지 않는다(가입 신청·초대 시점 확인을 지나 남은 PENDING·INVITED 방어)
+        if (target == MembershipStatus.ACTIVE && member.getUser().getStatus() != UserStatus.ACTIVE) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "활성 사용자를 찾을 수 없습니다.");
         }
         // 상태를 전이하고 감사 로그용 이전 상태와 현재 시각을 보존한다.
         MembershipStatus before = member.getStatus();
