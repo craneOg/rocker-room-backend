@@ -21,6 +21,7 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -100,6 +101,7 @@ public class AvailabilityService {
         accessService.lock(pm);
         slotRepository.deleteInRange(pm.getId(), KstTime.toUtc(req.getFrom()), KstTime.toUtc(req.getTo()));
         slotRepository.saveAll(slots.stream().map(s -> AvailableSlot.of(pm, s)).toList());
+        pm.markAvailabilitySubmitted(LocalDateTime.now(ZoneOffset.UTC));
         return response(pm.getId(), req.getFrom(), req.getTo(), slots);
     }
 

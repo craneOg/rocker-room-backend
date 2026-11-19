@@ -63,6 +63,10 @@ public class PerformanceMember extends BaseTimeEntity {
 
     private LocalDateTime decidedAt;
 
+    // 가능 시간 제출 시각(UTC). 빈 목록 저장도 기록하며 NULL이면 미입력
+    @Column(name = "availability_submitted_at")
+    private LocalDateTime availabilitySubmittedAt;
+
     /** 공연 참여 신청한다 */
     public static PerformanceMember apply(Performance performance, Membership membership) {
         return create(
@@ -159,6 +163,11 @@ public class PerformanceMember extends BaseTimeEntity {
             this.status = PerformanceMemberStatus.REJECTED;
             this.decidedAt = LocalDateTime.now(ZoneOffset.UTC);
         }
+    }
+
+    // API-101 저장 시 기록(빈 목록 포함)
+    public void markAvailabilitySubmitted(LocalDateTime now) {
+        this.availabilitySubmittedAt = now;
     }
 
     public boolean isActiveParticipant() {

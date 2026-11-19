@@ -1,7 +1,9 @@
 package com.crane.bandwebbackend.domain.home.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -12,6 +14,7 @@ import java.time.ZoneOffset;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.MediaType;
 
 class HomeApiTest extends HomeApiTestBase {
 
@@ -252,7 +255,7 @@ class HomeApiTest extends HomeApiTestBase {
     }
 
     @Test
-    @DisplayName("AV-01 AVAILABILITY: ACTIVE·LOCKED, APPROVED, 저장된 슬롯이 없을 때만")
+    @DisplayName("AV-01 AVAILABILITY: ACTIVE·LOCKED, APPROVED, 가능 시간을 제출하지 않았을 때만")
     void availabilityTodo() throws Exception {
         long active = performance("ACTIVE");
         long locked = performance("LOCKED");
@@ -265,6 +268,37 @@ class HomeApiTest extends HomeApiTestBase {
         assertThat(types(memberUser)).containsExactly("AVAILABILITY");
         policy(locked, "availability_deadline = '" + utcAgo(1) + "'");
         assertThat(types(memberUser)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("#50 AVAILABILITY: API-101에 빈 목록을 저장하면 제출 시각이 기록되고 할 일·배지에서 빠진다")
+    void emptyAvailabilitySaveClearsTodo() throws Exception {
+        long perf = performance("ACTIVE");
+        policy(perf, "availability_state = " + OPEN);
+        long pm = participation(perf, memberMid, "APPROVED");
+        assertThat(types(memberUser)).containsExactly("AVAILABILITY");
+        mockMvc.perform(get(path("/home/badge")).cookie(access(memberUser)))
+                .andExpect(jsonPath("$.data.count").value(1));
+
+        mockMvc.perform(put(path("/performances/" + perf + "/availability/me"))
+                        .cookie(access(memberUser))
+                        .with(csrf())
+                        .header("X-Requested-With", "XMLHttpRequest")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"from":"2030-01-01T00:00:00+09:00","to":"2030-01-02T00:00:00+09:00","slots":[]}"""))
+                .andExpect(status().isOk());
+
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM available_slot", Long.class))
+                .isZero();
+        assertThat(jdbc.queryForObject(
+                        "SELECT availability_submitted_at FROM performance_member WHERE id = ?",
+                        java.sql.Timestamp.class,
+                        pm))
+                .isNotNull();
+        assertThat(types(memberUser)).isEmpty();
+        mockMvc.perform(get(path("/home/badge")).cookie(access(memberUser)))
+                .andExpect(jsonPath("$.data.count").value(0));
     }
 
     @Test
