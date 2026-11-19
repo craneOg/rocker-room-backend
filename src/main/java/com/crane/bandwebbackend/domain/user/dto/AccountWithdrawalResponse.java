@@ -1,15 +1,18 @@
 package com.crane.bandwebbackend.domain.user.dto;
 
 import com.crane.bandwebbackend.global.serialization.IdString;
+import java.time.OffsetDateTime;
 import java.util.List;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
-// API 009 응답 data: 실제로 후임이 정해진 동아리·팀만 담는다
+// API 009 응답 data: 탈퇴 일시·복구 가능 기한, 실제로 후임이 정해진 동아리·팀만 담는다
 @Getter
 @RequiredArgsConstructor
 public class AccountWithdrawalResponse {
 
+    private final OffsetDateTime withdrawnAt;
+    private final OffsetDateTime restorableUntil;
     private final Successions successions;
 
     @Getter
