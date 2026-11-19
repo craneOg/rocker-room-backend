@@ -174,7 +174,7 @@ public class HomeQueryRepository {
         private final long unanswered;
         private final long votable;
         private final long myVotes;
-        private final long mySlots;
+        private final boolean availabilitySubmitted;
         private final long songCount;
     }
 
@@ -212,9 +212,8 @@ public class HomeQueryRepository {
                 + " (SELECT COUNT(DISTINCT v.performance_member_id) FROM song_vote v"
                 + " JOIN performance_member pm ON pm.id = v.performance_member_id"
                 + " WHERE v.performance_id = p.id AND pm.status = 'APPROVED') AS vote_answered,"
-                + " (SELECT COUNT(DISTINCT a.performance_member_id) FROM available_slot a"
-                + " JOIN performance_member pm ON pm.id = a.performance_member_id"
-                + " WHERE pm.performance_id = p.id AND pm.status = 'APPROVED') AS availability_answered"
+                + " (SELECT COUNT(*) FROM performance_member pm WHERE pm.performance_id = p.id"
+                + " AND pm.status = 'APPROVED' AND pm.availability_submitted_at IS NOT NULL) AS availability_answered"
                 + " FROM performance p LEFT JOIN performance_policy pol ON pol.performance_id = p.id"
                 + " WHERE p.club_id = :id AND p.status = 'ACTIVE' ORDER BY p.id";
         return jdbc.query(
@@ -265,8 +264,8 @@ public class HomeQueryRepository {
                 // V-05: PROPOSED 곡에 한 내 투표 수(SongVoteRepository.countByMemberAndSongStatus)
                 + " (SELECT COUNT(*) FROM song_vote v JOIN song s ON s.id = v.song_id"
                 + " WHERE v.performance_member_id = pm.id AND s.status = 'PROPOSED') AS my_votes,"
-                // AV-01: 내가 저장한 가능 시간 슬롯 수
-                + " (SELECT COUNT(*) FROM available_slot a WHERE a.performance_member_id = pm.id) AS my_slots,"
+                // AV-01: 가능 시간 제출 여부(빈 목록 저장 포함, #50)
+                + " (pm.availability_submitted_at IS NOT NULL) AS availability_submitted,"
                 // 확정곡 중 내가 연주자인 곡 수
                 + " (SELECT COUNT(DISTINCT ssm.song_id) FROM song_session_member ssm JOIN song s ON s.id = ssm.song_id"
                 + " WHERE ssm.performance_member_id = pm.id AND s.status = 'CONFIRMED') AS song_count"
@@ -298,7 +297,7 @@ public class HomeQueryRepository {
                         .unanswered(rs.getLong("unanswered"))
                         .votable(rs.getLong("votable"))
                         .myVotes(rs.getLong("my_votes"))
-                        .mySlots(rs.getLong("my_slots"))
+                        .availabilitySubmitted(rs.getBoolean("availability_submitted"))
                         .songCount(rs.getLong("song_count"))
                         .build());
     }

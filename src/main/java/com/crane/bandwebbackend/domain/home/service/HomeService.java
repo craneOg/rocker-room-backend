@@ -174,11 +174,11 @@ public class HomeService {
                 String label = limited ? "투표 (선택 " + r.getMyVotes() + "/" + target + "곡)" : "투표";
                 add(out, p, "VOTE", label, null, r.getVote());
             }
-            // AV-01: 저장된 슬롯이 없으면 미입력
+            // AV-01: 가능 시간을 제출한 적이 없으면 미입력(빈 목록 저장은 제출)
             if ((active || "LOCKED".equals(r.getStatus()))
                     && approved
                     && r.getAvailability().open(now)
-                    && r.getMySlots() == 0) {
+                    && !r.isAvailabilitySubmitted()) {
                 add(out, p, "AVAILABILITY", "합주 가능 시간 입력", null, r.getAvailability());
             }
         }

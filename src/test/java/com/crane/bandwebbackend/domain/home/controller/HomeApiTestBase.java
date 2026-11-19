@@ -200,6 +200,7 @@ abstract class HomeApiTestBase {
         jdbc.update(
                 "INSERT INTO available_slot (performance_member_id, slot_start) VALUES (?, '2030-01-01 00:00:00')",
                 pmId);
+        jdbc.update("UPDATE performance_member SET availability_submitted_at = NOW(6) WHERE id = ?", pmId);
     }
 
     // result가 null이면 심사 대기
