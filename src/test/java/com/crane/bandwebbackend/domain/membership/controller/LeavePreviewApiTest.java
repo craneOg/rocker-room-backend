@@ -126,6 +126,41 @@ class LeavePreviewApiTest {
     }
 
     @Test
+    @DisplayName("API-145: 팀 상태별로 삭제·자동 승계·지정 승계가 미리보기에 반영된다")
+    void teamStatusHandling() throws Exception {
+        jdbc.update("INSERT INTO users (id, name, handle) VALUES (5, '객원', 'guest_5')");
+        jdbc.update("INSERT INTO membership (id, club_id, user_id, role, status, join_source, member_type) VALUES"
+                + " (5, 1, 5, 'MEMBER', 'ACTIVE', 'JOIN_CODE', 'REGULAR')");
+        jdbc.update("INSERT INTO performance_member (id, performance_id, club_id, membership_id, status, source) VALUES"
+                + " (3, 1, 1, 3, 'APPROVED', 'APPLICATION'),"
+                + " (5, 1, 1, 5, 'APPROVED', 'APPLICATION')");
+        jdbc.update("INSERT INTO team (id,performance_id,name,status,source,created_by_user_id) VALUES"
+                + " (1,1,'작성팀','DRAFT','ADMIN',1),"
+                + " (2,1,'심사팀','SUBMITTED','ADMIN',1),"
+                + " (3,1,'승인팀','APPROVED','ADMIN',1)");
+        jdbc.update("INSERT INTO team_member (team_id,performance_id,performance_member_id)"
+                + " VALUES (1,1,2),(1,1,3),(1,1,5),(2,1,2),(2,1,3),(2,1,5),(3,1,2),(3,1,3),(3,1,5)");
+        jdbc.update("UPDATE team SET leader_member_id = 2");
+        preview(2)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.teamLeaderCandidates.length()").value(3))
+                .andExpect(jsonPath("$.data.teamLeaderCandidates[0].teamStatus").value("DRAFT"))
+                .andExpect(jsonPath("$.data.teamLeaderCandidates[0].candidates").isEmpty())
+                .andExpect(jsonPath("$.data.teamLeaderCandidates[0].defaultMembershipId")
+                        .isEmpty())
+                .andExpect(jsonPath("$.data.teamLeaderCandidates[1].teamStatus").value("SUBMITTED"))
+                .andExpect(jsonPath("$.data.teamLeaderCandidates[1].defaultMembershipId")
+                        .value("3"))
+                .andExpect(jsonPath("$.data.teamLeaderCandidates[2].teamStatus").value("APPROVED"))
+                .andExpect(jsonPath("$.data.teamLeaderCandidates[2].defaultMembershipId")
+                        .value("3"))
+                .andExpect(jsonPath("$.data.warnings.length()").value(3))
+                .andExpect(jsonPath("$.data.warnings[0]").value("진행 중 공연 1건에서 참여가 철회됩니다."))
+                .andExpect(jsonPath("$.data.warnings[1]").value("작성 중 팀 '작성팀'은(는) 삭제됩니다."))
+                .andExpect(jsonPath("$.data.warnings[2]").value("심사 대기 팀 '심사팀'의 팀장은 지정과 관계없이 첫 번째 후보에게 자동 승계됩니다."));
+    }
+
+    @Test
     @DisplayName("API-145: PENDING 신청자는 활동 가능한 소속이 아니므로 403")
     void pendingUser() throws Exception {
         jdbc.update("UPDATE membership SET status = 'PENDING' WHERE id = 3");

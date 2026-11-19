@@ -1,7 +1,9 @@
 package com.crane.bandwebbackend.domain.membership.controller;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -14,6 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.context.ActiveProfiles;
@@ -111,6 +114,55 @@ class WithdrawalPreviewApiTest {
                         .value("3"))
                 .andExpect(jsonPath("$.data.teamLeaderCandidates[0].candidates[1].membershipId")
                         .value("5"));
+    }
+
+    @Test
+    @DisplayName("API-146: 팀 상태별 미리보기가 실제 내보내기(API-030) 결과와 일치한다")
+    void teamStatusHandlingMatchesWithdrawal() throws Exception {
+        jdbc.update("INSERT INTO users (id, name, handle) VALUES (5, '객원', 'guest_5')");
+        jdbc.update("INSERT INTO membership (id, club_id, user_id, role, status, join_source, member_type) VALUES"
+                + " (5, 1, 5, 'MEMBER', 'ACTIVE', 'JOIN_CODE', 'REGULAR')");
+        jdbc.update("INSERT INTO performance_member (id, performance_id, club_id, membership_id, status, source) VALUES"
+                + " (3, 1, 1, 3, 'APPROVED', 'APPLICATION'),"
+                + " (5, 1, 1, 5, 'APPROVED', 'APPLICATION')");
+        jdbc.update("INSERT INTO team (id,performance_id,name,status,source,created_by_user_id) VALUES"
+                + " (1,1,'작성팀','DRAFT','ADMIN',1),"
+                + " (2,1,'심사팀','SUBMITTED','ADMIN',1),"
+                + " (3,1,'승인팀','APPROVED','ADMIN',1)");
+        jdbc.update("INSERT INTO team_member (team_id,performance_id,performance_member_id)"
+                + " VALUES (1,1,2),(1,1,3),(1,1,5),(2,1,2),(2,1,3),(2,1,5),(3,1,2),(3,1,3),(3,1,5)");
+        jdbc.update("UPDATE team SET leader_member_id = 2");
+        mvc.perform(get("/api/v1/clubs/1/memberships/2/withdraw-preview").with(authentication(actor(1L))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.teamLeaderCandidates.length()").value(3))
+                .andExpect(jsonPath("$.data.teamLeaderCandidates[0].teamStatus").value("DRAFT"))
+                .andExpect(jsonPath("$.data.teamLeaderCandidates[0].candidates").isEmpty())
+                .andExpect(jsonPath("$.data.teamLeaderCandidates[0].defaultMembershipId")
+                        .isEmpty())
+                .andExpect(jsonPath("$.data.teamLeaderCandidates[1].teamStatus").value("SUBMITTED"))
+                .andExpect(jsonPath("$.data.teamLeaderCandidates[1].defaultMembershipId")
+                        .value("3"))
+                .andExpect(jsonPath("$.data.teamLeaderCandidates[2].teamStatus").value("APPROVED"))
+                .andExpect(jsonPath("$.data.teamLeaderCandidates[2].defaultMembershipId")
+                        .value("3"))
+                .andExpect(jsonPath("$.data.warnings.length()").value(3))
+                .andExpect(jsonPath("$.data.warnings[0]").value("진행 중 공연 1건에서 참여가 철회됩니다."))
+                .andExpect(jsonPath("$.data.warnings[1]").value("작성 중 팀 '작성팀'은(는) 삭제됩니다."))
+                .andExpect(jsonPath("$.data.warnings[2]").value("심사 대기 팀 '심사팀'의 팀장은 지정과 관계없이 첫 번째 후보에게 자동 승계됩니다."));
+        // 지정 후임(2번째 후보)은 SUBMITTED에서는 무시되고 APPROVED에서만 적용된다.
+        mvc.perform(post("/api/v1/clubs/1/memberships/2/withdraw")
+                        .with(authentication(actor(1L)))
+                        .header("X-Requested-With", "XMLHttpRequest")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"teamLeaderSuccessors\":[{\"teamId\":\"2\",\"membershipId\":\"5\"},"
+                                + "{\"teamId\":\"3\",\"membershipId\":\"5\"}]}"))
+                .andExpect(status().isOk());
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM team WHERE id = 1", Integer.class))
+                .isZero();
+        assertThat(jdbc.queryForObject("SELECT leader_member_id FROM team WHERE id = 2", Long.class))
+                .isEqualTo(3L);
+        assertThat(jdbc.queryForObject("SELECT leader_member_id FROM team WHERE id = 3", Long.class))
+                .isEqualTo(5L);
     }
 
     private static UsernamePasswordAuthenticationToken actor(long userId) {
