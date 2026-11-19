@@ -3,6 +3,7 @@ package com.crane.bandwebbackend.domain.user.service;
 import com.crane.bandwebbackend.domain.auth.entity.RevokeReason;
 import com.crane.bandwebbackend.domain.auth.repository.OneTimeTokenRepository;
 import com.crane.bandwebbackend.domain.auth.repository.RefreshTokenRepository;
+import com.crane.bandwebbackend.domain.auth.service.AccountRestorationService;
 import com.crane.bandwebbackend.domain.club.entity.Club;
 import com.crane.bandwebbackend.domain.club.entity.ClubStatus;
 import com.crane.bandwebbackend.domain.membership.entity.Membership;
@@ -32,8 +33,10 @@ import com.crane.bandwebbackend.global.error.BusinessException;
 import com.crane.bandwebbackend.global.error.ErrorCode;
 import com.crane.bandwebbackend.global.error.ErrorDetail;
 import com.crane.bandwebbackend.global.response.ApiIds;
+import com.crane.bandwebbackend.global.time.KstTime;
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -331,7 +334,8 @@ public class AccountWithdrawalService {
         if (!unusedSuccessors.isEmpty() || !teamLeadersByClub.isEmpty()) {
             throw notEligible("후임을 지정할 수 없는 동아리 또는 팀입니다.");
         }
-        LocalDateTime now = LocalDateTime.now(clock);
+        // DB DATETIME(6)은 마이크로초까지 보관(더 미세한 자릿수는 MySQL이 반올림)하므로 잘라서 응답을 보관값·API-131과 일치시킨다
+        LocalDateTime now = LocalDateTime.now(clock).truncatedTo(ChronoUnit.MICROS);
         for (Membership member : mine) {
             if (member.getStatus() == MembershipStatus.PENDING) {
                 member.transitionTo(MembershipStatus.WITHDRAWN, now);
@@ -355,13 +359,18 @@ public class AccountWithdrawalService {
         userRepository.flush();
         // U-07 카카오 연결 끊기: 보류(Q3). 여기서 호출하고 실패하면 예외로 전체 롤백
         Map<Long, Long> newLeaders = new TreeMap<>(queries.newLeaders(teamClubs.keySet(), userId));
-        return new AccountWithdrawalResponse(new AccountWithdrawalResponse.Successions(
-                clubSuccessions.entrySet().stream()
-                        .map(entry -> new AccountWithdrawalResponse.ClubSuccession(entry.getKey(), entry.getValue()))
-                        .toList(),
-                newLeaders.entrySet().stream()
-                        .map(entry -> new AccountWithdrawalResponse.TeamSuccession(entry.getKey(), entry.getValue()))
-                        .toList()));
+        return new AccountWithdrawalResponse(
+                KstTime.toKst(now),
+                KstTime.toKst(now.plus(AccountRestorationService.RESTORABLE_PERIOD)),
+                new AccountWithdrawalResponse.Successions(
+                        clubSuccessions.entrySet().stream()
+                                .map(entry ->
+                                        new AccountWithdrawalResponse.ClubSuccession(entry.getKey(), entry.getValue()))
+                                .toList(),
+                        newLeaders.entrySet().stream()
+                                .map(entry ->
+                                        new AccountWithdrawalResponse.TeamSuccession(entry.getKey(), entry.getValue()))
+                                .toList()));
     }
 
     private static boolean isValid(MembershipStatus status) {

@@ -33,7 +33,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class AccountRestorationService {
 
-    static final Duration RESTORABLE_PERIOD = Duration.ofDays(90);
+    public static final Duration RESTORABLE_PERIOD = Duration.ofDays(90);
     static final String COOKIE_INVALID = "RESTORATION_COOKIE_INVALID";
     static final String NOT_RESTORABLE = "NOT_RESTORABLE";
 

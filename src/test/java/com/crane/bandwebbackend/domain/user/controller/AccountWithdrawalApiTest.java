@@ -16,7 +16,11 @@ import com.crane.bandwebbackend.TestcontainersConfiguration;
 import com.crane.bandwebbackend.domain.membership.service.MembershipService;
 import com.crane.bandwebbackend.global.security.CookieFactory;
 import com.crane.bandwebbackend.global.security.JwtProvider;
+import com.crane.bandwebbackend.global.time.KstTime;
+import com.jayway.jsonpath.JsonPath;
 import jakarta.servlet.http.Cookie;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -313,7 +317,7 @@ class AccountWithdrawalApiTest {
         jdbc.update("INSERT INTO one_time_token (token_hash, purpose, user_id, expires_at)"
                 + " VALUES (UNHEX(SHA2('o1', 256)), 'LOGIN_EXCHANGE', 2, '2099-01-01')");
 
-        confirm(2, ",\"reason\":\"그만둘게요\"")
+        var body = confirm(2, ",\"reason\":\"그만둘게요\"")
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.successions.clubs", hasSize(0)))
                 .andExpect(jsonPath("$.data.successions.teams", hasSize(0)))
@@ -321,7 +325,21 @@ class AccountWithdrawalApiTest {
                                 "Set-Cookie",
                                 org.hamcrest.Matchers.hasItems(
                                         org.hamcrest.Matchers.containsString(cookies.accessName() + "=;"),
-                                        org.hamcrest.Matchers.containsString(cookies.refreshName() + "=;"))));
+                                        org.hamcrest.Matchers.containsString(cookies.refreshName() + "=;"))))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        String withdrawnAtText = JsonPath.read(body, "$.data.withdrawnAt");
+        String restorableUntilText = JsonPath.read(body, "$.data.restorableUntil");
+        assertThat(withdrawnAtText).endsWith("+09:00");
+        assertThat(restorableUntilText).endsWith("+09:00");
+        LocalDateTime archivedAt = jdbc.queryForObject(
+                "SELECT withdrawn_at FROM user_withdrawal_archive WHERE user_id = 2", LocalDateTime.class);
+        OffsetDateTime withdrawnAt = OffsetDateTime.parse(withdrawnAtText);
+        assertThat(withdrawnAt.toInstant()).isEqualTo(KstTime.toKst(archivedAt).toInstant());
+        assertThat(OffsetDateTime.parse(restorableUntilText).toInstant())
+                .isEqualTo(withdrawnAt.plusDays(90).toInstant());
 
         var user = jdbc.queryForMap("SELECT name, handle, profile_image_url, status, withdrawn_at, token_version"
                 + " FROM users WHERE id = 2");
