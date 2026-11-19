@@ -21,6 +21,7 @@ public class KakaoOAuthClient {
     static final String AUTHORIZE_URL = "https://kauth.kakao.com/oauth/authorize";
     static final String TOKEN_URL = "https://kauth.kakao.com/oauth/token";
     static final String PROFILE_URL = "https://kapi.kakao.com/v2/user/me";
+    static final String UNLINK_URL = "https://kapi.kakao.com/v1/user/unlink";
 
     private final RestClient restClient;
     private final AuthLoginProperties properties;
@@ -36,6 +37,25 @@ public class KakaoOAuthClient {
         } catch (RestClientException e) {
             // 원인 예외 메시지에 응답 본문이 들어 있을 수 있어 종류만 남긴다
             throw new KakaoOAuthException("카카오 호출 실패: " + e.getClass().getSimpleName());
+        }
+    }
+
+    // 카카오 연결 끊기(어드민 키). 응답 본문은 쓰지 않는다
+    public void unlink(String kakaoUserId) {
+        MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
+        form.add("target_id_type", "user_id");
+        form.add("target_id", kakaoUserId);
+        try {
+            restClient
+                    .post()
+                    .uri(UNLINK_URL)
+                    .header("Authorization", "KakaoAK " + properties.kakaoAdminKey())
+                    .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                    .body(form)
+                    .retrieve()
+                    .toBodilessEntity();
+        } catch (RestClientException e) {
+            throw new KakaoOAuthException("카카오 연결 끊기 실패: " + e.getClass().getSimpleName());
         }
     }
 

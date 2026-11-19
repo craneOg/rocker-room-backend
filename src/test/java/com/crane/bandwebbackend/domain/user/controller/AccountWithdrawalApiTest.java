@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -13,6 +15,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.crane.bandwebbackend.TestcontainersConfiguration;
+import com.crane.bandwebbackend.domain.auth.client.KakaoOAuthClient;
+import com.crane.bandwebbackend.domain.auth.client.KakaoOAuthException;
 import com.crane.bandwebbackend.domain.membership.service.MembershipService;
 import com.crane.bandwebbackend.global.security.CookieFactory;
 import com.crane.bandwebbackend.global.security.JwtProvider;
@@ -33,6 +37,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.context.jdbc.Sql;
 import org.springframework.test.web.servlet.MockMvc;
@@ -66,6 +71,9 @@ class AccountWithdrawalApiTest {
     @MockitoSpyBean
     MembershipService membershipService;
 
+    @MockitoBean
+    KakaoOAuthClient kakao;
+
     @BeforeEach
     void setUp() {
         clean();
@@ -80,6 +88,7 @@ class AccountWithdrawalApiTest {
         jdbc.update("DELETE FROM user_withdrawal_archive");
         jdbc.update("DELETE FROM refresh_token");
         jdbc.update("DELETE FROM one_time_token");
+        jdbc.update("DELETE FROM auth_identity");
     }
 
     // ---- 도우미 ----
@@ -598,5 +607,31 @@ class AccountWithdrawalApiTest {
                 .andExpect(jsonPath("$.error.code").value("CONFIRMATION_REQUIRED"));
         confirm(2, "").andExpect(status().isOk());
         confirm(2, "").andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("API 009: 탈퇴가 커밋된 뒤 사용자의 카카오 회원번호로 연결 끊기를 호출한다")
+    void withdrawUnlinksKakao() throws Exception {
+        jdbc.update("INSERT INTO auth_identity (user_id, provider, provider_uid) VALUES (2, 'KAKAO', 'kakao-2')");
+        confirm(2, "").andExpect(status().isOk());
+        assertThat(value("SELECT status FROM users WHERE id = 2")).isEqualTo("WITHDRAWN");
+        verify(kakao).unlink("kakao-2");
+    }
+
+    @Test
+    @DisplayName("API 009: 연결 끊기가 실패해도 탈퇴는 커밋되고 200이다")
+    void withdrawSucceedsWhenUnlinkFails() throws Exception {
+        jdbc.update("INSERT INTO auth_identity (user_id, provider, provider_uid) VALUES (2, 'KAKAO', 'kakao-2')");
+        doThrow(new KakaoOAuthException("카카오 연결 끊기 실패: X")).when(kakao).unlink("kakao-2");
+        confirm(2, "").andExpect(status().isOk());
+        assertThat(value("SELECT status FROM users WHERE id = 2")).isEqualTo("WITHDRAWN");
+    }
+
+    @Test
+    @DisplayName("API 009: 확인 없이 거절되면(409) 연결 끊기를 호출하지 않는다")
+    void noUnlinkWhenRejected() throws Exception {
+        jdbc.update("INSERT INTO auth_identity (user_id, provider, provider_uid) VALUES (2, 'KAKAO', 'kakao-2')");
+        withdraw(2, "{\"confirmed\":false}").andExpect(status().isConflict());
+        verify(kakao, never()).unlink(org.mockito.ArgumentMatchers.anyString());
     }
 }

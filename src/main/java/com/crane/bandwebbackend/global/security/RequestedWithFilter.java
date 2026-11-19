@@ -14,6 +14,8 @@ import org.springframework.web.filter.OncePerRequestFilter;
 public class RequestedWithFilter extends OncePerRequestFilter {
 
     static final String HEADER = "X-Requested-With";
+    // 카카오 서버가 호출하는 웹훅은 이 헤더를 보내지 않는다(대신 어드민 키로 검증)
+    static final String KAKAO_WEBHOOK = "/api/v1/auth/kakao/unlink-webhook";
     private static final Set<String> STATE_CHANGING = Set.of("POST", "PUT", "PATCH", "DELETE");
 
     private final ObjectMapper objectMapper;
@@ -25,7 +27,7 @@ public class RequestedWithFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
-        if (STATE_CHANGING.contains(request.getMethod())) {
+        if (STATE_CHANGING.contains(request.getMethod()) && !KAKAO_WEBHOOK.equals(request.getRequestURI())) {
             String value = request.getHeader(HEADER);
             if (value == null || value.isBlank()) {
                 SecurityErrorWriter.write(

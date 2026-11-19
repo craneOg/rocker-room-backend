@@ -4,6 +4,7 @@ import com.crane.bandwebbackend.domain.auth.entity.RevokeReason;
 import com.crane.bandwebbackend.domain.auth.repository.OneTimeTokenRepository;
 import com.crane.bandwebbackend.domain.auth.repository.RefreshTokenRepository;
 import com.crane.bandwebbackend.domain.auth.service.AccountRestorationService;
+import com.crane.bandwebbackend.domain.auth.service.KakaoUnlinkService;
 import com.crane.bandwebbackend.domain.club.entity.Club;
 import com.crane.bandwebbackend.domain.club.entity.ClubStatus;
 import com.crane.bandwebbackend.domain.membership.entity.Membership;
@@ -70,6 +71,7 @@ public class AccountWithdrawalService {
     private final RefreshTokenRepository refreshTokens;
     private final OneTimeTokenRepository oneTimeTokens;
     private final AuditRecorder auditRecorder;
+    private final KakaoUnlinkService kakaoUnlink;
     private final PlatformTransactionManager transactionManager;
     private final Clock clock;
 
@@ -105,7 +107,29 @@ public class AccountWithdrawalService {
                     List.of(ErrorDetail.of(null, "WITHDRAWAL_CONFIRMATION_REQUIRED")),
                     preview.getWarnings());
         }
-        // 소속 동아리 집합을 먼저 읽고 잠근 뒤 다시 읽어 같은지 본다. 다르면 한 번만 다시 시도한다
+        AccountWithdrawalResponse response = executeWithRetry(userId, parsed);
+        // U-07: 커밋 뒤 카카오 연결 끊기. 실패해도 탈퇴는 유지된다(내부에서 예외를 삼킨다)
+        kakaoUnlink.unlink(userId);
+        return response;
+    }
+
+    // 카카오 연결 해제 웹훅: 확인 단계는 통과로 보고 후임은 자동 승계. 카카오 쪽은 이미 끊겼으므로 다시 끊지 않는다
+    public void withdrawByKakaoUnlink(long userId) {
+        boolean active = readOnly()
+                .execute(status -> userRepository
+                        .findById(userId)
+                        .map(user -> user.getStatus() == UserStatus.ACTIVE)
+                        .orElse(false));
+        if (!active) {
+            return;
+        }
+        Parsed parsed = new Parsed();
+        parsed.confirmed = true;
+        executeWithRetry(userId, parsed);
+    }
+
+    // 소속 동아리 집합을 먼저 읽고 잠근 뒤 다시 읽어 같은지 본다. 다르면 한 번만 다시 시도한다
+    private AccountWithdrawalResponse executeWithRetry(long userId, Parsed parsed) {
         for (int attempt = 0; ; attempt++) {
             Set<Long> clubIds = readOnly().execute(status -> lockedClubIds(memberships.membershipsOfUser(userId)));
             try {
@@ -357,7 +381,7 @@ public class AccountWithdrawalService {
                 parsed.reason,
                 Map.of("before", Map.of("status", "ACTIVE"), "after", Map.of("status", "WITHDRAWN")));
         userRepository.flush();
-        // U-07 카카오 연결 끊기: 보류(Q3). 여기서 호출하고 실패하면 예외로 전체 롤백
+        // U-07 카카오 연결 끊기는 커밋 뒤 withdraw()에서 호출한다(실패해도 롤백하지 않음)
         Map<Long, Long> newLeaders = new TreeMap<>(queries.newLeaders(teamClubs.keySet(), userId));
         return new AccountWithdrawalResponse(
                 KstTime.toKst(now),

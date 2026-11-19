@@ -9,6 +9,7 @@ import com.crane.bandwebbackend.domain.auth.service.AuthExchangeService;
 import com.crane.bandwebbackend.domain.auth.service.AuthLogoutService;
 import com.crane.bandwebbackend.domain.auth.service.AuthRefreshService;
 import com.crane.bandwebbackend.domain.auth.service.KakaoLoginService;
+import com.crane.bandwebbackend.domain.auth.service.KakaoUnlinkWebhookService;
 import com.crane.bandwebbackend.global.response.ApiResponse;
 import com.crane.bandwebbackend.global.security.AuthPrincipal;
 import com.crane.bandwebbackend.global.security.CookieFactory;
@@ -23,6 +24,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -38,6 +40,7 @@ public class AuthController {
     private final AuthRefreshService authRefreshService;
     private final AuthLogoutService authLogoutService;
     private final AccountRestorationService accountRestorationService;
+    private final KakaoUnlinkWebhookService kakaoUnlinkWebhookService;
     private final CookieFactory cookies;
 
     // API 1
@@ -69,6 +72,16 @@ public class AuthController {
                     cookies.exchange(result.getExchangeToken()).toString());
         }
         return response.build();
+    }
+
+    // 카카오 연결 해제 웹훅(서버 간 호출, form). 카카오는 상태 코드만 본다
+    @PostMapping(value = "/kakao/unlink-webhook", consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
+    public ResponseEntity<Void> kakaoUnlinkWebhook(
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
+            @RequestParam(name = "app_id", required = false) String appId,
+            @RequestParam(name = "user_id", required = false) String userId) {
+        kakaoUnlinkWebhookService.handle(authorization, appId, userId);
+        return ResponseEntity.ok().build();
     }
 
     // API 3: 본문 필드는 없다(빈 JSON 객체). 교환 쿠키는 소비 후 지우고, 토큰은 본문이 아니라 Set-Cookie로만 준다

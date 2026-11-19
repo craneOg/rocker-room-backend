@@ -14,12 +14,15 @@ public record AuthLoginProperties(
         // 카카오 개발자 콘솔에 등록한 콜백 URL과 정확히 같아야 한다
         @NotBlank String kakaoRedirectUri,
         // 콜백이 항상 이동하는 FE 인증 완료 페이지
-        @NotBlank String completeUrl) {
+        @NotBlank String completeUrl,
+        // 연결 끊기 호출·연결 해제 웹훅 검증용(카카오 앱 어드민 키·앱 ID). 비어 있으면 해당 기능을 쓰지 않는다
+        String kakaoAdminKey,
+        String kakaoAppId) {
 
     // 로그나 예외 메시지에 비밀값이 그대로 찍히지 않도록 가린다
     @Override
     public String toString() {
         return "AuthLoginProperties[kakaoClientId=***, kakaoClientSecret=***, kakaoRedirectUri=" + kakaoRedirectUri
-                + ", completeUrl=" + completeUrl + "]";
+                + ", completeUrl=" + completeUrl + ", kakaoAdminKey=***, kakaoAppId=" + kakaoAppId + "]";
     }
 }
