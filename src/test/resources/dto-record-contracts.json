@@ -387,6 +387,8 @@
       "performanceName" : "1",
       "teamId" : "1",
       "teamName" : "1",
+      "teamStatus" : "1",
+      "defaultMembershipId" : "1",
       "candidates" : [ ]
     }
   },

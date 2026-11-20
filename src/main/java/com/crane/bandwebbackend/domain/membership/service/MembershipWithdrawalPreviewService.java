@@ -83,6 +83,7 @@ public class MembershipWithdrawalPreviewService {
         }
         List<WithdrawalPreviewResponse.PerformanceImpact> impacts = new ArrayList<>();
         List<WithdrawalPreviewResponse.TeamLeaderCandidates> teams = new ArrayList<>();
+        List<String> teamWarnings = new ArrayList<>();
         // 진행 중 공연의 유효 참여만 순회해 철회 영향을 계산한다.
         for (PerformanceMember member : participants.membersOfMembership(membershipId)) {
             var performance = member.getPerformance();
@@ -99,8 +100,8 @@ public class MembershipWithdrawalPreviewService {
             @SuppressWarnings("unchecked")
             List<Object[]> leaderRows = entityManager
                     .createNativeQuery("""
-					SELECT t.id, t.name FROM team t WHERE t.performance_id = :performanceId
-					AND t.leader_member_id = :participantId
+					SELECT t.id, t.name, t.status FROM team t WHERE t.performance_id = :performanceId
+					AND t.leader_member_id = :participantId ORDER BY t.id
 					""")
                     .setParameter("performanceId", performance.getId())
                     .setParameter("participantId", member.getId())
@@ -115,23 +116,42 @@ public class MembershipWithdrawalPreviewService {
             for (Object[] leader : leaderRows) {
                 Long teamId = ((Number) leader[0]).longValue();
                 // 실제 승계(TeamLeaderSuccession.apply)와 같은 후보 조건을 쓴다. 행: (참여 id, 소속 id, 사용자 id)
-                List<Object[]> candidateRows = teamSuccession.candidatesOf(teamId, member.getId());
+                String teamName = (String) leader[1];
+                String teamStatus = String.valueOf(leader[2]);
+                // 작성 중 팀은 삭제되어 후보가 없다.
+                boolean draft = "DRAFT".equals(teamStatus);
+                List<Object[]> candidateRows =
+                        draft ? List.<Object[]>of() : teamSuccession.candidatesOf(teamId, member.getId());
                 List<WithdrawalPreviewResponse.Candidate> candidates = candidateRows.stream()
                         .map(row -> ((Number) row[1]).longValue())
                         .map(id -> repository.findByIdAndClub_Id(id, clubId).orElseThrow())
                         .map(candidate -> new WithdrawalPreviewResponse.Candidate(
                                 candidate.getId().toString(), name(candidate)))
                         .toList();
+                if (draft) {
+                    teamWarnings.add("작성 중 팀 '" + teamName + "'은(는) 삭제됩니다.");
+                } else if (candidates.isEmpty()) {
+                    // 후보가 없으면 상태와 관계없이 팀장이 비게 된다(apply의 chosen == null)
+                    teamWarnings.add("팀 '" + teamName + "'에는 후임 후보가 없어 팀장이 비게 됩니다.");
+                } else if ("SUBMITTED".equals(teamStatus)) {
+                    teamWarnings.add("심사 대기 팀 '" + teamName + "'의 팀장은 지정과 관계없이 첫 번째 후보에게 자동 승계됩니다.");
+                }
                 teams.add(new WithdrawalPreviewResponse.TeamLeaderCandidates(
                         performance.getId().toString(),
                         performance.getTitle(),
                         teamId.toString(),
-                        (String) leader[1],
+                        teamName,
+                        teamStatus,
+                        candidates.isEmpty() ? null : candidates.get(0).getMembershipId(),
                         candidates));
             }
         }
         // 공연 참여 철회가 발생할 때만 사용자 확인용 경고를 생성한다.
-        List<String> warnings = impacts.isEmpty() ? List.of() : List.of("진행 중 공연 " + impacts.size() + "건에서 참여가 철회됩니다.");
+        List<String> warnings = new ArrayList<>();
+        if (!impacts.isEmpty()) {
+            warnings.add("진행 중 공연 " + impacts.size() + "건에서 참여가 철회됩니다.");
+        }
+        warnings.addAll(teamWarnings);
         return new WithdrawalPreviewResponse(
                 new WithdrawalPreviewResponse.Target(membershipId.toString(), name(target), target.getRole()),
                 succession,

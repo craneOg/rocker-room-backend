@@ -100,6 +100,12 @@ public class WithdrawalPreviewResponse {
         @JsonProperty("teamName")
         private String teamName;
 
+        @JsonProperty("teamStatus")
+        private String teamStatus;
+
+        @JsonProperty("defaultMembershipId")
+        private String defaultMembershipId;
+
         @JsonProperty("candidates")
         private List<Candidate> candidates;
     }
