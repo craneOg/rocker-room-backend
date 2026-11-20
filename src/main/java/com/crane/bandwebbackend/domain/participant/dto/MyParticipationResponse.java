@@ -111,5 +111,8 @@ public class MyParticipationResponse {
 
         @JsonProperty("availabilitySlotCount")
         private Long availabilitySlotCount;
+
+        @JsonProperty("availabilitySubmitted")
+        private Boolean availabilitySubmitted;
     }
 }

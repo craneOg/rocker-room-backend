@@ -90,6 +90,7 @@ public class MyParticipationReader {
 					SELECT COUNT(*) FROM available_slot WHERE performance_member_id = :memberId
 					""", performanceId, member.getMembership().getId(), id)
                 : null;
+        Boolean availabilitySubmitted = availability != null ? member.getAvailabilitySubmittedAt() != null : null;
         return new MyParticipationResponse(
                 id.toString(),
                 performanceId.toString(),
@@ -106,7 +107,8 @@ public class MyParticipationReader {
                         .toOffsetDateTime(),
                 teams,
                 songs,
-                new MyParticipationResponse.Progress(candidates, unanswered, votes, availability));
+                new MyParticipationResponse.Progress(
+                        candidates, unanswered, votes, availability, availabilitySubmitted));
     }
 
     /** 참여 현황 집계를 위한 매개변수화된 개수 쿼리를 실행한다. */

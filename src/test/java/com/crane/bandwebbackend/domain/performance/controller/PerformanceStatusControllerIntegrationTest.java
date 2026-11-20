@@ -90,6 +90,12 @@ class PerformanceStatusControllerIntegrationTest {
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.error.details[0].reason").value("MEMBER_INPUT_EXISTS"));
         unchanged("ACTIVE");
+        // 빈 목록만 저장한 가능 시간 제출도 부원 입력으로 본다
+        jdbc.update("UPDATE performance_member SET source='ADMIN', availability_submitted_at=NOW() WHERE id=2");
+        send("revert-to-draft", "{\"version\":\"7\"}")
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.error.details[0].reason").value("MEMBER_INPUT_EXISTS"));
+        unchanged("ACTIVE");
     }
 
     private void prepare(String source) {

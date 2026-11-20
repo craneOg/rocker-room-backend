@@ -53,8 +53,8 @@ public class PerformanceTransitionService {
 					 WHERE s.performance_id = :id AND m.role = 'MEMBER')
 				+ (SELECT COUNT(*) FROM song_playability sp WHERE sp.performance_id = :id)
 				+ (SELECT COUNT(*) FROM song_vote sv WHERE sv.performance_id = :id)
-				+ (SELECT COUNT(*) FROM available_slot av JOIN performance_member pm
-					 ON pm.id = av.performance_member_id WHERE pm.performance_id = :id)
+				+ (SELECT COUNT(*) FROM performance_member pm WHERE pm.performance_id = :id
+					 AND pm.availability_submitted_at IS NOT NULL)
 				""")
                         .setParameter("id", performanceId)
                         .getSingleResult())

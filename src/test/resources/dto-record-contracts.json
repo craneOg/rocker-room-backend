@@ -445,7 +445,8 @@
       "candidateSongs" : null,
       "unansweredPlayabilityCount" : 1,
       "votes" : null,
-      "availabilitySlotCount" : 1
+      "availabilitySlotCount" : 1,
+      "availabilitySubmitted" : true
     }
   },
   "com.crane.bandwebbackend.domain.participant.dto.MyParticipationResponse$Usage" : {

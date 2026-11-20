@@ -164,7 +164,11 @@ public class AvailabilityService {
                                 .displayName(PerformanceAccessService.displayName(pm))
                                 .build()));
         Set<Long> ids = names.keySet();
-        Set<Long> responded = ids.isEmpty() ? Set.of() : Set.copyOf(slotRepository.findRespondedMemberIds(ids));
+        // 제출 여부는 availability_submitted_at 기준(빈 목록 저장 포함)
+        Set<Long> responded = targets.stream()
+                .filter(pm -> pm.getAvailabilitySubmittedAt() != null)
+                .map(PerformanceMember::getId)
+                .collect(Collectors.toSet());
         List<AvailableSlot> slots = ids.isEmpty()
                 ? List.of()
                 : slotRepository.findByMembersInRange(ids, KstTime.toUtc(from), KstTime.toUtc(to));
