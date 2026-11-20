@@ -161,6 +161,25 @@ class LeavePreviewApiTest {
     }
 
     @Test
+    @DisplayName("API-145: 후보가 없는 팀은 상태와 관계없이 팀장이 비게 된다고 안내한다")
+    void teamWithoutCandidates() throws Exception {
+        jdbc.update("INSERT INTO team (id,performance_id,name,status,source,created_by_user_id) VALUES"
+                + " (2,1,'심사팀','SUBMITTED','ADMIN',1),"
+                + " (3,1,'승인팀','APPROVED','ADMIN',1)");
+        jdbc.update("INSERT INTO team_member (team_id,performance_id,performance_member_id) VALUES (2,1,2),(3,1,2)");
+        jdbc.update("UPDATE team SET leader_member_id = 2");
+        preview(2)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.teamLeaderCandidates[0].candidates").isEmpty())
+                .andExpect(jsonPath("$.data.teamLeaderCandidates[0].defaultMembershipId")
+                        .isEmpty())
+                .andExpect(jsonPath("$.data.teamLeaderCandidates[1].candidates").isEmpty())
+                .andExpect(jsonPath("$.data.warnings.length()").value(3))
+                .andExpect(jsonPath("$.data.warnings[1]").value("팀 '심사팀'에는 후임 후보가 없어 팀장이 비게 됩니다."))
+                .andExpect(jsonPath("$.data.warnings[2]").value("팀 '승인팀'에는 후임 후보가 없어 팀장이 비게 됩니다."));
+    }
+
+    @Test
     @DisplayName("API-145: PENDING 신청자는 활동 가능한 소속이 아니므로 403")
     void pendingUser() throws Exception {
         jdbc.update("UPDATE membership SET status = 'PENDING' WHERE id = 3");

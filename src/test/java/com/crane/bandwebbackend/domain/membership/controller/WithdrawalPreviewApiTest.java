@@ -165,6 +165,34 @@ class WithdrawalPreviewApiTest {
                 .isEqualTo(5L);
     }
 
+    @Test
+    @DisplayName("API-146: 후보가 없는 팀은 팀장이 비게 된다고 안내하고, 실제 내보내기도 팀장을 비운다")
+    void teamWithoutCandidatesMatchesWithdrawal() throws Exception {
+        jdbc.update("INSERT INTO team (id,performance_id,name,status,source,created_by_user_id) VALUES"
+                + " (2,1,'심사팀','SUBMITTED','ADMIN',1),"
+                + " (3,1,'승인팀','APPROVED','ADMIN',1)");
+        jdbc.update("INSERT INTO team_member (team_id,performance_id,performance_member_id) VALUES (2,1,2),(3,1,2)");
+        jdbc.update("UPDATE team SET leader_member_id = 2");
+        mvc.perform(get("/api/v1/clubs/1/memberships/2/withdraw-preview").with(authentication(actor(1L))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.teamLeaderCandidates[0].candidates").isEmpty())
+                .andExpect(jsonPath("$.data.teamLeaderCandidates[0].defaultMembershipId")
+                        .isEmpty())
+                .andExpect(jsonPath("$.data.teamLeaderCandidates[1].candidates").isEmpty())
+                .andExpect(jsonPath("$.data.warnings.length()").value(3))
+                .andExpect(jsonPath("$.data.warnings[1]").value("팀 '심사팀'에는 후임 후보가 없어 팀장이 비게 됩니다."))
+                .andExpect(jsonPath("$.data.warnings[2]").value("팀 '승인팀'에는 후임 후보가 없어 팀장이 비게 됩니다."));
+        mvc.perform(post("/api/v1/clubs/1/memberships/2/withdraw")
+                        .with(authentication(actor(1L)))
+                        .header("X-Requested-With", "XMLHttpRequest")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isOk());
+        assertThat(jdbc.queryForList("SELECT leader_member_id FROM team WHERE id IN (2, 3)", Long.class))
+                .containsOnlyNulls()
+                .hasSize(2);
+    }
+
     private static UsernamePasswordAuthenticationToken actor(long userId) {
         return new UsernamePasswordAuthenticationToken(new AuthPrincipal(userId, "sid", "jti", false), null, List.of());
     }

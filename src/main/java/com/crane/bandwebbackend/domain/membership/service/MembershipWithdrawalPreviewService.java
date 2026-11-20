@@ -130,6 +130,9 @@ public class MembershipWithdrawalPreviewService {
                         .toList();
                 if (draft) {
                     teamWarnings.add("작성 중 팀 '" + teamName + "'은(는) 삭제됩니다.");
+                } else if (candidates.isEmpty()) {
+                    // 후보가 없으면 상태와 관계없이 팀장이 비게 된다(apply의 chosen == null)
+                    teamWarnings.add("팀 '" + teamName + "'에는 후임 후보가 없어 팀장이 비게 됩니다.");
                 } else if ("SUBMITTED".equals(teamStatus)) {
                     teamWarnings.add("심사 대기 팀 '" + teamName + "'의 팀장은 지정과 관계없이 첫 번째 후보에게 자동 승계됩니다.");
                 }
