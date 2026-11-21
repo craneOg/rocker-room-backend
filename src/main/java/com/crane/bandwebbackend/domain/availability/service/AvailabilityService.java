@@ -2,6 +2,7 @@ package com.crane.bandwebbackend.domain.availability.service;
 
 import com.crane.bandwebbackend.domain.availability.dto.AvailabilityRequest;
 import com.crane.bandwebbackend.domain.availability.dto.AvailabilityResponse;
+import com.crane.bandwebbackend.domain.availability.dto.AvailableTimesResponse;
 import com.crane.bandwebbackend.domain.availability.dto.CommonAvailabilityResponse;
 import com.crane.bandwebbackend.domain.availability.entity.AvailableSlot;
 import com.crane.bandwebbackend.domain.availability.repository.AvailableSlotRepository;
@@ -53,13 +54,13 @@ public class AvailabilityService {
     private final SongSupport songSupport;
 
     // API-100. 더 이상 참여자가 아니어도 본인 기록은 읽을 수 있음. 마감 후에도 조회 가능
-    public AvailabilityResponse getMine(PerformanceRef ref, OffsetDateTime from, OffsetDateTime to) {
+    public AvailableTimesResponse getMine(PerformanceRef ref, OffsetDateTime from, OffsetDateTime to) {
         PerformanceAccess access = accessService.get(ref);
         PerformanceMember pm = access.getPerformanceMember();
         if (pm == null) {
             throw new BusinessException(ErrorCode.FORBIDDEN, "공연 참여자만 조회할 수 있습니다.");
         }
-        return read(pm.getId(), from, to, MAX_RANGE);
+        return items(read(pm.getId(), from, to, MAX_RANGE));
     }
 
     // API-102 임원의 원본 조회. 대리 쓰기 API는 없음
@@ -81,7 +82,7 @@ public class AvailabilityService {
      * 한 요청 = 한 트랜잭션(전체 성공 또는 전체 실패). 참여자 행을 잠근 뒤 처리
      */
     @Transactional
-    public AvailabilityResponse replaceMine(PerformanceRef ref, AvailabilityRequest req) {
+    public AvailableTimesResponse replaceMine(PerformanceRef ref, AvailabilityRequest req) {
         PerformanceAccess access = accessService.get(ref);
         access.requireEditable();
         PerformanceMember pm = access.requireApprovedParticipant();
@@ -102,7 +103,7 @@ public class AvailabilityService {
         slotRepository.deleteInRange(pm.getId(), KstTime.toUtc(req.getFrom()), KstTime.toUtc(req.getTo()));
         slotRepository.saveAll(slots.stream().map(s -> AvailableSlot.of(pm, s)).toList());
         pm.markAvailabilitySubmitted(LocalDateTime.now(ZoneOffset.UTC));
-        return response(pm.getId(), req.getFrom(), req.getTo(), slots);
+        return items(response(pm.getId(), req.getFrom(), req.getTo(), slots));
     }
 
     /**
@@ -178,13 +179,12 @@ public class AvailabilityService {
 
         boolean admin = access.isAdmin();
         return CommonAvailabilityResponse.builder()
-                .from(from.withOffsetSameInstant(KstTime.KST))
-                .to(to.withOffsetSameInstant(KstTime.KST))
                 .participantCount(targets.size())
                 .respondedCount(responded.size())
                 .slots(bySlot.entrySet().stream()
                         .map(e -> CommonAvailabilityResponse.Slot.builder()
                                 .startAt(KstTime.toKst(e.getKey()))
+                                .endAt(KstTime.toKst(e.getKey().plus(SLOT)))
                                 .availableCount(e.getValue().size())
                                 .availableMembers(
                                         admin
@@ -207,7 +207,12 @@ public class AvailabilityService {
                                         .filter(id -> !responded.contains(id))
                                         .toList()
                                 : null)
+                .warnings(List.of())
                 .build();
+    }
+
+    private static AvailableTimesResponse items(AvailabilityResponse r) {
+        return AvailableTimesResponse.builder().items(r.getSlots()).build();
     }
 
     private AvailabilityResponse read(Long memberId, OffsetDateTime from, OffsetDateTime to, Duration maxRange) {
