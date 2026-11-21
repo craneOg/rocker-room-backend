@@ -1,5 +1,6 @@
 package com.crane.bandwebbackend.domain.availability.dto;
 
+import com.crane.bandwebbackend.global.response.Warning;
 import com.crane.bandwebbackend.global.serialization.IdString;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import java.time.OffsetDateTime;
@@ -22,7 +23,7 @@ public class CommonAvailabilityResponse {
     private final List<Slot> slots;
     private final List<Member> participants;
     // 명세상 경고 유형 미정이라 항상 빈 목록
-    private final List<Object> warnings;
+    private final List<Warning> warnings;
 
     @IdString
     private final List<Long> missingAvailabilityMemberIds;
