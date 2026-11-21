@@ -19,6 +19,9 @@ public class SongResponse {
     @IdString
     private final Long id;
 
+    @IdString
+    private final Long performanceId;
+
     private final SongStatus status;
     private final String title;
     private final String artist;
@@ -59,6 +62,7 @@ public class SongResponse {
         Team assigned = song.getAssignedTeam();
         return SongResponse.builder()
                 .id(song.getId())
+                .performanceId(song.getPerformance().getId())
                 .status(song.getStatus())
                 .title(song.getTitle())
                 .artist(song.getArtist())

@@ -14,7 +14,7 @@ import lombok.Getter;
  * type별로 쓰는 필드만 채움.
  * - PART_SHORTAGE·PART_EXCESS: partId, partName, requiredCount, assignedCount (M-04)
  * - SONG_COUNT_EXCEEDED: performanceMemberId, displayName, songCount (M-05)
- * - DUPLICATE_SONG: songId (같은 제목·아티스트)
+ * - DUPLICATE_SONG: type만 (같은 제목·아티스트)
  * - PART_NOT_REGISTERED: membershipId, partId (T-11)
  * - ASSIGNMENT_RELEASED: teamId, setlistOrder / SCHEDULE_LINK_RELEASED: scheduleIds
  * - 문장만 있는 경고(BusinessException.confirmationRequired): message

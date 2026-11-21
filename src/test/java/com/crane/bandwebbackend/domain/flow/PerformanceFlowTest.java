@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -87,12 +88,12 @@ class PerformanceFlowTest {
         String song = send(post(BASE + "/songs"), MEMBER, """
                         {"title":"곡A","artist":"X","referenceUrl":"https://example.com/a","candidateTeamId":"%s"}""".formatted(teamId))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.data.song.status").value("PROPOSED"))
-                .andExpect(jsonPath("$.data.song.candidateTeamName").value("1팀"))
+                .andExpect(jsonPath("$.data.resource.status").value("PROPOSED"))
+                .andExpect(jsonPath("$.data.resource.candidateTeamName").value("1팀"))
                 .andReturn()
                 .getResponse()
                 .getContentAsString();
-        String songId = JsonPath.read(song, "$.data.song.id");
+        String songId = JsonPath.read(song, "$.data.resource.id");
         // 규칙 0.5 https만
         send(post(BASE + "/songs"), MEMBER, """
                         {"title":"곡X","referenceUrl":"http://example.com"}""")
@@ -113,7 +114,7 @@ class PerformanceFlowTest {
                 .andReturn()
                 .getResponse()
                 .getContentAsString();
-        String otherId = JsonPath.read(other, "$.data.song.id");
+        String otherId = JsonPath.read(other, "$.data.resource.id");
         send(put(BASE + "/songs/" + otherId + "/votes/me"), MEMBER, """
                         {"score":1}""")
                 .andExpect(status().isUnprocessableEntity())
@@ -133,11 +134,13 @@ class PerformanceFlowTest {
                 .andExpect(jsonPath("$.data.playabilityResponses[0].reason").doesNotExist());
 
         // API-080 확정: 담당 팀 기본값 = APPROVED 후보 팀, 연주자 함께
-        Object version = JsonPath.read(song, "$.data.song.version");
+        Object version = JsonPath.read(song, "$.data.resource.version");
         String confirmed = send(post(BASE + "/songs/" + songId + "/confirm"), ADMIN, """
                         {"version":"%s","setlistOrder":1,"sessions":[{"performanceMemberId":"2","partId":"1"}]}""".formatted(version))
-                .andExpect(jsonPath("$.data.song.status").value("CONFIRMED"))
-                .andExpect(jsonPath("$.data.song.assignedTeamId").value(teamId))
+                .andExpect(jsonPath("$.data.resource.status").value("CONFIRMED"))
+                .andExpect(jsonPath("$.data.resource.assignedTeamId").value(teamId))
+                .andExpect(jsonPath("$.data.warnings").isArray())
+                .andExpect(jsonPath("$.data.song").doesNotExist())
                 .andReturn()
                 .getResponse()
                 .getContentAsString();
@@ -145,16 +148,23 @@ class PerformanceFlowTest {
         // API-085·079 하위 행 교체 응답의 version으로 바로 다음 수정이 가능해야 함(새로고침 없이 연속 저장)
         String sessionsBody = """
                 {"version":"%s","sessions":[{"performanceMemberId":"2","partId":"1"}]}""";
-        Object v1 = JsonPath.read(confirmed, "$.data.song.version");
+        Object v1 = JsonPath.read(confirmed, "$.data.resource.version");
         String saved = send(put(BASE + "/songs/" + songId + "/sessions"), ADMIN, sessionsBody.formatted(v1))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.resource.id").value(songId))
+                .andExpect(jsonPath("$.data.warnings").isArray())
+                .andExpect(jsonPath("$.data.sessions").doesNotExist())
                 .andReturn()
                 .getResponse()
                 .getContentAsString();
-        Object v2 = JsonPath.read(saved, "$.data.song.version");
+        Object v2 = JsonPath.read(saved, "$.data.resource.version");
         confirmed = send(put(BASE + "/songs/" + songId + "/requirements"), ADMIN, """
                         {"version":"%s","requirements":[{"partId":"1","requiredCount":1}]}""".formatted(v2))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.songVersion").isString())
+                .andExpect(jsonPath("$.data.items[0].partId").value("1"))
+                .andExpect(jsonPath("$.data.items[0].requiredCount").value(1))
+                .andExpect(jsonPath("$.data.song").doesNotExist())
                 .andReturn()
                 .getResponse()
                 .getContentAsString();
@@ -179,16 +189,23 @@ class PerformanceFlowTest {
                 .andExpect(jsonPath("$.data.songs[0].setlistOrder").value(1));
 
         // API-087·088
-        Object songVersion = JsonPath.read(confirmed, "$.data.song.version");
+        Object songVersion = JsonPath.read(confirmed, "$.data.songVersion");
         // 선정곡이 빠진 목록 → 409 STATE_CONFLICT SETLIST_CHANGED(#30)
         send(put(BASE + "/setlist/order"), ADMIN, """
                         {"version":"0","items":[]}""")
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.error.code").value("STATE_CONFLICT"))
                 .andExpect(jsonPath("$.error.details[0].reason").value("SETLIST_CHANGED"));
-        send(put(BASE + "/setlist/order"), ADMIN, """
+        String ordered = send(put(BASE + "/setlist/order"), ADMIN, """
                         {"version":"0","items":[{"songId":"%s","order":null,"version":"%s"}]}""".formatted(songId, songVersion))
-                .andExpect(jsonPath("$.data[0].song.setlistOrder").doesNotExist());
+                .andExpect(jsonPath("$.data.performanceVersion").isString())
+                .andExpect(jsonPath("$.data.items[0].id").value(songId))
+                .andExpect(jsonPath("$.data.items[0].performanceId").value("1"))
+                .andExpect(jsonPath("$.data.items[0].setlistOrder").doesNotExist())
+                .andExpect(jsonPath("$.data.items[0].sessions").doesNotExist())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
 
         // API-082 선정곡 제외는 확인 필요(0.1)
         send(post(BASE + "/songs/" + songId + "/reject"), ADMIN, """
@@ -197,6 +214,75 @@ class PerformanceFlowTest {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.error.code").value("CONFIRMATION_REQUIRED"))
                 .andExpect(jsonPath("$.error.warnings[0].type").value("ASSIGNMENT_RELEASED"));
+
+        // API-084 담당 팀 변경(MutationResult)
+        Object v3 = JsonPath.read(ordered, "$.data.items[0].version");
+        String reassigned = send(put(BASE + "/songs/" + songId + "/assigned-team"), ADMIN, """
+                        {"version":"%s","assignedTeamId":"%s"}""".formatted(v3, teamId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.resource.assignedTeamId").value(teamId))
+                .andExpect(jsonPath("$.data.warnings").isArray())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        // API-081 확정 취소(MutationResult + effects)
+        Object v4 = JsonPath.read(reassigned, "$.data.resource.version");
+        String unconfirmed = send(post(BASE + "/songs/" + songId + "/unconfirm"), ADMIN, """
+                        {"version":"%s"}""".formatted(v4))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.resource.status").value("PROPOSED"))
+                .andExpect(jsonPath("$.data.warnings").isArray())
+                .andExpect(jsonPath("$.data.effects.affectedScheduleIds").isArray())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        // API-082 후보곡 제외(MutationResult + effects)
+        Object v5 = JsonPath.read(unconfirmed, "$.data.resource.version");
+        String rejected = send(post(BASE + "/songs/" + songId + "/reject"), ADMIN, """
+                        {"version":"%s"}""".formatted(v5))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.resource.status").value("REJECTED"))
+                .andExpect(jsonPath("$.data.effects.affectedScheduleIds").isArray())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        // API-156 재검토(Song 직접)
+        Object v6 = JsonPath.read(rejected, "$.data.resource.version");
+        String reconsidered = send(post(BASE + "/songs/" + songId + "/reconsider"), ADMIN, """
+                        {"version":"%s"}""".formatted(v6))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id").value(songId))
+                .andExpect(jsonPath("$.data.status").value("PROPOSED"))
+                .andExpect(jsonPath("$.data.resource").doesNotExist())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        // API-157 임원 후보곡 삭제(Song 직접)
+        Object v7 = JsonPath.read(reconsidered, "$.data.version");
+        send(post(BASE + "/songs/" + songId + "/remove"), ADMIN, """
+                        {"version":"%s"}""".formatted(v7))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("WITHDRAWN"))
+                .andExpect(jsonPath("$.data.withdrawalType").value("ADMIN"))
+                .andExpect(jsonPath("$.data.resource").doesNotExist());
+        // API-078 기본정보 수정, API-083 제안자 철회(Song 직접)
+        Object ov = JsonPath.read(other, "$.data.resource.version");
+        String edited = send(patch(BASE + "/songs/" + otherId), ADMIN, """
+                        {"version":"%s","memo":"메모"}""".formatted(ov))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id").value(otherId))
+                .andExpect(jsonPath("$.data.memo").value("메모"))
+                .andExpect(jsonPath("$.data.resource").doesNotExist())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        Object ov2 = JsonPath.read(edited, "$.data.version");
+        send(post(BASE + "/songs/" + otherId + "/withdraw"), ADMIN, """
+                        {"version":"%s"}""".formatted(ov2))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("WITHDRAWN"))
+                .andExpect(jsonPath("$.data.withdrawalType").value("PROPOSER"))
+                .andExpect(jsonPath("$.data.resource").doesNotExist());
 
         // API-101·103 가능 시간. null 구간은 500이 아니라 400
         send(put(BASE + "/availability/me"), MEMBER, """

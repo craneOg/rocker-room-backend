@@ -39,6 +39,7 @@ import com.crane.bandwebbackend.global.audit.AuditLogRepository;
 import com.crane.bandwebbackend.global.error.BusinessException;
 import com.crane.bandwebbackend.global.error.ErrorCode;
 import com.crane.bandwebbackend.global.response.Effects;
+import com.crane.bandwebbackend.global.response.MutationResult;
 import com.crane.bandwebbackend.global.response.PageResponse;
 import com.crane.bandwebbackend.global.response.Warning;
 import jakarta.persistence.EntityManager;
@@ -310,7 +311,7 @@ public class SongService {
     // ---------- API-076 후보곡 등록·직접 확정 ----------
 
     @Transactional
-    public SongViews.Result create(PerformanceRef ref, SongRequests.Create req) {
+    public MutationResult<SongResponse> create(PerformanceRef ref, SongRequests.Create req) {
         // 1인 한도(S-03)·순서(X-03) 검사 전 공연 행 잠금(0.4)
         PerformanceAccess access = accessService.getForUpdate(ref);
         access.requireEditable();
@@ -374,7 +375,7 @@ public class SongService {
     // ---------- API-078 기본 정보 수정 ----------
 
     @Transactional
-    public SongViews.Result update(PerformanceRef ref, Long songId, SongRequests.Update req) {
+    public SongResponse update(PerformanceRef ref, Long songId, SongRequests.Update req) {
         PerformanceAccess access = admin(accessService.get(ref));
         access.requireStatus(PerformanceStatus.DRAFT, PerformanceStatus.ACTIVE);
         Song song = songSupport.getSong(access.performanceId(), songId);
@@ -395,13 +396,14 @@ public class SongService {
         String url = req.hasReferenceUrl() ? requireHttps(req.getReferenceUrl()) : song.getReferenceUrl();
         String memo = req.hasMemo() ? limit(blankToNull(req.getMemo()), 500, "INVALID_MEMO") : song.getMemo();
         song.update(title, artist, url, memo);
-        return result(song, List.of(), null);
+        return respond(song);
     }
 
     // ---------- API-079 필요 편성 ----------
 
     @Transactional
-    public SongViews.Result replaceRequirements(PerformanceRef ref, Long songId, SongRequests.Requirements req) {
+    public SongViews.RequirementsResult replaceRequirements(
+            PerformanceRef ref, Long songId, SongRequests.Requirements req) {
         PerformanceAccess access = admin(accessService.get(ref));
         Song song = songSupport.getSong(access.performanceId(), songId);
         // #82: 곡 행을 먼저 잠그고 최신 version으로 다시 읽어, 자식 INSERT 뒤 잠금 승격 교착을 막고 패자는 409로 보낸다
@@ -419,19 +421,18 @@ public class SongService {
                 .map(r -> SongPartRequirement.of(song, parts.get(r.getPartId()), r.getRequiredCount()))
                 .toList());
         forceIncrement(song);
-        return SongViews.Result.builder()
-                .song(respond(song))
-                .requirements(requirementRepository.findBySongId(songId).stream()
+        return SongViews.RequirementsResult.builder()
+                .songVersion(song.getVersion())
+                .items(requirementRepository.findBySongId(songId).stream()
                         .map(SongViews.Requirement::of)
                         .toList())
-                .warnings(List.of())
                 .build();
     }
 
     // ---------- API-080 확정 ----------
 
     @Transactional
-    public SongViews.Result confirm(PerformanceRef ref, Long songId, SongRequests.Confirm req) {
+    public MutationResult<SongResponse> confirm(PerformanceRef ref, Long songId, SongRequests.Confirm req) {
         PerformanceAccess access = admin(accessService.getForUpdate(ref));
         Song song = songSupport.getSong(access.performanceId(), songId);
         song.verifyVersion(req.getVersion());
@@ -494,7 +495,7 @@ public class SongService {
     // ---------- API-081 확정 취소 ----------
 
     @Transactional
-    public SongViews.Result unconfirm(PerformanceRef ref, Long songId, SongRequests.Decision req) {
+    public MutationResult<SongResponse> unconfirm(PerformanceRef ref, Long songId, SongRequests.Decision req) {
         PerformanceAccess access = admin(accessService.getForUpdate(ref));
         Song song = songSupport.getSong(access.performanceId(), songId);
         song.verifyVersion(req.getVersion());
@@ -519,7 +520,7 @@ public class SongService {
     // ---------- API-082 제외 ----------
 
     @Transactional
-    public SongViews.Result reject(PerformanceRef ref, Long songId, SongRequests.Decision req) {
+    public MutationResult<SongResponse> reject(PerformanceRef ref, Long songId, SongRequests.Decision req) {
         PerformanceAccess access = admin(accessService.getForUpdate(ref));
         Song song = songSupport.getSong(access.performanceId(), songId);
         song.verifyVersion(req.getVersion());
@@ -573,7 +574,7 @@ public class SongService {
 
     // 제안자 본인만. 공연 ACTIVE, 곡 PROPOSED, 후보 OPEN·마감 전
     @Transactional
-    public SongViews.Result withdraw(PerformanceRef ref, Long songId, SongRequests.Decision req) {
+    public SongResponse withdraw(PerformanceRef ref, Long songId, SongRequests.Decision req) {
         PerformanceAccess access = accessService.get(ref);
         access.requireEditable();
         access.requireStatus(PerformanceStatus.ACTIVE);
@@ -585,12 +586,12 @@ public class SongService {
         PerformancePolicy policy = accessService.getPolicy(access.performanceId());
         PerformanceAccess.requireOpen(policy.getCandidateState(), policy.getCandidateDeadline(), "CANDIDATE_CLOSED");
         song.withdraw(WithdrawalType.PROPOSER);
-        return result(song, List.of(), null);
+        return respond(song);
     }
 
     // S-11: 실제 삭제가 아니라 WITHDRAWN(ADMIN). 1인 한도에서 제외(S-03)
     @Transactional
-    public SongViews.Result remove(PerformanceRef ref, Long songId, SongRequests.Decision req) {
+    public SongResponse remove(PerformanceRef ref, Long songId, SongRequests.Decision req) {
         PerformanceAccess access = admin(accessService.get(ref));
         Song song = songSupport.getSong(access.performanceId(), songId);
         song.verifyVersion(req.getVersion());
@@ -601,12 +602,12 @@ public class SongService {
                 song,
                 req.getReason(),
                 "{\"from\":\"PROPOSED\",\"to\":\"WITHDRAWN\",\"type\":\"ADMIN\"}");
-        return result(song, List.of(), null);
+        return respond(song);
     }
 
     // REJECTED → PROPOSED. 후보곡 단계(DRAFT·ACTIVE)에서만. 이전 제외 사유는 감사 기록에 남김
     @Transactional
-    public SongViews.Result reconsider(PerformanceRef ref, Long songId, SongRequests.Decision req) {
+    public SongResponse reconsider(PerformanceRef ref, Long songId, SongRequests.Decision req) {
         PerformanceAccess access = admin(accessService.get(ref));
         access.requireStatus(PerformanceStatus.DRAFT, PerformanceStatus.ACTIVE);
         Song song = songSupport.getSong(access.performanceId(), songId);
@@ -620,13 +621,13 @@ public class SongService {
                 req.getReason(),
                 "{\"from\":\"REJECTED\",\"to\":\"PROPOSED\",\"previousDecisionNoteKept\":" + (previousNote != null)
                         + "}");
-        return result(song, List.of(), null);
+        return respond(song);
     }
 
     // ---------- API-084 담당 팀 ----------
 
     @Transactional
-    public SongViews.Result assignTeam(PerformanceRef ref, Long songId, SongRequests.AssignTeam req) {
+    public MutationResult<SongResponse> assignTeam(PerformanceRef ref, Long songId, SongRequests.AssignTeam req) {
         PerformanceAccess access = admin(accessService.get(ref));
         Song song = songSupport.getSong(access.performanceId(), songId);
         song.verifyVersion(req.getVersion());
@@ -664,7 +665,7 @@ public class SongService {
      * 자기 팀 팀원 행만 바꾸며 기존 지원 세션(팀원이 아닌 연주자)은 그대로 보존해야 함
      */
     @Transactional
-    public SongViews.Result replaceSessions(PerformanceRef ref, Long songId, SongRequests.Sessions req) {
+    public MutationResult<SongResponse> replaceSessions(PerformanceRef ref, Long songId, SongRequests.Sessions req) {
         PerformanceAccess access = accessService.get(ref);
         access.requireEditable();
         Song song = songSupport.getSong(access.performanceId(), songId);
@@ -696,11 +697,7 @@ public class SongService {
             verifyLockRequirements(access.performanceId());
             auditLocked(access, song, req.getReason(), before);
         }
-        return SongViews.Result.builder()
-                .song(respond(song))
-                .sessions(sessionViews(song, songSupport.sessionsOf(songId)))
-                .warnings(warnings)
-                .build();
+        return result(song, warnings, null);
     }
 
     /**
@@ -954,9 +951,9 @@ public class SongService {
         return SongResponse.from(song);
     }
 
-    private SongViews.Result result(Song song, List<Warning> warnings, Effects effects) {
-        return SongViews.Result.builder()
-                .song(respond(song))
+    private MutationResult<SongResponse> result(Song song, List<Warning> warnings, Effects effects) {
+        return MutationResult.<SongResponse>builder()
+                .resource(respond(song))
                 .warnings(warnings)
                 .effects(effects)
                 .build();

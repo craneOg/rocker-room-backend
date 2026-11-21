@@ -2,6 +2,7 @@ package com.crane.bandwebbackend.domain.setlist.controller;
 
 import com.crane.bandwebbackend.domain.participant.service.PerformanceRef;
 import com.crane.bandwebbackend.domain.setlist.dto.SetlistItemResponse;
+import com.crane.bandwebbackend.domain.setlist.dto.SetlistOrderResult;
 import com.crane.bandwebbackend.domain.setlist.dto.SetlistRequest;
 import com.crane.bandwebbackend.domain.setlist.service.SetlistService;
 import jakarta.validation.Valid;
@@ -33,7 +34,7 @@ public class SetlistController {
 
     // API-088
     @PutMapping("/order")
-    public List<SetlistItemResponse> save(
+    public SetlistOrderResult save(
             @PathVariable Long clubId,
             @PathVariable Long performanceId,
             @AuthenticationPrincipal(expression = "userId()") Long userId,
