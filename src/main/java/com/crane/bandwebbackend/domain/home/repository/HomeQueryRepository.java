@@ -1,5 +1,9 @@
 package com.crane.bandwebbackend.domain.home.repository;
 
+import static com.crane.bandwebbackend.domain.song.repository.SongProgressSql.ANSWERABLE;
+import static com.crane.bandwebbackend.domain.song.repository.SongProgressSql.MY_VOTES;
+import static com.crane.bandwebbackend.domain.song.repository.SongProgressSql.UNANSWERED;
+
 import com.crane.bandwebbackend.global.time.InvitationExpiry;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -25,12 +29,6 @@ public class HomeQueryRepository {
     private static final String LIVE = "('ACTIVE','ON_LEAVE')";
     // 진행 중 공연 범위: 초안·진행·잠금
     private static final String IN_PROGRESS = "('DRAFT','ACTIVE','LOCKED')";
-
-    // 내(pm) 기준 가불·투표 대상 곡 조건(별칭 s, p, pm 사용)
-    private static final String ANSWERABLE = "s.performance_id = p.id AND s.status = 'PROPOSED'"
-            + " AND (s.candidate_team_id IS NULL OR EXISTS (SELECT 1 FROM team_member tm"
-            + " WHERE tm.team_id = s.candidate_team_id AND tm.performance_member_id = pm.id))"
-            + " AND (:guest = FALSE OR s.proposed_by_membership_id = :mid OR s.candidate_team_id IS NOT NULL)";
 
     private final NamedParameterJdbcTemplate jdbc;
 
@@ -256,14 +254,11 @@ public class HomeQueryRepository {
                 + " WHERE tm.performance_member_id = pm.id AND t.status NOT IN ('REJECTED','WITHDRAWN')) AS in_team,"
                 // 가불(API-091)·투표(VoteService.requireInputOpen) 대상 곡: PROPOSED만, 팀 후보곡은 그 팀원만,
                 // 객원은 제안자·팀 후보곡 팀원만(G-06). 응답 단위는 곡+파트지만 곡에 내 응답 행이 하나라도 있으면 응답한 곡
-                + " (SELECT COUNT(*) FROM song s WHERE " + ANSWERABLE
-                + " AND NOT EXISTS (SELECT 1 FROM song_playability sp"
-                + " WHERE sp.song_id = s.id AND sp.performance_member_id = pm.id)) AS unanswered,"
+                + " " + UNANSWERED + " AS unanswered,"
                 // 투표할 수 있는 곡이 하나도 없으면 투표 할 일도 없다
                 + " (SELECT COUNT(*) FROM song s WHERE " + ANSWERABLE + ") AS votable,"
                 // V-05: PROPOSED 곡에 한 내 투표 수(SongVoteRepository.countByMemberAndSongStatus)
-                + " (SELECT COUNT(*) FROM song_vote v JOIN song s ON s.id = v.song_id"
-                + " WHERE v.performance_member_id = pm.id AND s.status = 'PROPOSED') AS my_votes,"
+                + " " + MY_VOTES + " AS my_votes,"
                 // AV-01: 가능 시간 제출 여부(빈 목록 저장 포함, #50)
                 + " (pm.availability_submitted_at IS NOT NULL) AS availability_submitted,"
                 // 확정곡 중 내가 연주자인 곡 수
