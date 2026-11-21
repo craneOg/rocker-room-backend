@@ -335,6 +335,8 @@ public class TeamService {
         PerformanceAccess access = accessService.get(ref);
         access.requireEditable();
         Team team = getTeam(access.performanceId(), teamId);
+        // #80: 팀원 INSERT(공유 락)보다 먼저 팀 행을 잠그고 최신 version으로 갱신해 교착 방지
+        em.refresh(team, LockModeType.PESSIMISTIC_WRITE);
         team.verifyVersion(req.getVersion());
         requireMemberEditable(access, team, req.getReason());
 
