@@ -85,6 +85,11 @@ public class ScheduleEditService {
         if (!version.equals(String.valueOf(schedule.getVersion()))) {
             throw new BusinessException(ErrorCode.VERSION_CONFLICT, "일정 버전이 달라졌습니다.");
         }
+        // API-110: 상태 전이는 별도 API로만 한다. 현재와 다른 status는 무시하지 않고 거부한다(#35, 검사 API와 같은 규칙)
+        if (body.has("status")
+                && !schedule.getStatus().name().equals(body.path("status").asText())) {
+            throw new BusinessException(ErrorCode.STATE_CONFLICT, "INVALID_STATE", "상태 전이는 별도 API로 처리합니다.");
+        }
         entityManager.lock(schedule, LockModeType.OPTIMISTIC_FORCE_INCREMENT);
 
         // PATCH에 전달된 값만 교체하고 생략된 필드는 기존 값을 유지한다.

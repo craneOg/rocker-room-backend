@@ -1,6 +1,8 @@
 package com.crane.bandwebbackend.domain.audition.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -120,6 +122,32 @@ class AuditionListFilterIntegrationTest {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.error.code").value("STATE_CONFLICT"))
                 .andExpect(jsonPath("$.error.details[0].reason").value("INVALID_STATE"));
+    }
+
+    @Test
+    @DisplayName("API-110 PATCH도 현재와 다른 status는 409 INVALID_STATE이고, 같은 status는 그대로 수정된다")
+    void schedulePatchStatusMismatch() throws Exception {
+        jdbc.update(
+                "INSERT INTO practice_schedule (id,performance_id,title,status,start_at,end_at,for_all_participants,created_by_user_id) VALUES (10,1,'일정','TENTATIVE','2099-01-01 00:00:00','2099-01-01 01:00:00',true,1)");
+        mvc.perform(patch("/api/v1/clubs/1/performances/1/schedules/10")
+                        .cookie(admin())
+                        .header("X-Requested-With", "XMLHttpRequest")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"version\":\"0\",\"status\":\"CONFIRMED\",\"title\":\"바뀐 제목\"}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("STATE_CONFLICT"))
+                .andExpect(jsonPath("$.error.details[0].reason").value("INVALID_STATE"));
+        assertThat(jdbc.queryForObject("SELECT title FROM practice_schedule WHERE id = 10", String.class))
+                .isEqualTo("일정");
+
+        mvc.perform(patch("/api/v1/clubs/1/performances/1/schedules/10")
+                        .cookie(admin())
+                        .header("X-Requested-With", "XMLHttpRequest")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"version\":\"0\",\"status\":\"TENTATIVE\",\"title\":\"바뀐 제목\"}"))
+                .andExpect(status().isOk());
+        assertThat(jdbc.queryForObject("SELECT title FROM practice_schedule WHERE id = 10", String.class))
+                .isEqualTo("바뀐 제목");
     }
 
     private Cookie admin() {
