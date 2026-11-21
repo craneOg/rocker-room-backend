@@ -404,6 +404,8 @@ public class SongService {
     public SongViews.Result replaceRequirements(PerformanceRef ref, Long songId, SongRequests.Requirements req) {
         PerformanceAccess access = admin(accessService.get(ref));
         Song song = songSupport.getSong(access.performanceId(), songId);
+        // #82: 곡 행을 먼저 잠그고 최신 version으로 다시 읽어, 자식 INSERT 뒤 잠금 승격 교착을 막고 패자는 409로 보낸다
+        em.refresh(song, LockModeType.PESSIMISTIC_WRITE);
         song.verifyVersion(req.getVersion());
         Set<Long> seen = new HashSet<>();
         for (SongRequests.Requirement r : req.getRequirements()) {
@@ -666,6 +668,8 @@ public class SongService {
         PerformanceAccess access = accessService.get(ref);
         access.requireEditable();
         Song song = songSupport.getSong(access.performanceId(), songId);
+        // #82: 곡 행을 먼저 잠그고 최신 version으로 다시 읽어, 자식 INSERT 뒤 잠금 승격 교착을 막고 패자는 409로 보낸다
+        em.refresh(song, LockModeType.PESSIMISTIC_WRITE);
         song.verifyVersion(req.getVersion());
         if (song.getStatus() != SongStatus.PROPOSED && song.getStatus() != SongStatus.CONFIRMED) {
             throw BusinessException.invalidState("후보곡이나 선정곡만 연주자를 정할 수 있습니다.");
