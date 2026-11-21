@@ -6,6 +6,11 @@ import com.crane.bandwebbackend.domain.participant.entity.PerformanceMemberSourc
 import com.crane.bandwebbackend.domain.participant.entity.PerformanceMemberStatus;
 import com.crane.bandwebbackend.domain.participant.repository.PerformanceMemberRepository;
 import com.crane.bandwebbackend.domain.performance.entity.Performance;
+import com.crane.bandwebbackend.domain.team.entity.TeamMember;
+import com.crane.bandwebbackend.domain.team.repository.TeamMemberRepository;
+import com.crane.bandwebbackend.domain.team.repository.TeamRepository;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -18,6 +23,9 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class ParticipationLookup {
     private final PerformanceMemberRepository repository;
+    private final TeamRepository teamRepository;
+    private final TeamMemberRepository teamMemberRepository;
+    private final EntityManager em;
 
     @Transactional(readOnly = true)
     public Optional<PerformanceMember> member(Long clubId, Long performanceId, Long memberId) {
@@ -33,12 +41,29 @@ public class ParticipationLookup {
         PerformanceMember existing = repository
                 .findByPerformance_IdAndMembership_Id(performance.getId(), membership.getId())
                 .orElse(null);
+        PerformanceMember participant = existing;
         if (existing == null) {
-            repository.save(PerformanceMember.addByAdmin(performance, membership, now));
+            participant = repository.save(PerformanceMember.addByAdmin(performance, membership, now));
         } else if (existing.getStatus() == PerformanceMemberStatus.REJECTED
                 || existing.getStatus() == PerformanceMemberStatus.WITHDRAWN) {
             existing.reapply(PerformanceMemberSource.ADMIN, now);
         }
+        linkToDefaultTeam(performance, participant);
+    }
+
+    // 승인된 참여자는 기본 팀에도 편성(C-14), 이미 팀원이면 건너뜀
+    private void linkToDefaultTeam(Performance performance, PerformanceMember participant) {
+        if (participant.getStatus() != PerformanceMemberStatus.APPROVED) {
+            return;
+        }
+        teamRepository.findByPerformanceIdAndIsDefaultTrue(performance.getId()).forEach(team -> {
+            if (teamMemberRepository.existsByTeamIdAndPerformanceMemberId(team.getId(), participant.getId())) {
+                return;
+            }
+            teamMemberRepository.save(TeamMember.link(team, participant));
+            // API-065와 동일하게 팀 version 증가
+            em.lock(team, LockModeType.PESSIMISTIC_FORCE_INCREMENT);
+        });
     }
 
     @Transactional(readOnly = true)
