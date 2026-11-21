@@ -43,11 +43,11 @@ class CalendarReaderIntegrationTest {
 
     @BeforeEach
     void guest() {
-        jdbc.update("INSERT INTO users (id,name,handle) VALUES (4,'객원','guest4')");
+        jdbc.update("INSERT INTO users (id,name,handle) VALUES (9,'객원','guest9')");
         jdbc.update(
-                "INSERT INTO membership (id,club_id,user_id,member_type,role,status,join_source) VALUES (4,1,4,'GUEST','MEMBER','ACTIVE','ADMIN_ADDED')");
+                "INSERT INTO membership (id,club_id,user_id,member_type,role,status,join_source) VALUES (9,1,9,'GUEST','MEMBER','ACTIVE','ADMIN_ADDED')");
         jdbc.update(
-                "INSERT INTO performance_member (id,performance_id,club_id,membership_id,status,source) VALUES (4,1,1,4,'APPROVED','ADMIN')");
+                "INSERT INTO performance_member (id,performance_id,club_id,membership_id,status,source) VALUES (9,1,1,9,'APPROVED','ADMIN')");
     }
 
     @Test
@@ -60,12 +60,12 @@ class CalendarReaderIntegrationTest {
         schedule(5, from, from.plusHours(1), "TENTATIVE", true);
         schedule(6, from, from.plusHours(1), "CANCELED", true);
         schedule(7, from, from.plusHours(1), "CONFIRMED", false);
-        assertThat(calendars.personal(4L, from, to, null, false, false))
+        assertThat(calendars.personal(9L, from, to, null, false, false))
                 .extracting(event -> event.getId())
                 .containsExactly("2", "1");
-        verify(schedules, times(1)).findAttendedScheduleIds(1L, 4L);
+        verify(schedules, times(1)).findAttendedScheduleIds(1L, 9L);
         assertThat(club(false)).extracting(event -> event.getId()).containsExactly("2", "1");
-        verify(schedules, times(2)).findAttendedScheduleIds(1L, 4L);
+        verify(schedules, times(2)).findAttendedScheduleIds(1L, 9L);
         assertThat(club(true)).extracting(event -> event.getId()).containsExactly("2", "1", "6");
         assertThat(calendars.club(1L, 2L, from, to, null, null, null, null, false, false, false))
                 .extracting(event -> event.getId())
@@ -86,10 +86,10 @@ class CalendarReaderIntegrationTest {
         schedule(10000, LocalDateTime.of(1999, 1, 1, 0, 0), LocalDateTime.of(1999, 1, 1, 1, 0), "CONFIRMED", true);
         LocalDateTime wideFrom = LocalDateTime.of(2000, 1, 1, 0, 0);
         LocalDateTime wideTo = LocalDateTime.of(2100, 1, 1, 0, 0);
-        assertThat(calendars.personal(4L, wideFrom, wideTo, null, false, false)).hasSize(2000);
+        assertThat(calendars.personal(9L, wideFrom, wideTo, null, false, false)).hasSize(2000);
         assertThat(club(false)).hasSize(2000);
         schedule(10001, from, from.plusHours(1), "CONFIRMED", true);
-        assertThatThrownBy(() -> calendars.personal(4L, wideFrom, wideTo, null, false, false))
+        assertThatThrownBy(() -> calendars.personal(9L, wideFrom, wideTo, null, false, false))
                 .isInstanceOfSatisfying(
                         BusinessException.class,
                         e -> assertThat(e.getDetails().get(0).getReason()).isEqualTo("RANGE_TOO_LARGE"));
@@ -104,8 +104,8 @@ class CalendarReaderIntegrationTest {
     void performanceDateIdentifier() {
         jdbc.update("UPDATE performance SET perform_date='2099-01-02' WHERE id=1");
         schedule(1, from, from.plusHours(1), "CONFIRMED", true);
-        var personal = calendars.personal(4L, from, to, null, false, true);
-        var club = calendars.club(1L, 4L, from, to, null, null, null, null, false, false, true);
+        var personal = calendars.personal(9L, from, to, null, false, true);
+        var club = calendars.club(1L, 9L, from, to, null, null, null, null, false, false, true);
         for (var events : List.of(personal, club)) {
             assertThat(events).hasSize(2);
             var performance = events.stream()
@@ -135,14 +135,14 @@ class CalendarReaderIntegrationTest {
                 "INSERT INTO practice_schedule (performance_id,title,status,start_at,end_at,for_all_participants,created_by_user_id) VALUES (1,'일정','CONFIRMED',?,?,true,1)",
                 batch);
         jdbc.update("UPDATE performance SET perform_date='2099-01-02' WHERE id=1");
-        assertThatThrownBy(() -> calendars.club(1L, 4L, from, to, null, null, null, null, false, false, true))
+        assertThatThrownBy(() -> calendars.club(1L, 9L, from, to, null, null, null, null, false, false, true))
                 .isInstanceOfSatisfying(
                         BusinessException.class,
                         e -> assertThat(e.getDetails().get(0).getReason()).isEqualTo("RANGE_TOO_LARGE"));
     }
 
     private List<com.crane.bandwebbackend.domain.schedule.dto.CalendarEvent> club(boolean canceled) {
-        return calendars.club(1L, 4L, from, to, null, null, null, null, false, canceled, false);
+        return calendars.club(1L, 9L, from, to, null, null, null, null, false, canceled, false);
     }
 
     private void schedule(long id, LocalDateTime start, LocalDateTime end, String status, boolean all) {
