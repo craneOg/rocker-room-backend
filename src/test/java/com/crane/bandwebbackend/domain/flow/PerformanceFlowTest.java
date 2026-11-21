@@ -153,6 +153,8 @@ class PerformanceFlowTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.resource.id").value(songId))
                 .andExpect(jsonPath("$.data.warnings").isArray())
+                // effects는 명세상 필수: 연쇄 처리가 없어도 빈 객체
+                .andExpect(jsonPath("$.data.effects").isMap())
                 .andExpect(jsonPath("$.data.sessions").doesNotExist())
                 .andReturn()
                 .getResponse()
