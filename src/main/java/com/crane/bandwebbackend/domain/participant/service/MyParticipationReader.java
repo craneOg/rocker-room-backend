@@ -1,5 +1,9 @@
 package com.crane.bandwebbackend.domain.participant.service;
 
+import static com.crane.bandwebbackend.domain.song.repository.SongProgressSql.MY_VOTES;
+import static com.crane.bandwebbackend.domain.song.repository.SongProgressSql.UNANSWERED;
+
+import com.crane.bandwebbackend.domain.membership.entity.MemberType;
 import com.crane.bandwebbackend.domain.participant.dto.MyParticipationResponse;
 import com.crane.bandwebbackend.domain.participant.entity.PerformanceMemberStatus;
 import com.crane.bandwebbackend.domain.performance.entity.FeatureState;
@@ -70,21 +74,25 @@ public class MyParticipationReader {
 					""", performanceId, member.getMembership().getId(), id),
                         policy.getCandidateLimitPerMember())
                 : null;
-        Long unanswered = applicant && policy.getPlayabilityState() != FeatureState.DISABLED
-                ? count("""
-					SELECT COUNT(*) FROM song s WHERE s.performance_id = :performanceId
-					AND s.status IN ('PROPOSED','CONFIRMED')
-					AND NOT EXISTS (SELECT 1 FROM song_playability sp WHERE sp.song_id = s.id
-					  AND sp.performance_member_id = :memberId)
-					""", performanceId, member.getMembership().getId(), id)
-                : null;
-        MyParticipationResponse.Usage votes = approved && policy.getVoteState() != FeatureState.DISABLED
-                ? new MyParticipationResponse.Usage(
-                        count("""
-					SELECT COUNT(*) FROM song_vote WHERE performance_id = :performanceId
-					AND performance_member_id = :memberId
-					""", performanceId, member.getMembership().getId(), id), policy.getVoteMaxChoices())
-                : null;
+        // 가불 미응답·투표 수는 홈 할 일과 같은 SQL 조각으로 계산한다(#64)
+        boolean needUnanswered = applicant && policy.getPlayabilityState() != FeatureState.DISABLED;
+        boolean needVotes = approved && policy.getVoteState() != FeatureState.DISABLED;
+        Long unanswered = null;
+        Long votesUsed = null;
+        if (needUnanswered || needVotes) {
+            Object[] progress = (Object[]) entityManager
+                    .createNativeQuery("SELECT " + UNANSWERED + ", " + MY_VOTES
+                            + " FROM performance p JOIN performance_member pm ON pm.performance_id = p.id"
+                            + " WHERE pm.id = :memberId")
+                    .setParameter("memberId", id)
+                    .setParameter("guest", member.getMembership().getMemberType() == MemberType.GUEST)
+                    .setParameter("mid", member.getMembership().getId())
+                    .getSingleResult();
+            unanswered = needUnanswered ? ((Number) progress[0]).longValue() : null;
+            votesUsed = needVotes ? ((Number) progress[1]).longValue() : null;
+        }
+        MyParticipationResponse.Usage votes =
+                needVotes ? new MyParticipationResponse.Usage(votesUsed, policy.getVoteMaxChoices()) : null;
         Long availability = approved && policy.getAvailabilityState() != FeatureState.DISABLED
                 ? count("""
 					SELECT COUNT(*) FROM available_slot WHERE performance_member_id = :memberId

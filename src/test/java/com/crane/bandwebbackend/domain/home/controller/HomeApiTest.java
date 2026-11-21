@@ -168,6 +168,30 @@ class HomeApiTest extends HomeApiTestBase {
     }
 
     @Test
+    @DisplayName("API-054 가불 미응답·투표 수는 홈 할 일과 같은 대상으로 센다(#64)")
+    void myParticipationMatchesHomeTodo() throws Exception {
+        long perf = performance("ACTIVE");
+        policy(perf, "playability_state = " + OPEN + ", vote_state = " + OPEN + ", vote_max_choices = 3");
+        long pm = participation(perf, memberMid, "APPROVED");
+        long proposed = song(perf, "PROPOSED", adminMid, null);
+        song(perf, "PROPOSED", adminMid, null);
+        long confirmed = song(perf, "CONFIRMED", adminMid, null); // PROPOSED가 아니면 제외
+        song(perf, "PROPOSED", adminMid, team(perf, "APPROVED")); // 내가 팀원이 아닌 팀 후보곡 제외
+        vote(proposed, perf, pm);
+        vote(confirmed, perf, pm); // PROPOSED가 아닌 곡 투표는 제외
+        String me = mockMvc.perform(
+                        get(path("/performances/" + perf + "/members/me")).cookie(access(memberUser)))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        assertThat(JsonPath.<Integer>read(me, "$.data.progress.unansweredPlayabilityCount"))
+                .isEqualTo(2);
+        assertThat(JsonPath.<Integer>read(me, "$.data.progress.votes.used")).isEqualTo(1);
+        assertThat(label(memberUser, "PLAYABILITY")).isEqualTo("가불 응답 (2곡 남음)");
+    }
+
+    @Test
     @DisplayName("G-06 객원은 자기가 제안했거나 팀 후보곡 팀원인 곡만 응답 대상")
     void guestPlayabilityScope() throws Exception {
         long guestUser = user();
