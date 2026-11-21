@@ -57,6 +57,8 @@ public class ParticipationLookup {
             return;
         }
         teamRepository.findByPerformanceIdAndIsDefaultTrue(performance.getId()).forEach(team -> {
+            // #80: 팀원 INSERT보다 먼저 팀 행을 잠가 교착 방지
+            em.refresh(team, LockModeType.PESSIMISTIC_WRITE);
             if (teamMemberRepository.existsByTeamIdAndPerformanceMemberId(team.getId(), participant.getId())) {
                 return;
             }
