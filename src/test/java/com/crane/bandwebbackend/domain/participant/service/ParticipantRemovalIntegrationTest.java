@@ -265,24 +265,24 @@ class ParticipantRemovalIntegrationTest {
 
     @ParameterizedTest
     @CsvSource({
-        "SELF_WITHDRAWAL,APPROVED,4", "SELF_WITHDRAWAL,SUBMITTED,4", "SELF_WITHDRAWAL,DRAFT,0",
-        "ADMIN_REMOVAL,APPROVED,4", "ADMIN_REMOVAL,SUBMITTED,3", "ADMIN_REMOVAL,DRAFT,0",
-        "MEMBERSHIP_WITHDRAWAL,APPROVED,4", "MEMBERSHIP_WITHDRAWAL,SUBMITTED,3", "MEMBERSHIP_WITHDRAWAL,DRAFT,0",
-        "SERVICE_WITHDRAWAL,APPROVED,4", "SERVICE_WITHDRAWAL,SUBMITTED,3", "SERVICE_WITHDRAWAL,DRAFT,0"
+        "SELF_WITHDRAWAL,APPROVED,9", "SELF_WITHDRAWAL,SUBMITTED,9", "SELF_WITHDRAWAL,DRAFT,0",
+        "ADMIN_REMOVAL,APPROVED,9", "ADMIN_REMOVAL,SUBMITTED,3", "ADMIN_REMOVAL,DRAFT,0",
+        "MEMBERSHIP_WITHDRAWAL,APPROVED,9", "MEMBERSHIP_WITHDRAWAL,SUBMITTED,3", "MEMBERSHIP_WITHDRAWAL,DRAFT,0",
+        "SERVICE_WITHDRAWAL,APPROVED,9", "SERVICE_WITHDRAWAL,SUBMITTED,3", "SERVICE_WITHDRAWAL,DRAFT,0"
     })
     @DisplayName("P-06·07/U-05④ 처리 사유·팀 상태별 승계와 DRAFT 삭제 표를 적용한다")
     void successionMatrix(TeamLeaderSuccession.Mode mode, String status, long expectedLeader) {
-        jdbc.update("INSERT INTO users (id,name,handle) VALUES (4,'객원 졸업생','guest4')");
+        jdbc.update("INSERT INTO users (id,name,handle) VALUES (9,'객원 졸업생','guest9')");
         jdbc.update(
-                "INSERT INTO membership (id,club_id,user_id,member_type,role,status,join_source) VALUES (4,1,4,'GUEST','MEMBER','GRADUATED','ADMIN_ADDED')");
+                "INSERT INTO membership (id,club_id,user_id,member_type,role,status,join_source) VALUES (9,1,9,'GUEST','MEMBER','GRADUATED','ADMIN_ADDED')");
         jdbc.update(
-                "INSERT INTO performance_member (id,performance_id,club_id,membership_id,status,source) VALUES (4,1,1,4,'APPROVED','ADMIN')");
-        jdbc.update("INSERT INTO team_member (team_id,performance_id,performance_member_id) VALUES (1,1,4)");
+                "INSERT INTO performance_member (id,performance_id,club_id,membership_id,status,source) VALUES (9,1,1,9,'APPROVED','ADMIN')");
+        jdbc.update("INSERT INTO team_member (team_id,performance_id,performance_member_id) VALUES (1,1,9)");
         jdbc.update("UPDATE team_member SET created_at='2026-01-01 00:00:00' WHERE performance_member_id=3");
-        jdbc.update("UPDATE team_member SET created_at='2026-01-02 00:00:00' WHERE performance_member_id=4");
+        jdbc.update("UPDATE team_member SET created_at='2026-01-02 00:00:00' WHERE performance_member_id=9");
         jdbc.update("UPDATE team SET status=? WHERE id=1", status);
         jdbc.update("UPDATE song SET candidate_team_id=1 WHERE id=1");
-        Map<Long, Long> specified = new HashMap<>(Map.of(1L, 4L));
+        Map<Long, Long> specified = new HashMap<>(Map.of(1L, 9L));
         new TransactionTemplate(transactionManager).executeWithoutResult(tx -> {
             succession.apply(1L, 2L, specified, mode);
             assignments.removeAssignments(1L, 2L);

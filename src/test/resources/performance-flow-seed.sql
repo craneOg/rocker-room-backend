@@ -1,4 +1,6 @@
 -- 공연 준비 흐름 통합 테스트용 최소 데이터. 1 = 임원, 2·3 = 부원
+-- 사용하는 id: users·membership 1~4(4 = 탈퇴자), club 1, part 1~2, performance 1, performance_member 2.
+-- 이 시드를 쓰는 테스트는 추가 데이터에 이 id를 쓰지 않는다(#65)
 INSERT INTO users (id, name, handle) VALUES (1, '임원', 'admin_1'), (2, '부원A', 'member_a'), (3, '부원B', 'member_b'), (4, '탈퇴자', 'member_c');
 INSERT INTO club (id, name, created_by) VALUES (1, '테스트밴드', 1);
 INSERT INTO membership (id, club_id, user_id, role, status, join_source) VALUES
