@@ -161,7 +161,7 @@ class AuditionCreateIntegrationTest {
         song();
         var created = auditions.create(1L, 1L, 1L, request()).get(0);
         var listed = auditions
-                .pageAdmin(1L, 1L, 1L, null, null, null, null, 0, 20)
+                .pageAdmin(1L, 1L, 1L, null, null, null, null, null, 0, 20)
                 .getItems()
                 .get(0);
         assertThat(listed.getVersion()).isEqualTo(created.getVersion());

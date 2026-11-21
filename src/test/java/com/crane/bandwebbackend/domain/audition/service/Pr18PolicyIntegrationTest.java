@@ -111,7 +111,7 @@ class Pr18PolicyIntegrationTest {
                     1L,
                     new AuditionReviewRequest(AuditionResult.PASSED, "원본", null, created.getVersion()));
         String version = auditions
-                .pageAdmin(1L, 1L, 1L, null, null, null, null, 0, 20)
+                .pageAdmin(1L, 1L, 1L, correction ? "DONE" : null, null, null, null, null, 0, 20)
                 .getItems()
                 .get(0)
                 .getVersion();
