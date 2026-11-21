@@ -14,6 +14,9 @@ import com.crane.bandwebbackend.domain.participant.entity.PerformanceMemberSourc
 import com.crane.bandwebbackend.domain.participant.entity.PerformanceMemberStatus;
 import com.crane.bandwebbackend.domain.participant.repository.PerformanceMemberRepository;
 import com.crane.bandwebbackend.domain.performance.entity.Performance;
+import com.crane.bandwebbackend.domain.team.repository.TeamMemberRepository;
+import com.crane.bandwebbackend.domain.team.repository.TeamRepository;
+import jakarta.persistence.EntityManager;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -22,7 +25,8 @@ class ParticipationLookupTest {
     @Test
     void adminEnrollmentReusesEndedParticipationAndLeavesApprovedUnchanged() {
         PerformanceMemberRepository repository = mock(PerformanceMemberRepository.class);
-        ParticipationLookup lookup = new ParticipationLookup(repository);
+        ParticipationLookup lookup = new ParticipationLookup(
+                repository, mock(TeamRepository.class), mock(TeamMemberRepository.class), mock(EntityManager.class));
         Performance performance = mock(Performance.class);
         Membership membership = mock(Membership.class);
         Club club = mock(Club.class);
@@ -34,6 +38,7 @@ class ParticipationLookupTest {
         LocalDateTime now = LocalDateTime.of(2026, 11, 6, 0, 0);
 
         when(repository.findByPerformance_IdAndMembership_Id(2L, 3L)).thenReturn(Optional.empty());
+        when(repository.save(any(PerformanceMember.class))).thenReturn(mock(PerformanceMember.class));
         lookup.ensureAdminParticipation(performance, membership, now);
         verify(repository).save(any(PerformanceMember.class));
 
