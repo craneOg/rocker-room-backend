@@ -213,10 +213,14 @@ class PerformanceFlowTest {
                         {"from":"2026-12-01T00:00:00+09:00","to":"2026-12-02T00:00:00+09:00",
                          "slots":[{"startAt":"2026-12-01T19:00:00+09:00","endAt":"2026-12-01T20:00:00+09:00"}]}""")
                 .andExpect(jsonPath("$.data.items.length()").value(1))
+                // 30분 칸 2개(19:00·19:30)가 한 구간으로 합쳐진다
+                .andExpect(jsonPath("$.data.items[0].startAt").value("2026-12-01T19:00:00+09:00"))
+                .andExpect(jsonPath("$.data.items[0].endAt").value("2026-12-01T20:00:00+09:00"))
                 .andExpect(jsonPath("$.data.slots").doesNotExist())
                 .andExpect(jsonPath("$.data.performanceMemberId").doesNotExist());
         send(get(BASE + "/availability/me"), MEMBER, null)
-                .andExpect(jsonPath("$.data.items.length()").value(1));
+                .andExpect(jsonPath("$.data.items.length()").value(1))
+                .andExpect(jsonPath("$.data.items[0].endAt").value("2026-12-01T20:00:00+09:00"));
         send(common().param("forAllParticipants", "true"), ADMIN, null)
                 .andExpect(jsonPath("$.data.from").doesNotExist())
                 .andExpect(jsonPath("$.data.to").doesNotExist())

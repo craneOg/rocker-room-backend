@@ -103,7 +103,7 @@ public class AvailabilityService {
         slotRepository.deleteInRange(pm.getId(), KstTime.toUtc(req.getFrom()), KstTime.toUtc(req.getTo()));
         slotRepository.saveAll(slots.stream().map(s -> AvailableSlot.of(pm, s)).toList());
         pm.markAvailabilitySubmitted(LocalDateTime.now(ZoneOffset.UTC));
-        return items(response(pm.getId(), req.getFrom(), req.getTo(), slots));
+        return AvailableTimesResponse.builder().items(merge(slots)).build();
     }
 
     /**
