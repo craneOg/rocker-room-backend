@@ -8,6 +8,7 @@ import com.crane.bandwebbackend.domain.performance.entity.PerformanceStatus;
 import com.crane.bandwebbackend.domain.setlist.dto.SetlistItemResponse;
 import com.crane.bandwebbackend.domain.setlist.dto.SetlistOrderResult;
 import com.crane.bandwebbackend.domain.setlist.dto.SetlistRequest;
+import com.crane.bandwebbackend.domain.setlist.dto.SetlistResponse;
 import com.crane.bandwebbackend.domain.song.dto.SongResponse;
 import com.crane.bandwebbackend.domain.song.dto.SongViews;
 import com.crane.bandwebbackend.domain.song.entity.Song;
@@ -45,10 +46,10 @@ public class SetlistService {
     private final TeamService teamService;
 
     /**
-     * API-087. CONFIRMED 곡만. GUEST는 LOCKED·FINISHED 공연에서 전체 곡의 title·artist·order만,
+     * API-087. CONFIRMED 곡만. GUEST는 LOCKED·FINISHED 공연에서 전체 곡의 id·performanceId·title·artist·status·order만,
      * 그 전에는 본인 곡만. sessions는 본인 곡에 대해서만
      */
-    public List<SetlistItemResponse> get(PerformanceRef ref) {
+    public SetlistResponse get(PerformanceRef ref) {
         PerformanceAccess access = accessService.get(ref);
         Long pid = access.performanceId();
         Map<Long, List<SongSessionMember>> sessions = songSupport.sessionsOfPerformance(pid).stream()
@@ -56,7 +57,7 @@ public class SetlistService {
         Map<Long, Set<Long>> teamMembers = teamService.memberIdsByTeam(pid);
         boolean guestSeesAll =
                 access.status() == PerformanceStatus.LOCKED || access.status() == PerformanceStatus.FINISHED;
-        return songService.getConfirmedSongs(pid).stream()
+        List<SetlistItemResponse> items = songService.getConfirmedSongs(pid).stream()
                 .sorted(ORDER)
                 .map(song -> {
                     List<SongSessionMember> rows = sessions.getOrDefault(song.getId(), List.of());
@@ -75,6 +76,10 @@ public class SetlistService {
                 })
                 .filter(Objects::nonNull)
                 .toList();
+        return SetlistResponse.builder()
+                .items(items)
+                .performanceVersion(access.getPerformance().getVersion())
+                .build();
     }
 
     // API-088. 곡 version 전부와 공연 version을 한 트랜잭션에서 검사(O-01·O-03)
@@ -140,8 +145,10 @@ public class SetlistService {
         return SetlistItemResponse.builder()
                 .song(SetlistItemResponse.Song.builder()
                         .id(song.getId())
+                        .performanceId(song.getPerformance().getId())
                         .title(song.getTitle())
                         .artist(song.getArtist())
+                        .status(song.getStatus())
                         .setlistOrder(song.getSetlistOrder())
                         .assignedTeamId(
                                 full && song.getAssignedTeam() != null

@@ -2,6 +2,7 @@ package com.crane.bandwebbackend.domain.song.dto;
 
 import com.crane.bandwebbackend.domain.song.entity.SongStatus;
 import com.crane.bandwebbackend.global.serialization.IdString;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonSetter;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -219,6 +220,7 @@ public final class SongRequests {
         private Long version;
 
         @NotNull
+        @JsonProperty("items")
         private List<@NotNull @Valid Session> sessions;
 
         @Size(max = 500)
@@ -235,6 +237,7 @@ public final class SongRequests {
         private Long version;
 
         @NotNull
+        @JsonProperty("items")
         private List<@NotNull @Valid Requirement> requirements;
     }
 
