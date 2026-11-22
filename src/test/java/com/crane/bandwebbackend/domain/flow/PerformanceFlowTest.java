@@ -396,21 +396,27 @@ class PerformanceFlowTest {
                 .andExpect(jsonPath("$.data.items.length()").value(1))
                 .andExpect(jsonPath("$.data.slots").doesNotExist());
 
-        // API-086 선정곡(담당 팀 없음)의 연주자로 팀 만들기 → {team, song}
-        Object otherVersion = JsonPath.read(other, "$.data.song.version");
-        String confirmedOther = send(post(BASE + "/songs/" + otherId + "/confirm"), ADMIN, """
-                        {"version":"%s","setlistOrder":2,"sessions":[{"performanceMemberId":"2","partId":"1"}]}""".formatted(otherVersion))
+        // API-086 선정곡(담당 팀 없음)의 연주자로 팀 만들기 → {team, song}. 곡B는 위에서 철회되어 새 곡C를 쓴다
+        String third = send(post(BASE + "/songs"), ADMIN, """
+                        {"title":"곡C"}""")
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        String thirdId = JsonPath.read(third, "$.data.resource.id");
+        Object thirdVersion = JsonPath.read(third, "$.data.resource.version");
+        String confirmedThird = send(post(BASE + "/songs/" + thirdId + "/confirm"), ADMIN, """
+                        {"version":"%s","setlistOrder":2,"sessions":[{"performanceMemberId":"2","partId":"1"}]}""".formatted(thirdVersion))
                 .andExpect(status().isOk())
                 .andReturn()
                 .getResponse()
                 .getContentAsString();
-        Object otherConfirmedVersion = JsonPath.read(confirmedOther, "$.data.song.version");
+        Object thirdConfirmedVersion = JsonPath.read(confirmedThird, "$.data.resource.version");
         send(post(BASE + "/teams"), ADMIN, """
-                        {"sourceSongId":"%s","version":"%s","name":"곡B팀"}""".formatted(otherId, otherConfirmedVersion))
+                        {"sourceSongId":"%s","version":"%s","name":"곡C팀"}""".formatted(thirdId, thirdConfirmedVersion))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.data.team.name").value("곡B팀"))
+                .andExpect(jsonPath("$.data.team.name").value("곡C팀"))
                 .andExpect(jsonPath("$.data.team.status").value("APPROVED"))
-                .andExpect(jsonPath("$.data.song.id").value(otherId))
+                .andExpect(jsonPath("$.data.song.id").value(thirdId))
                 .andExpect(jsonPath("$.data.song.assignedTeamId").isNotEmpty())
                 .andExpect(jsonPath("$.data.resource").doesNotExist())
                 .andExpect(jsonPath("$.data.warnings").doesNotExist());
