@@ -2,6 +2,7 @@ package com.crane.bandwebbackend.domain.availability.controller;
 
 import com.crane.bandwebbackend.domain.availability.dto.AvailabilityRequest;
 import com.crane.bandwebbackend.domain.availability.dto.AvailabilityResponse;
+import com.crane.bandwebbackend.domain.availability.dto.AvailableTimesResponse;
 import com.crane.bandwebbackend.domain.availability.dto.CommonAvailabilityResponse;
 import com.crane.bandwebbackend.domain.availability.service.AvailabilityService;
 import com.crane.bandwebbackend.domain.participant.service.PerformanceRef;
@@ -29,7 +30,7 @@ public class AvailabilityController {
 
     // API-100. from·to를 생략하면 전체
     @GetMapping("/me")
-    public AvailabilityResponse getMine(
+    public AvailableTimesResponse getMine(
             @PathVariable Long clubId,
             @PathVariable Long performanceId,
             @AuthenticationPrincipal(expression = "userId()") Long userId,
@@ -40,7 +41,7 @@ public class AvailabilityController {
 
     // API-101
     @PutMapping("/me")
-    public AvailabilityResponse replaceMine(
+    public AvailableTimesResponse replaceMine(
             @PathVariable Long clubId,
             @PathVariable Long performanceId,
             @AuthenticationPrincipal(expression = "userId()") Long userId,
