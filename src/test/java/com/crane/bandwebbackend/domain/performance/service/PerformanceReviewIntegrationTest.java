@@ -4,8 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.crane.bandwebbackend.TestcontainersConfiguration;
+import com.crane.bandwebbackend.domain.participant.service.PerformanceRef;
 import com.crane.bandwebbackend.domain.performance.dto.VoteMethodChangeRequest;
 import com.crane.bandwebbackend.domain.performance.entity.VoteMethod;
+import com.crane.bandwebbackend.domain.song.service.SongService;
 import com.crane.bandwebbackend.global.error.BusinessException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
@@ -41,6 +43,9 @@ class PerformanceReviewIntegrationTest {
     @Autowired
     private PerformanceLockService locks;
 
+    @Autowired
+    private SongService songs;
+
     @Test
     @DisplayName("검증 규칙 2.2/API-051 공연 확정 시 상태 전이와 셋리스트 확정 감사를 함께 기록한다")
     void lockRecordsBothAuditActions() {
@@ -62,6 +67,22 @@ class PerformanceReviewIntegrationTest {
         assertThat(jdbc.queryForObject(
                         "SELECT COUNT(*) FROM audit_log WHERE action='SETLIST_CONFIRMED' AND target_id=1", Long.class))
                 .isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("API-077 객원이 본인 곡이 아닌 세트리스트 곡을 볼 때 최소 응답에도 performanceId가 있다")
+    void guestMinimalSongHasPerformanceId() {
+        jdbc.update(
+                "INSERT INTO team (id,performance_id,name,status,source,created_by_user_id) VALUES (1,1,'팀','APPROVED','ADMIN',1)");
+        jdbc.update(
+                "INSERT INTO song (id,performance_id,title,status,setlist_order,assigned_team_id,proposed_by_membership_id) VALUES (1,1,'선정곡','CONFIRMED',1,1,1)");
+        jdbc.update(
+                "INSERT INTO song_session_member (song_id,performance_id,performance_member_id,part_id) VALUES (1,1,2,1)");
+        locks.lock(1L, 1L, 1L, "0", true);
+
+        var detail = songs.detail(new PerformanceRef(1L, 1L, 9L), 1L);
+
+        assertThat(detail.getSong().getPerformanceId()).isEqualTo(1L);
     }
 
     @Test
