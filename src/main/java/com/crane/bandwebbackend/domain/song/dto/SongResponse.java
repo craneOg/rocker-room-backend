@@ -89,6 +89,7 @@ public class SongResponse {
     public static SongResponse minimal(Song song) {
         return SongResponse.builder()
                 .id(song.getId())
+                .performanceId(song.getPerformance().getId())
                 .status(song.getStatus())
                 .title(song.getTitle())
                 .artist(song.getArtist())

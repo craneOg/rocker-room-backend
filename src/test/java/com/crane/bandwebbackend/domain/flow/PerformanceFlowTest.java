@@ -193,7 +193,8 @@ class PerformanceFlowTest {
         send(put(BASE + "/songs/" + songId + "/requirements"), ADMIN, """
                         {"version":"%s","requirements":[{"partId":"1","requiredCount":1}]}""".formatted(v2))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+                .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.error.details[0].field").value("items"));
         confirmed = send(put(BASE + "/songs/" + songId + "/requirements"), ADMIN, """
                         {"version":"%s","items":[{"partId":"1","requiredCount":1}]}""".formatted(v2))
                 .andExpect(status().isOk())

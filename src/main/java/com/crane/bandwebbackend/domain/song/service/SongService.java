@@ -410,14 +410,14 @@ public class SongService {
         em.refresh(song, LockModeType.PESSIMISTIC_WRITE);
         song.verifyVersion(req.getVersion());
         Set<Long> seen = new HashSet<>();
-        for (SongRequests.Requirement r : req.getRequirements()) {
+        for (SongRequests.Requirement r : req.getItems()) {
             if (!seen.add(r.getPartId())) {
                 throw new BusinessException(ErrorCode.VALIDATION_ERROR, "DUPLICATE_PART", "같은 파트가 중복되었습니다.");
             }
         }
         Map<Long, Part> parts = accessService.getParts(access.clubId(), seen);
         requirementRepository.deleteBySongId(songId);
-        requirementRepository.saveAll(req.getRequirements().stream()
+        requirementRepository.saveAll(req.getItems().stream()
                 .map(r -> SongPartRequirement.of(song, parts.get(r.getPartId()), r.getRequiredCount()))
                 .toList());
         forceIncrement(song);
@@ -690,7 +690,7 @@ public class SongService {
             teamOnly = teamService.memberIdsByTeam(access.performanceId()).getOrDefault(team.getId(), Set.of());
         }
         Map<Long, Integer> before = access.isLocked() ? confirmedOrders(access.performanceId()) : Map.of();
-        List<Warning> warnings = replaceSessionRows(access, song, req.getSessions(), teamOnly);
+        List<Warning> warnings = replaceSessionRows(access, song, req.getItems(), teamOnly);
         forceIncrement(song);
         if (access.isLocked() && song.isConfirmed()) {
             songRepository.flush();
