@@ -46,7 +46,7 @@ public class SetlistService {
     private final TeamService teamService;
 
     /**
-     * API-087. CONFIRMED 곡만. GUEST는 LOCKED·FINISHED 공연에서 전체 곡의 title·artist·order만,
+     * API-087. CONFIRMED 곡만. GUEST는 LOCKED·FINISHED 공연에서 전체 곡의 id·performanceId·title·artist·status·order만,
      * 그 전에는 본인 곡만. sessions는 본인 곡에 대해서만
      */
     public SetlistResponse get(PerformanceRef ref) {
