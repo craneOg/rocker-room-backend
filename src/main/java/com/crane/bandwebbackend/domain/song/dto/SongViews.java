@@ -8,12 +8,9 @@ import com.crane.bandwebbackend.domain.schedule.entity.PracticeSchedule;
 import com.crane.bandwebbackend.domain.schedule.entity.ScheduleStatus;
 import com.crane.bandwebbackend.domain.schedule.entity.ScheduleType;
 import com.crane.bandwebbackend.domain.song.entity.SongPartRequirement;
-import com.crane.bandwebbackend.global.response.Effects;
 import com.crane.bandwebbackend.global.response.PageResponse;
-import com.crane.bandwebbackend.global.response.Warning;
 import com.crane.bandwebbackend.global.serialization.IdString;
 import com.crane.bandwebbackend.global.time.KstTime;
-import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonUnwrapped;
 import java.time.OffsetDateTime;
@@ -201,16 +198,14 @@ public final class SongViews {
         }
     }
 
-    // 변경 응답: {song, sessions?, requirements?, warnings, effects?}
+    // API-079 응답
     @Getter
     @Builder
-    @JsonInclude(JsonInclude.Include.NON_NULL)
-    public static class Result {
+    public static class RequirementsResult {
 
-        private final SongResponse song;
-        private final List<Session> sessions;
-        private final List<Requirement> requirements;
-        private final List<Warning> warnings;
-        private final Effects effects;
+        @IdString
+        private final Long songVersion;
+
+        private final List<Requirement> items;
     }
 }

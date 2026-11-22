@@ -6,7 +6,9 @@ import com.crane.bandwebbackend.domain.participant.service.PerformanceAccessServ
 import com.crane.bandwebbackend.domain.participant.service.PerformanceRef;
 import com.crane.bandwebbackend.domain.performance.entity.PerformanceStatus;
 import com.crane.bandwebbackend.domain.setlist.dto.SetlistItemResponse;
+import com.crane.bandwebbackend.domain.setlist.dto.SetlistOrderResult;
 import com.crane.bandwebbackend.domain.setlist.dto.SetlistRequest;
+import com.crane.bandwebbackend.domain.song.dto.SongResponse;
 import com.crane.bandwebbackend.domain.song.dto.SongViews;
 import com.crane.bandwebbackend.domain.song.entity.Song;
 import com.crane.bandwebbackend.domain.song.entity.SongSessionMember;
@@ -77,7 +79,7 @@ public class SetlistService {
 
     // API-088. 곡 version 전부와 공연 version을 한 트랜잭션에서 검사(O-01·O-03)
     @Transactional
-    public List<SetlistItemResponse> save(PerformanceRef ref, SetlistRequest req) {
+    public SetlistOrderResult save(PerformanceRef ref, SetlistRequest req) {
         PerformanceAccess access = accessService.getForUpdate(ref);
         access.requireAdmin();
         access.requireEditable();
@@ -121,7 +123,13 @@ public class SetlistService {
         if (access.isLocked()) {
             songService.auditLockedSetlist(access, req.getReason(), before);
         }
-        return get(ref);
+        return SetlistOrderResult.builder()
+                .performanceVersion(access.getPerformance().getVersion())
+                .items(confirmed.values().stream()
+                        .sorted(ORDER)
+                        .map(SongResponse::from)
+                        .toList())
+                .build();
     }
 
     private static SetlistItemResponse item(

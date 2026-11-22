@@ -2,8 +2,10 @@ package com.crane.bandwebbackend.domain.song.controller;
 
 import com.crane.bandwebbackend.domain.participant.service.PerformanceRef;
 import com.crane.bandwebbackend.domain.song.dto.SongRequests;
+import com.crane.bandwebbackend.domain.song.dto.SongResponse;
 import com.crane.bandwebbackend.domain.song.dto.SongViews;
 import com.crane.bandwebbackend.domain.song.service.SongService;
+import com.crane.bandwebbackend.global.response.MutationResult;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -54,7 +56,7 @@ public class SongController {
     // API-076
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public SongViews.Result create(
+    public MutationResult<SongResponse> create(
             @PathVariable Long clubId,
             @PathVariable Long performanceId,
             @AuthenticationPrincipal(expression = "userId()") Long userId,
@@ -74,7 +76,7 @@ public class SongController {
 
     // API-078
     @PatchMapping("/{songId}")
-    public SongViews.Result update(
+    public SongResponse update(
             @PathVariable Long clubId,
             @PathVariable Long performanceId,
             @PathVariable Long songId,
@@ -85,7 +87,7 @@ public class SongController {
 
     // API-079
     @PutMapping("/{songId}/requirements")
-    public SongViews.Result requirements(
+    public SongViews.RequirementsResult requirements(
             @PathVariable Long clubId,
             @PathVariable Long performanceId,
             @PathVariable Long songId,
@@ -96,7 +98,7 @@ public class SongController {
 
     // API-080
     @PostMapping("/{songId}/confirm")
-    public SongViews.Result confirm(
+    public MutationResult<SongResponse> confirm(
             @PathVariable Long clubId,
             @PathVariable Long performanceId,
             @PathVariable Long songId,
@@ -107,7 +109,7 @@ public class SongController {
 
     // API-081
     @PostMapping("/{songId}/unconfirm")
-    public SongViews.Result unconfirm(
+    public MutationResult<SongResponse> unconfirm(
             @PathVariable Long clubId,
             @PathVariable Long performanceId,
             @PathVariable Long songId,
@@ -118,7 +120,7 @@ public class SongController {
 
     // API-082
     @PostMapping("/{songId}/reject")
-    public SongViews.Result reject(
+    public MutationResult<SongResponse> reject(
             @PathVariable Long clubId,
             @PathVariable Long performanceId,
             @PathVariable Long songId,
@@ -129,7 +131,7 @@ public class SongController {
 
     // API-083
     @PostMapping("/{songId}/withdraw")
-    public SongViews.Result withdraw(
+    public SongResponse withdraw(
             @PathVariable Long clubId,
             @PathVariable Long performanceId,
             @PathVariable Long songId,
@@ -140,7 +142,7 @@ public class SongController {
 
     // API-156
     @PostMapping("/{songId}/reconsider")
-    public SongViews.Result reconsider(
+    public SongResponse reconsider(
             @PathVariable Long clubId,
             @PathVariable Long performanceId,
             @PathVariable Long songId,
@@ -151,7 +153,7 @@ public class SongController {
 
     // API-157
     @PostMapping("/{songId}/remove")
-    public SongViews.Result remove(
+    public SongResponse remove(
             @PathVariable Long clubId,
             @PathVariable Long performanceId,
             @PathVariable Long songId,
@@ -162,7 +164,7 @@ public class SongController {
 
     // API-084
     @PutMapping("/{songId}/assigned-team")
-    public SongViews.Result assignTeam(
+    public MutationResult<SongResponse> assignTeam(
             @PathVariable Long clubId,
             @PathVariable Long performanceId,
             @PathVariable Long songId,
@@ -173,7 +175,7 @@ public class SongController {
 
     // API-085
     @PutMapping("/{songId}/sessions")
-    public SongViews.Result sessions(
+    public MutationResult<SongResponse> sessions(
             @PathVariable Long clubId,
             @PathVariable Long performanceId,
             @PathVariable Long songId,
