@@ -176,7 +176,7 @@ class PerformanceFlowTest {
 
         // API-085·079 하위 행 교체 응답의 version으로 바로 다음 수정이 가능해야 함(새로고침 없이 연속 저장)
         String sessionsBody = """
-                {"version":"%s","sessions":[{"performanceMemberId":"2","partId":"1"}]}""";
+                {"version":"%s","items":[{"performanceMemberId":"2","partId":"1"}]}""";
         Object v1 = JsonPath.read(confirmed, "$.data.resource.version");
         String saved = send(put(BASE + "/songs/" + songId + "/sessions"), ADMIN, sessionsBody.formatted(v1))
                 .andExpect(status().isOk())
@@ -189,8 +189,13 @@ class PerformanceFlowTest {
                 .getResponse()
                 .getContentAsString();
         Object v2 = JsonPath.read(saved, "$.data.resource.version");
-        confirmed = send(put(BASE + "/songs/" + songId + "/requirements"), ADMIN, """
+        // API-079 구 필드명(requirements)은 더 이상 받지 않음
+        send(put(BASE + "/songs/" + songId + "/requirements"), ADMIN, """
                         {"version":"%s","requirements":[{"partId":"1","requiredCount":1}]}""".formatted(v2))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+        confirmed = send(put(BASE + "/songs/" + songId + "/requirements"), ADMIN, """
+                        {"version":"%s","items":[{"partId":"1","requiredCount":1}]}""".formatted(v2))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.songVersion").isString())
                 .andExpect(jsonPath("$.data.items[0].partId").value("1"))
@@ -238,6 +243,14 @@ class PerformanceFlowTest {
                 .andReturn()
                 .getResponse()
                 .getContentAsString();
+
+        // API-087 {items, performanceVersion}. song에 performanceId·status 포함
+        send(get(BASE + "/setlist"), ADMIN, null)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.performanceVersion").isString())
+                .andExpect(jsonPath("$.data.items[0].song.id").value(songId))
+                .andExpect(jsonPath("$.data.items[0].song.performanceId").value("1"))
+                .andExpect(jsonPath("$.data.items[0].song.status").value("CONFIRMED"));
 
         // API-082 선정곡 제외는 확인 필요(0.1)
         send(post(BASE + "/songs/" + songId + "/reject"), ADMIN, """
@@ -380,7 +393,8 @@ class PerformanceFlowTest {
                 .andExpect(jsonPath("$.error.details[0].reason").value("INVALID_RANGE"));
         send(get(BASE + "/availability/members/2").param("from", from).param("to", over31), ADMIN, null)
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.slots.length()").value(1));
+                .andExpect(jsonPath("$.data.items.length()").value(1))
+                .andExpect(jsonPath("$.data.slots").doesNotExist());
 
         // API-086 선정곡(담당 팀 없음)의 연주자로 팀 만들기 → {team, song}
         Object otherVersion = JsonPath.read(other, "$.data.song.version");

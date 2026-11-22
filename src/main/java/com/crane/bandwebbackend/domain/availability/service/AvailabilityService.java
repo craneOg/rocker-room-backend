@@ -60,11 +60,11 @@ public class AvailabilityService {
         if (pm == null) {
             throw new BusinessException(ErrorCode.FORBIDDEN, "공연 참여자만 조회할 수 있습니다.");
         }
-        return items(read(pm.getId(), from, to, MAX_RANGE));
+        return read(pm.getId(), from, to, MAX_RANGE);
     }
 
     // API-102 임원의 원본 조회. 대리 쓰기 API는 없음
-    public AvailabilityResponse getMember(
+    public AvailableTimesResponse getMember(
             PerformanceRef ref, Long performanceMemberId, OffsetDateTime from, OffsetDateTime to) {
         PerformanceAccess access = accessService.get(ref);
         access.requireAdmin();
@@ -211,20 +211,15 @@ public class AvailabilityService {
                 .build();
     }
 
-    private static AvailableTimesResponse items(AvailabilityResponse r) {
-        return AvailableTimesResponse.builder().items(r.getSlots()).build();
-    }
-
-    private AvailabilityResponse read(Long memberId, OffsetDateTime from, OffsetDateTime to, Duration maxRange) {
+    private AvailableTimesResponse read(Long memberId, OffsetDateTime from, OffsetDateTime to, Duration maxRange) {
         if ((from == null) != (to == null)) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "INVALID_RANGE", "from과 to는 함께 보내야 합니다.");
         }
         if (from == null) {
-            return response(memberId, null, null, slotRepository.findStarts(memberId));
+            return items(slotRepository.findStarts(memberId));
         }
         validateRange(from, to, maxRange);
-        return response(
-                memberId, from, to, slotRepository.findStartsInRange(memberId, KstTime.toUtc(from), KstTime.toUtc(to)));
+        return items(slotRepository.findStartsInRange(memberId, KstTime.toUtc(from), KstTime.toUtc(to)));
     }
 
     /**
@@ -292,14 +287,8 @@ public class AvailabilityService {
                 .build();
     }
 
-    private static AvailabilityResponse response(
-            Long memberId, OffsetDateTime from, OffsetDateTime to, List<LocalDateTime> utcStarts) {
-        return AvailabilityResponse.builder()
-                .performanceMemberId(memberId)
-                .from(from == null ? null : from.withOffsetSameInstant(KstTime.KST))
-                .to(to == null ? null : to.withOffsetSameInstant(KstTime.KST))
-                .slots(merge(utcStarts))
-                .build();
+    private static AvailableTimesResponse items(List<LocalDateTime> utcStarts) {
+        return AvailableTimesResponse.builder().items(merge(utcStarts)).build();
     }
 
     private static void validateRange(OffsetDateTime from, OffsetDateTime to, Duration maxRange) {

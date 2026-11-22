@@ -1,6 +1,7 @@
 package com.crane.bandwebbackend.domain.setlist.dto;
 
 import com.crane.bandwebbackend.domain.song.dto.SongViews;
+import com.crane.bandwebbackend.domain.song.entity.SongStatus;
 import com.crane.bandwebbackend.global.serialization.IdString;
 import java.util.List;
 import lombok.Builder;
@@ -21,8 +22,12 @@ public class SetlistItemResponse {
         @IdString
         private final Long id;
 
+        @IdString
+        private final Long performanceId;
+
         private final String title;
         private final String artist;
+        private final SongStatus status;
         // NULL = 미배정
         private final Integer setlistOrder;
 

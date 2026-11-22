@@ -1,7 +1,6 @@
 package com.crane.bandwebbackend.domain.availability.controller;
 
 import com.crane.bandwebbackend.domain.availability.dto.AvailabilityRequest;
-import com.crane.bandwebbackend.domain.availability.dto.AvailabilityResponse;
 import com.crane.bandwebbackend.domain.availability.dto.AvailableTimesResponse;
 import com.crane.bandwebbackend.domain.availability.dto.CommonAvailabilityResponse;
 import com.crane.bandwebbackend.domain.availability.service.AvailabilityService;
@@ -51,7 +50,7 @@ public class AvailabilityController {
 
     // API-102
     @GetMapping("/members/{performanceMemberId}")
-    public AvailabilityResponse getMember(
+    public AvailableTimesResponse getMember(
             @PathVariable Long clubId,
             @PathVariable Long performanceId,
             @PathVariable Long performanceMemberId,

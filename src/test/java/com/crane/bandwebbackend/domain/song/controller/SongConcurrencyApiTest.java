@@ -86,7 +86,7 @@ class SongConcurrencyApiTest {
                                                 new AuthPrincipal(1, "sid", "jti", false), null, List.of())))
                                         .header("X-Requested-With", "XMLHttpRequest")
                                         .contentType(MediaType.APPLICATION_JSON)
-                                        .content("{\"version\":\"" + version + "\",\"" + path + "\":" + array + "}"))
+                                        .content("{\"version\":\"" + version + "\",\"items\":" + array + "}"))
                         .andReturn()
                         .getResponse();
                 return response.getStatus() + (response.getStatus() == 200 ? "" : response.getContentAsString());

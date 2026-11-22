@@ -1,12 +1,11 @@
 package com.crane.bandwebbackend.domain.setlist.controller;
 
 import com.crane.bandwebbackend.domain.participant.service.PerformanceRef;
-import com.crane.bandwebbackend.domain.setlist.dto.SetlistItemResponse;
 import com.crane.bandwebbackend.domain.setlist.dto.SetlistOrderResult;
 import com.crane.bandwebbackend.domain.setlist.dto.SetlistRequest;
+import com.crane.bandwebbackend.domain.setlist.dto.SetlistResponse;
 import com.crane.bandwebbackend.domain.setlist.service.SetlistService;
 import jakarta.validation.Valid;
-import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -25,7 +24,7 @@ public class SetlistController {
 
     // API-087
     @GetMapping
-    public List<SetlistItemResponse> get(
+    public SetlistResponse get(
             @PathVariable Long clubId,
             @PathVariable Long performanceId,
             @AuthenticationPrincipal(expression = "userId()") Long userId) {
