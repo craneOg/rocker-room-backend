@@ -70,7 +70,7 @@ class PerformanceReviewIntegrationTest {
     }
 
     @Test
-    @DisplayName("API-077 객원이 본인 곡이 아닌 세트리스트 곡을 볼 때 최소 응답에도 performanceId가 있다")
+    @DisplayName("API-077 객원이 본인 곡이 아닌 셋리스트 곡을 볼 때 최소 응답에도 performanceId가 있다")
     void guestMinimalSongHasPerformanceId() {
         jdbc.update(
                 "INSERT INTO team (id,performance_id,name,status,source,created_by_user_id) VALUES (1,1,'팀','APPROVED','ADMIN',1)");
