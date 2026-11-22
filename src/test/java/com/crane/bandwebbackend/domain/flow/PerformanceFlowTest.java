@@ -61,8 +61,11 @@ class PerformanceFlowTest {
                 .andExpect(jsonPath("$.data.resource.memberCount").value(2))
                 .andExpect(jsonPath("$.data.team").doesNotExist())
                 .andExpect(jsonPath("$.data.warnings").isArray())
-                .andExpect(
-                        jsonPath("$.data.effects.approvedPerformanceMemberIds").isArray())
+                // 소속 2는 이미 APPROVED라 빠지고, 새로 만든 소속 3의 참여만 들어간다
+                .andExpect(jsonPath("$.data.effects.approvedPerformanceMemberIds.length()")
+                        .value(1))
+                .andExpect(jsonPath("$.data.effects.approvedPerformanceMemberIds[0]")
+                        .isString())
                 .andExpect(jsonPath("$.data.effects.affectedScheduleIds").isArray())
                 .andExpect(jsonPath("$.data.effects.affectedUserIds").isArray())
                 .andReturn()
