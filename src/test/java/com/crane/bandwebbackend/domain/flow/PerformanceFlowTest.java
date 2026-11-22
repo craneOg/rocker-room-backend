@@ -1,6 +1,7 @@
 package com.crane.bandwebbackend.domain.flow;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -200,10 +201,11 @@ class PerformanceFlowTest {
                 .andExpect(jsonPath("$.error.details[0].reason").value("SETLIST_CHANGED"));
         String ordered = send(put(BASE + "/setlist/order"), ADMIN, """
                         {"version":"0","items":[{"songId":"%s","order":null,"version":"%s"}]}""".formatted(songId, songVersion))
-                .andExpect(jsonPath("$.data.performanceVersion").isString())
+                // 셋리스트 저장은 공연 version을 올리지 않으므로 요청과 같은 값이다
+                .andExpect(jsonPath("$.data.performanceVersion").value("0"))
                 .andExpect(jsonPath("$.data.items[0].id").value(songId))
                 .andExpect(jsonPath("$.data.items[0].performanceId").value("1"))
-                .andExpect(jsonPath("$.data.items[0].setlistOrder").doesNotExist())
+                .andExpect(jsonPath("$.data.items[0].setlistOrder").value(nullValue()))
                 .andExpect(jsonPath("$.data.items[0].sessions").doesNotExist())
                 .andReturn()
                 .getResponse()
