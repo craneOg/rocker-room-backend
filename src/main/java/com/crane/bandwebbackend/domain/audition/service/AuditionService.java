@@ -283,6 +283,7 @@ public class AuditionService {
             String type,
             Long songId,
             Long scheduleId,
+            Long auditionId,
             int page,
             int size) {
         // 임원 전용 목록이므로 권한·공연 경계와 페이지/필터 값을 먼저 검증한다.
@@ -305,6 +306,7 @@ public class AuditionService {
                 .filter(entry -> scheduleId == null
                         || entry.getPracticeSchedule() != null
                                 && scheduleId.equals(entry.getPracticeSchedule().getId()))
+                .filter(entry -> auditionId == null || auditionId.equals(entry.getId()))
                 .toList();
         long pendingCount =
                 filtered.stream().filter(entry -> entry.getResult() == null).count();
@@ -323,9 +325,10 @@ public class AuditionService {
                     return 0;
                 })
                 .thenComparing(AuditionEntry::getId);
-        // 마지막에 tab을 적용한 뒤 요청 페이지 구간만 응답 DTO로 변환한다.
+        // 마지막에 tab(미지정 시 PENDING)을 적용한 뒤 요청 페이지 구간만 응답 DTO로 변환한다.
+        String effectiveTab = tab == null ? "PENDING" : tab;
         List<AuditionEntry> matches = filtered.stream()
-                .filter(entry -> tab == null || (tab.equals("PENDING") == (entry.getResult() == null)))
+                .filter(entry -> effectiveTab.equals("PENDING") == (entry.getResult() == null))
                 .sorted(order)
                 .toList();
         int from = (int) Math.min(matches.size(), (long) page * size);

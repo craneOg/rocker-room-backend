@@ -120,7 +120,7 @@ public class ScheduleValidationService {
         }
         if (patch.has("status")
                 && !schedule.getStatus().name().equals(patch.path("status").asText())) {
-            throw new BusinessException(ErrorCode.STATE_CONFLICT, "상태 전이는 별도 API로 처리합니다.");
+            throw new BusinessException(ErrorCode.STATE_CONFLICT, "INVALID_STATE", "상태 전이는 별도 API로 처리합니다.");
         }
         // 패치에 없는 시간·대상·전체 참석 여부는 현재 일정 값을 유지한다.
         LocalDateTime start = patch.has("startAt") ? parseTime(patch.get("startAt")) : schedule.getStartAt();

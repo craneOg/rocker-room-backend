@@ -40,6 +40,7 @@ public class AuditionController {
             @RequestParam(required = false) String type,
             @RequestParam(required = false) String songId,
             @RequestParam(required = false) String scheduleId,
+            @RequestParam(required = false) String auditionId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             HttpServletRequest request) {
@@ -51,6 +52,7 @@ public class AuditionController {
                 type,
                 songId == null ? null : ApiIds.positive(songId, "songId"),
                 scheduleId == null ? null : ApiIds.positive(scheduleId, "scheduleId"),
+                auditionId == null ? null : ApiIds.positive(auditionId, "auditionId"),
                 page,
                 size);
         return ResponseEntity.ok(ApiResponse.ok(result));
