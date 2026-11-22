@@ -73,9 +73,11 @@ class AuditionListFilterIntegrationTest {
                 .andExpect(jsonPath("$.data.items.length()").value(1))
                 .andExpect(jsonPath("$.data.items[0].id").value("1"))
                 .andExpect(jsonPath("$.data.pendingCount").value(1));
+        // pendingCount는 tab과 무관하다
         mvc.perform(get(LIST).cookie(admin()).param("tab", "DONE"))
                 .andExpect(jsonPath("$.data.items.length()").value(1))
-                .andExpect(jsonPath("$.data.items[0].id").value("2"));
+                .andExpect(jsonPath("$.data.items[0].id").value("2"))
+                .andExpect(jsonPath("$.data.pendingCount").value(1));
     }
 
     @Test
@@ -84,6 +86,9 @@ class AuditionListFilterIntegrationTest {
         mvc.perform(get(LIST).cookie(admin()).param("auditionId", "1"))
                 .andExpect(jsonPath("$.data.items.length()").value(1))
                 .andExpect(jsonPath("$.data.items[0].id").value("1"));
+        mvc.perform(get(LIST).cookie(admin()).param("auditionId", "1").param("tab", "DONE"))
+                .andExpect(jsonPath("$.data.items.length()").value(0))
+                .andExpect(jsonPath("$.data.pendingCount").value(1));
         // 다른 공연의 ID는 오류가 아니라 빈 목록
         mvc.perform(get(LIST).cookie(admin()).param("auditionId", "3").param("tab", "PENDING"))
                 .andExpect(status().isOk())
