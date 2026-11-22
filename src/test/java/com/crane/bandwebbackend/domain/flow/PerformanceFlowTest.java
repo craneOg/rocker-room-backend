@@ -55,14 +55,20 @@ class PerformanceFlowTest {
                          "leaderMembershipId":"2"}""")
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.meta.requestId").isNotEmpty())
-                .andExpect(jsonPath("$.data.team.status").value("APPROVED"))
-                .andExpect(jsonPath("$.data.team.isDefault").value(false))
-                .andExpect(jsonPath("$.data.team.leaderMembershipId").value("2"))
-                .andExpect(jsonPath("$.data.team.memberCount").value(2))
+                .andExpect(jsonPath("$.data.resource.status").value("APPROVED"))
+                .andExpect(jsonPath("$.data.resource.isDefault").value(false))
+                .andExpect(jsonPath("$.data.resource.leaderMembershipId").value("2"))
+                .andExpect(jsonPath("$.data.resource.memberCount").value(2))
+                .andExpect(jsonPath("$.data.team").doesNotExist())
+                .andExpect(jsonPath("$.data.warnings").isArray())
+                .andExpect(
+                        jsonPath("$.data.effects.approvedPerformanceMemberIds").isArray())
+                .andExpect(jsonPath("$.data.effects.affectedScheduleIds").isArray())
+                .andExpect(jsonPath("$.data.effects.affectedUserIds").isArray())
                 .andReturn()
                 .getResponse()
                 .getContentAsString();
-        String teamId = JsonPath.read(team, "$.data.team.id");
+        String teamId = JsonPath.read(team, "$.data.resource.id");
 
         // API-154 T-07
         send(get(BASE + "/teams/default-name"), MEMBER, null)
@@ -76,7 +82,25 @@ class PerformanceFlowTest {
         // API-061·063
         send(get(BASE + "/teams"), ADMIN, null)
                 .andExpect(jsonPath("$.data.statusCounts.APPROVED").value(1))
-                .andExpect(jsonPath("$.data.content[0].performanceId").value("1"));
+                .andExpect(jsonPath("$.data.content").doesNotExist())
+                .andExpect(jsonPath("$.data.items[0].performanceId").value("1"))
+                .andExpect(jsonPath("$.data.page").value(0))
+                .andExpect(jsonPath("$.data.size").value(20))
+                .andExpect(jsonPath("$.data.totalElements").value(1))
+                .andExpect(jsonPath("$.data.totalPages").value(1));
+        // API-061 page·size: 범위 밖 페이지는 빈 items, totalElements·statusCounts는 전체 기준
+        send(get(BASE + "/teams?page=1&size=1"), ADMIN, null)
+                .andExpect(jsonPath("$.data.items.length()").value(0))
+                .andExpect(jsonPath("$.data.page").value(1))
+                .andExpect(jsonPath("$.data.size").value(1))
+                .andExpect(jsonPath("$.data.totalElements").value(1))
+                .andExpect(jsonPath("$.data.totalPages").value(1))
+                .andExpect(jsonPath("$.data.statusCounts.APPROVED").value(1));
+        for (String bad : new String[] {"size=0", "size=101", "page=-1"}) {
+            send(get(BASE + "/teams?" + bad), ADMIN, null)
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+        }
         send(get(BASE + "/teams/" + teamId), MEMBER, null)
                 .andExpect(jsonPath("$.data.team.performanceId").value("1"))
                 .andExpect(jsonPath("$.data.members[0].teamId").value(teamId))
@@ -250,6 +274,24 @@ class PerformanceFlowTest {
         send(get(BASE + "/availability/members/2").param("from", from).param("to", over31), ADMIN, null)
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.slots.length()").value(1));
+
+        // API-086 선정곡(담당 팀 없음)의 연주자로 팀 만들기 → {team, song}
+        Object otherVersion = JsonPath.read(other, "$.data.song.version");
+        String confirmedOther = send(post(BASE + "/songs/" + otherId + "/confirm"), ADMIN, """
+                        {"version":"%s","setlistOrder":2,"sessions":[{"performanceMemberId":"2","partId":"1"}]}""".formatted(otherVersion))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+        Object otherConfirmedVersion = JsonPath.read(confirmedOther, "$.data.song.version");
+        send(post(BASE + "/teams"), ADMIN, """
+                        {"sourceSongId":"%s","version":"%s","name":"곡B팀"}""".formatted(otherId, otherConfirmedVersion))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.team.name").value("곡B팀"))
+                .andExpect(jsonPath("$.data.team.status").value("APPROVED"))
+                .andExpect(jsonPath("$.data.song.id").value(otherId))
+                .andExpect(jsonPath("$.data.song.assignedTeamId").isNotEmpty())
+                .andExpect(jsonPath("$.data.resource").doesNotExist());
 
         // G-04 다른 동아리 경로는 404
         send(get("/api/v1/clubs/999/performances/1/songs"), ADMIN, null).andExpect(status().isNotFound());

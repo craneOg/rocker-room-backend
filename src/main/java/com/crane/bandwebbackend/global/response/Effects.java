@@ -12,9 +12,15 @@ import lombok.Getter;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class Effects {
 
+    // API-062: 함께 승인된 참여자
+    @IdString
+    private final List<Long> approvedPerformanceMemberIds;
     // API-081·082: 해제된 일정 연결
     @IdString
     private final List<Long> affectedScheduleIds;
+    // API-062
+    @IdString
+    private final List<Long> affectedUserIds;
     // API-072·073: TEAM_WITHDRAWN으로 바뀐 후보곡
     @IdString
     private final List<Long> withdrawnSongIds;

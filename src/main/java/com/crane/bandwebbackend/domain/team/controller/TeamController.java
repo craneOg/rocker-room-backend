@@ -39,14 +39,16 @@ public class TeamController {
             @PathVariable Long performanceId,
             @AuthenticationPrincipal(expression = "userId()") Long userId,
             @RequestParam(required = false) String status,
-            @RequestParam(defaultValue = "false") boolean mine) {
-        return teamQueryService.list(ref(clubId, performanceId, userId), status, mine);
+            @RequestParam(defaultValue = "false") boolean mine,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return teamQueryService.list(ref(clubId, performanceId, userId), status, mine, page, size);
     }
 
     // API-062 / API-086(C7: 본문에 sourceSongId가 있으면 곡 연주자로 팀 만들기)
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public TeamResults.Result create(
+    public Object create(
             @PathVariable Long clubId,
             @PathVariable Long performanceId,
             @AuthenticationPrincipal(expression = "userId()") Long userId,

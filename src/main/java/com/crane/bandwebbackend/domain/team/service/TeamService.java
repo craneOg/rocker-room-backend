@@ -31,6 +31,7 @@ import com.crane.bandwebbackend.global.audit.AuditLogRepository;
 import com.crane.bandwebbackend.global.error.BusinessException;
 import com.crane.bandwebbackend.global.error.ErrorCode;
 import com.crane.bandwebbackend.global.response.Effects;
+import com.crane.bandwebbackend.global.response.MutationResult;
 import com.crane.bandwebbackend.global.response.Warning;
 import com.crane.bandwebbackend.global.time.KstTime;
 import jakarta.persistence.EntityManager;
@@ -237,7 +238,7 @@ public class TeamService {
     // ---------- API-062 팀 생성 ----------
 
     @Transactional
-    public TeamResults.Result create(PerformanceRef ref, TeamRequests.Create req) {
+    public MutationResult<TeamResponse> create(PerformanceRef ref, TeamRequests.Create req) {
         // 이름 중복 검사 전 공연 행 잠금(0.4)
         PerformanceAccess access = accessService.getForUpdate(ref);
         access.requireEditable();
@@ -300,7 +301,15 @@ public class TeamService {
         if (leader != null) {
             team.changeLeader(leader);
         }
-        return result(access, team, partWarnings(members));
+        return MutationResult.<TeamResponse>builder()
+                .resource(respond(access, team))
+                .warnings(partWarnings(members))
+                .effects(Effects.builder()
+                        .approvedPerformanceMemberIds(List.of())
+                        .affectedScheduleIds(List.of())
+                        .affectedUserIds(List.of())
+                        .build())
+                .build();
     }
 
     // ---------- API-064 팀명 변경 ----------

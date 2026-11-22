@@ -805,7 +805,7 @@ public class SongService {
     // ---------- API-086 연주자로 팀 만들기 ----------
 
     @Transactional
-    public TeamResults.Result createTeamFromSong(PerformanceRef ref, TeamRequests.Create req) {
+    public TeamResults.CreatedFromSong createTeamFromSong(PerformanceRef ref, TeamRequests.Create req) {
         if (req.getMembers() != null && !req.getMembers().isEmpty()) {
             throw new BusinessException(
                     ErrorCode.VALIDATION_ERROR, "SOURCE_SONG_WITH_MEMBERS", "sourceSongId와 members를 함께 보낼 수 없습니다.");
@@ -821,10 +821,9 @@ public class SongService {
         }
         Team team = teamService.createFromSessions(
                 access, song, songSupport.sessionsOf(song.getId()), req.getName(), req.getLeaderMembershipId());
-        return TeamResults.Result.builder()
+        return TeamResults.CreatedFromSong.builder()
                 .team(teamService.respond(access, team))
                 .song(respond(song))
-                .warnings(List.of())
                 .build();
     }
 
