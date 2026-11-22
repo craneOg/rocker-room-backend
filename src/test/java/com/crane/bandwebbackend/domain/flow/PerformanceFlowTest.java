@@ -102,7 +102,8 @@ class PerformanceFlowTest {
         for (String bad : new String[] {"size=0", "size=101", "page=-1"}) {
             send(get(BASE + "/teams?" + bad), ADMIN, null)
                     .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+                    .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"))
+                    .andExpect(jsonPath("$.error.details[0].reason").value("INVALID_PAGE"));
         }
         send(get(BASE + "/teams/" + teamId), MEMBER, null)
                 .andExpect(jsonPath("$.data.team.performanceId").value("1"))
@@ -294,7 +295,8 @@ class PerformanceFlowTest {
                 .andExpect(jsonPath("$.data.team.status").value("APPROVED"))
                 .andExpect(jsonPath("$.data.song.id").value(otherId))
                 .andExpect(jsonPath("$.data.song.assignedTeamId").isNotEmpty())
-                .andExpect(jsonPath("$.data.resource").doesNotExist());
+                .andExpect(jsonPath("$.data.resource").doesNotExist())
+                .andExpect(jsonPath("$.data.warnings").doesNotExist());
 
         // G-04 다른 동아리 경로는 404
         send(get("/api/v1/clubs/999/performances/1/songs"), ADMIN, null).andExpect(status().isNotFound());
