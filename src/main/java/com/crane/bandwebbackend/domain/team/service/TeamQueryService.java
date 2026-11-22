@@ -19,6 +19,7 @@ import com.crane.bandwebbackend.domain.team.entity.TeamMember;
 import com.crane.bandwebbackend.domain.team.entity.TeamStatus;
 import com.crane.bandwebbackend.global.error.BusinessException;
 import com.crane.bandwebbackend.global.error.ErrorCode;
+import com.crane.bandwebbackend.global.response.PageResponse;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.EnumMap;
@@ -27,6 +28,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,6 +42,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class TeamQueryService {
 
+    private static final int MAX_PAGE_SIZE = 100;
+
     private final TeamService teamService;
     private final PerformanceAccessService accessService;
     private final SongSupport songSupport;
@@ -46,7 +51,10 @@ public class TeamQueryService {
     private final EvaluationService evaluationService;
 
     // 정렬 고정: 기본 팀 먼저, 그다음 이름순
-    public TeamResults.ListResult list(PerformanceRef ref, String status, boolean mine) {
+    public TeamResults.ListResult list(PerformanceRef ref, String status, boolean mine, int page, int size) {
+        if (page < 0 || size < 1 || size > MAX_PAGE_SIZE) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "INVALID_PAGE", "page·size가 올바르지 않습니다.");
+        }
         Set<TeamStatus> statuses = parseStatuses(status);
         PerformanceAccess access = accessService.get(ref);
         Long pid = access.performanceId();
@@ -81,8 +89,11 @@ public class TeamQueryService {
                         s, (int) teams.stream().filter(t -> t.getStatus() == s).count());
             }
         }
+        int from = (int) Math.min((long) page * size, content.size());
+        int to = (int) Math.min((long) from + size, content.size());
         return TeamResults.ListResult.builder()
-                .content(content)
+                .page(PageResponse.from(
+                        new PageImpl<>(content.subList(from, to), PageRequest.of(page, size), content.size())))
                 .statusCounts(statusCounts)
                 .build();
     }

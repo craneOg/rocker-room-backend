@@ -31,6 +31,7 @@ import com.crane.bandwebbackend.global.audit.AuditLogRepository;
 import com.crane.bandwebbackend.global.error.BusinessException;
 import com.crane.bandwebbackend.global.error.ErrorCode;
 import com.crane.bandwebbackend.global.response.Effects;
+import com.crane.bandwebbackend.global.response.MutationResult;
 import com.crane.bandwebbackend.global.response.Warning;
 import com.crane.bandwebbackend.global.time.KstTime;
 import jakarta.persistence.EntityManager;
@@ -237,7 +238,7 @@ public class TeamService {
     // ---------- API-062 팀 생성 ----------
 
     @Transactional
-    public TeamResults.Result create(PerformanceRef ref, TeamRequests.Create req) {
+    public MutationResult<TeamResponse> create(PerformanceRef ref, TeamRequests.Create req) {
         // 이름 중복 검사 전 공연 행 잠금(0.4)
         PerformanceAccess access = accessService.getForUpdate(ref);
         access.requireEditable();
@@ -286,11 +287,20 @@ public class TeamService {
         // 팀장 FK(fk_team_leader_is_member) 때문에 팀 → 팀원 → 팀장 순서로 저장
         teamRepository.saveAndFlush(team);
         List<TeamMember> members = new ArrayList<>();
+        // effects.approvedPerformanceMemberIds: 이번 요청으로 APPROVED가 된 참여자(이미 승인된 참여자 제외)
+        List<PerformanceMember> approved = new ArrayList<>();
         PerformanceMember leader = null;
         for (Map.Entry<Long, Long> e : requested.entrySet()) {
             Membership membership = accessService.getMembership(access.clubId(), e.getKey());
             requireEligible(access, membership);
+            boolean wasApproved = accessService
+                    .findMemberByMembership(access.performanceId(), membership.getId())
+                    .map(p -> p.getStatus() == PerformanceMemberStatus.APPROVED)
+                    .orElse(false);
             PerformanceMember pm = enroll(access, membership, access.isAdmin());
+            if (!wasApproved && pm.getStatus() == PerformanceMemberStatus.APPROVED) {
+                approved.add(pm);
+            }
             members.add(TeamMember.of(team, pm, e.getValue() == null ? null : parts.get(e.getValue())));
             if (e.getKey().equals(leaderMembershipId)) {
                 leader = pm;
@@ -300,7 +310,16 @@ public class TeamService {
         if (leader != null) {
             team.changeLeader(leader);
         }
-        return result(access, team, partWarnings(members));
+        return MutationResult.<TeamResponse>builder()
+                .resource(respond(access, team))
+                .warnings(partWarnings(members))
+                .effects(Effects.builder()
+                        .approvedPerformanceMemberIds(
+                                approved.stream().map(PerformanceMember::getId).toList())
+                        .affectedScheduleIds(List.of())
+                        .affectedUserIds(List.of())
+                        .build())
+                .build();
     }
 
     // ---------- API-064 팀명 변경 ----------
