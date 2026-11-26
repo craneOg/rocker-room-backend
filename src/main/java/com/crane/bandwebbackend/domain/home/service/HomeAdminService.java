@@ -97,7 +97,7 @@ public class HomeAdminService {
             // 평가기는 위반 대상마다 한 줄을 돌려주므로 checkId로 묶는다(충족 시 SATISFIED 한 줄)
             Map<String, Long> violations = new LinkedHashMap<>();
             for (LockChecklistItem item : LockChecklistEvaluator.evaluate(
-                            lockReadinessReader.read(row.getPerformanceId()))
+                            lockReadinessReader.readWithoutNames(row.getPerformanceId()))
                     .getItems()) {
                 violations.merge(
                         item.getCheckId(), item.getResult() == LockChecklistItem.Result.SATISFIED ? 0L : 1L, Long::sum);

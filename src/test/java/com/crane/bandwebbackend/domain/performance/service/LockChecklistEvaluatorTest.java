@@ -11,6 +11,7 @@ import com.crane.bandwebbackend.domain.performance.service.LockChecklistEvaluato
 import com.crane.bandwebbackend.domain.performance.service.LockChecklistEvaluator.TeamRow;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 class LockChecklistEvaluatorTest {
@@ -23,7 +24,8 @@ class LockChecklistEvaluatorTest {
                 List.of(new ParticipantRow(21, "APPROVED"), new ParticipantRow(22, "APPROVED")),
                 List.of(new RequirementRow(1, 3, "드럼", 1)),
                 List.of(),
-                2));
+                2,
+                LockChecklistEvaluator.Names.EMPTY));
 
         assertThat(result.getHardErrors()).isEmpty();
         assertThat(result.getWarnings()).isEmpty();
@@ -44,7 +46,8 @@ class LockChecklistEvaluatorTest {
                 List.of(new ParticipantRow(8, "APPLIED")),
                 List.of(),
                 List.of(new AuditionRow(9, 1, null, null, LocalDateTime.parse("2026-11-01T10:00:00"))),
-                null));
+                null,
+                LockChecklistEvaluator.Names.EMPTY));
 
         assertThat(result.getHardErrors())
                 .extracting(item -> item.getCheckId())
@@ -63,7 +66,8 @@ class LockChecklistEvaluatorTest {
                 List.of(
                         new AuditionRow(30, 2, null, "PASSED", LocalDateTime.parse("2026-11-01T10:00:00")),
                         new AuditionRow(31, 2, null, "FAILED", LocalDateTime.parse("2026-11-02T10:00:00"))),
-                1));
+                1,
+                LockChecklistEvaluator.Names.EMPTY));
 
         assertThat(result.getHardErrors()).isEmpty();
         assertThat(result.getWarnings())
@@ -82,8 +86,28 @@ class LockChecklistEvaluatorTest {
                 List.of(
                         new AuditionRow(30, 1, null, "FAILED", LocalDateTime.parse("2026-11-01T10:00:00")),
                         new AuditionRow(31, 1, null, "PASSED", LocalDateTime.parse("2026-11-02T10:00:00"))),
-                1));
+                1,
+                LockChecklistEvaluator.Names.EMPTY));
 
         assertThat(result.getWarnings()).noneMatch(item -> item.getCheckId().equals("L-11"));
+    }
+
+    @Test
+    void consecutiveAppearanceMessageUsesSetlistOrderValues() {
+        var names = new LockChecklistEvaluator.Names(Map.of(), Map.of(), Map.of(21L, "부원A"));
+        var result = LockChecklistEvaluator.evaluate(new Snapshot(
+                List.of(new SongRow(1, 3, 11L, "APPROVED"), new SongRow(2, 4, 12L, "APPROVED")),
+                List.of(new PlayerRow(1, 21, 3, "APPROVED"), new PlayerRow(2, 21, 3, "APPROVED")),
+                List.of(),
+                List.of(new ParticipantRow(21, "APPROVED")),
+                List.of(),
+                List.of(),
+                null,
+                names));
+
+        assertThat(result.getWarnings())
+                .filteredOn(item -> item.getCheckId().equals("L-10"))
+                .extracting(item -> item.getMessage())
+                .containsExactly("부원A 3·4번 연속 출연합니다.");
     }
 }

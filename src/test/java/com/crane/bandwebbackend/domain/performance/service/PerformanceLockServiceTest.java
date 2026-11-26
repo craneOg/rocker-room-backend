@@ -55,7 +55,8 @@ class PerformanceLockServiceTest {
                         List.of(new ParticipantRow(21, "APPROVED"), new ParticipantRow(22, "APPROVED")),
                         List.of(),
                         List.of(),
-                        null));
+                        null,
+                        LockChecklistEvaluator.Names.EMPTY));
 
         assertThatThrownBy(() -> service.lock(1L, 3L, 5L, "8", false))
                 .isInstanceOfSatisfying(BusinessException.class, error -> {
@@ -86,7 +87,8 @@ class PerformanceLockServiceTest {
                         List.of(),
                         List.of(),
                         List.of(),
-                        null));
+                        null,
+                        LockChecklistEvaluator.Names.EMPTY));
 
         assertThatThrownBy(() -> service.lock(1L, 3L, 5L, "8", true))
                 .isInstanceOfSatisfying(BusinessException.class, error -> {

@@ -149,20 +149,9 @@ public final class LockChecklistEvaluator {
         @JsonProperty("maxSongsPerMember")
         private Integer maxSongsPerMember;
 
-        // 점검 message에 넣을 곡명·팀명·참여자 이름(없으면 이름 없는 문구)
+        // 점검 message에 넣을 곡명·팀명·참여자 이름(Names.EMPTY면 이름 없는 문구)
         @JsonIgnore
         private Names names;
-
-        public Snapshot(
-                List<SongRow> songs,
-                List<PlayerRow> players,
-                List<TeamRow> teams,
-                List<ParticipantRow> participants,
-                List<RequirementRow> requirements,
-                List<AuditionRow> auditions,
-                Integer maxSongsPerMember) {
-            this(songs, players, teams, participants, requirements, auditions, maxSongsPerMember, null);
-        }
     }
 
     /** L-01~L-11 message용 표시 이름. 키는 곡·팀·공연 참여자 ID다. */
@@ -172,6 +161,9 @@ public final class LockChecklistEvaluator {
         private final Map<Long, String> songs;
         private final Map<Long, String> teams;
         private final Map<Long, String> members;
+
+        /** 이름을 조회하지 않은 경우 */
+        public static final Names EMPTY = new Names(Map.of(), Map.of(), Map.of());
     }
 
     @Getter
@@ -220,7 +212,7 @@ public final class LockChecklistEvaluator {
                     .computeIfAbsent(player.getPerformanceMemberId(), ignored -> new HashSet<>())
                     .add(player.getSongId());
         }
-        Names names = snapshot.getNames() == null ? new Names(Map.of(), Map.of(), Map.of()) : snapshot.getNames();
+        Names names = snapshot.getNames();
         Map<String, List<LockChecklistItem>> byCheck = new LinkedHashMap<>();
         for (int i = 1; i <= 11; i++) byCheck.put(checkId(i), new ArrayList<>());
 
@@ -339,7 +331,7 @@ public final class LockChecklistEvaluator {
                         byCheck,
                         10,
                         "CONSECUTIVE_APPEARANCE",
-                        memberLabel(names, playerId) + i + "·" + (i + 1) + "번 연속 출연합니다.",
+                        memberLabel(names, playerId) + previous.getOrder() + "·" + current.getOrder() + "번 연속 출연합니다.",
                         "SONG",
                         current.getId());
         }
