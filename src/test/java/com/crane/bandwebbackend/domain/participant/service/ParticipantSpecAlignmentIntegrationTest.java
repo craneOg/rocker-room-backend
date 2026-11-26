@@ -136,8 +136,14 @@ class ParticipantSpecAlignmentIntegrationTest {
         jdbc.update("UPDATE performance_policy SET application_state='OPEN',"
                 + " application_deadline='2000-01-01 00:00:00' WHERE performance_id=1");
         assertThat(applyReason()).isEqualTo("DEADLINE_PASSED");
-        jdbc.update("UPDATE performance SET status='DRAFT' WHERE id=1");
+        jdbc.update("UPDATE performance SET status='LOCKED' WHERE id=1");
         assertThat(applyReason()).isEqualTo("PERFORMANCE_NOT_ACTIVE");
+        // 일반 부원에게 보이지 않는 DRAFT 공연은 상태 사유 대신 404로 존재를 숨긴다.
+        jdbc.update("UPDATE performance SET status='DRAFT' WHERE id=1");
+        assertThatThrownBy(() -> members.register(1L, 1L, 3L, PerformanceMemberSource.APPLICATION, null))
+                .isInstanceOfSatisfying(
+                        BusinessException.class,
+                        e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.NOT_FOUND));
     }
 
     private String applyReason() {

@@ -73,6 +73,10 @@ public class PerformanceMemberService {
         Membership actor = membershipService.requireMember(clubId, actorUserId);
         // 0.4/L-05: 신규·재신청 모두 확정과 같은 공연 행 잠금으로 직렬화한다.
         Performance performance = performanceService.requireLocked(clubId, performanceId);
+        // 판정 순서: 열람(404) → 자격(403) → 상태(409). 보이지 않는 공연은 상태 사유로 존재를 드러내지 않는다.
+        if (source == PerformanceMemberSource.APPLICATION) {
+            performanceService.detail(clubId, performanceId, actorUserId);
+        }
         if (performance.getClub().getStatus() != ClubStatus.ACTIVE) {
             throw new BusinessException(ErrorCode.STATE_CONFLICT, "CLUB_INACTIVE", "비활성 동아리에서는 참여를 등록할 수 없습니다.");
         }
@@ -84,6 +88,15 @@ public class PerformanceMemberService {
                 throw new BusinessException(ErrorCode.VALIDATION_ERROR, "본인 신청에는 membershipId를 보낼 수 없습니다.");
             }
             target = actor;
+            if (target.getStatus() == MembershipStatus.GRADUATED) {
+                throw new BusinessException(
+                        ErrorCode.FORBIDDEN, "GRADUATED_APPLICATION_FORBIDDEN", "졸업한 부원은 공연에 신청할 수 없습니다.");
+            }
+            if (target.getMemberType() != MemberType.REGULAR
+                    || (target.getStatus() != MembershipStatus.ACTIVE
+                            && target.getStatus() != MembershipStatus.ON_LEAVE)) {
+                throw new BusinessException(ErrorCode.FORBIDDEN, "공연 신청 자격이 없습니다.");
+            }
             if (performance.getStatus() != PerformanceStatus.ACTIVE) {
                 throw new BusinessException(ErrorCode.STATE_CONFLICT, "PERFORMANCE_NOT_ACTIVE", "신청 가능한 공연 상태가 아닙니다.");
             }
@@ -93,15 +106,6 @@ public class PerformanceMemberService {
             }
             if (policy.getApplicationDeadline() != null && !now.isBefore(policy.getApplicationDeadline())) {
                 throw new BusinessException(ErrorCode.STATE_CONFLICT, "DEADLINE_PASSED", "참여 신청 마감 시각이 지났습니다.");
-            }
-            if (target.getStatus() == MembershipStatus.GRADUATED) {
-                throw new BusinessException(
-                        ErrorCode.FORBIDDEN, "GRADUATED_APPLICATION_FORBIDDEN", "졸업한 부원은 공연에 신청할 수 없습니다.");
-            }
-            if (target.getMemberType() != MemberType.REGULAR
-                    || (target.getStatus() != MembershipStatus.ACTIVE
-                            && target.getStatus() != MembershipStatus.ON_LEAVE)) {
-                throw new BusinessException(ErrorCode.FORBIDDEN, "공연 신청 자격이 없습니다.");
             }
         } else {
             // 관리자 지정은 대상 소속과 공연 상태를 별도 규칙으로 검증한다.
