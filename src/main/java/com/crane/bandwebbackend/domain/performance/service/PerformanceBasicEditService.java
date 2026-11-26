@@ -16,6 +16,7 @@ import jakarta.persistence.EntityManager;
 import java.time.DateTimeException;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
@@ -66,6 +67,12 @@ public class PerformanceBasicEditService {
         String title = body.has("title") ? string(body.get("title"), 200, false) : performance.getTitle();
         LocalDate date = body.has("performDate") ? date(body.get("performDate")) : performance.getPerformDate();
         String location = body.has("location") ? string(body.get("location"), 200, true) : performance.getLocation();
+        Map<String, Object> from = new LinkedHashMap<>();
+        Map<String, Object> to = new LinkedHashMap<>();
+        // X-07: 바뀐 항목의 변경 전·후 값을 감사 기록에 남긴다.
+        AuditDiff.diff(from, to, "title", performance.getTitle(), title);
+        AuditDiff.diff(from, to, "performDate", performance.getPerformDate(), date);
+        AuditDiff.diff(from, to, "location", performance.getLocation(), location);
         // 엔티티 규칙으로 기본 정보를 변경하고 도메인 예외를 API 오류로 변환한다.
         try {
             performance.updateDetails(title, date, location);
@@ -80,7 +87,7 @@ public class PerformanceBasicEditService {
                 "PERFORMANCE",
                 performanceId,
                 reason,
-                Map.of("version", version));
+                Map.of("version", version, "from", from, "to", to));
         if (performance.getStatus() == PerformanceStatus.LOCKED) {
             auditRecorder.record(
                     clubId,
@@ -89,7 +96,7 @@ public class PerformanceBasicEditService {
                     "PERFORMANCE",
                     performanceId,
                     reason,
-                    Map.of("version", version));
+                    Map.of("version", version, "from", from, "to", to));
         }
         entityManager.flush();
         // 변경된 공연일과 합주 시즌의 불일치는 차단하지 않고 경고로 반환한다.

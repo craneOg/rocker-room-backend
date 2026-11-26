@@ -121,6 +121,7 @@ public class ParticipantRemovalService {
         }
         // P-07: 참여 이력은 보존하고 이전 팀·곡 배정은 재참여 시 복원되지 않도록 제거한다.
         assignments.removeAssignments(performanceId, participantId);
+        String from = member.getStatus().name();
         member.transitionTo(
                 reject ? PerformanceMemberStatus.REJECTED : PerformanceMemberStatus.WITHDRAWN,
                 LocalDateTime.now(ZoneOffset.UTC));
@@ -131,8 +132,14 @@ public class ParticipantRemovalService {
                 "PERFORMANCE_MEMBER",
                 participantId,
                 body.getReason(),
-                Map.of("status", member.getStatus()));
-        removalPolicy.recordException(performance, actorUserId, participantId, body.getReason());
+                Map.of("from", from, "to", member.getStatus().name()));
+        removalPolicy.recordException(
+                performance,
+                actorUserId,
+                participantId,
+                body.getReason(),
+                from,
+                member.getStatus().name());
         entityManager.flush();
         return new ParticipantMutationResult(
                 ParticipantResponse.from(member),

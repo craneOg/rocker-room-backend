@@ -7,6 +7,7 @@ import com.crane.bandwebbackend.domain.performance.dto.VoteMethodChangeRequest;
 import com.crane.bandwebbackend.domain.performance.entity.Performance;
 import com.crane.bandwebbackend.domain.performance.entity.PerformancePolicy;
 import com.crane.bandwebbackend.domain.performance.entity.PerformanceStatus;
+import com.crane.bandwebbackend.domain.performance.entity.VoteMethod;
 import com.crane.bandwebbackend.domain.performance.repository.PerformancePolicyRepository;
 import com.crane.bandwebbackend.domain.performance.repository.PerformanceRepository;
 import com.crane.bandwebbackend.global.audit.AuditRecorder;
@@ -69,6 +70,7 @@ public class VoteMethodChangeService {
                     .createNativeQuery("DELETE FROM song_vote WHERE performance_id = :id")
                     .setParameter("id", performanceId)
                     .executeUpdate();
+            VoteMethod previous = state.getPolicy().getVoteMethod();
             state.getPolicy().changeVoteMethod(body.getVoteMethod());
             entityManager.lock(state.getPerformance(), LockModeType.PESSIMISTIC_FORCE_INCREMENT);
             auditRecorder.record(
@@ -78,7 +80,13 @@ public class VoteMethodChangeService {
                     "PERFORMANCE",
                     performanceId,
                     body.getReason(),
-                    Map.of("removedVoteCount", removed));
+                    Map.of(
+                            "removedVoteCount",
+                            removed,
+                            "from",
+                            previous.name(),
+                            "to",
+                            body.getVoteMethod().name()));
         }
         entityManager.flush();
         if (changed) {
@@ -131,7 +139,12 @@ public class VoteMethodChangeService {
         return state.getAffectedCount() == 0
                 ? List.of()
                 : List.of(Map.of(
-                        "type", "VOTE_RESET", "affectedCount", state.getAffectedCount(), "message", "기존 투표가 삭제됩니다."));
+                        "type",
+                        "VOTES_DELETED",
+                        "affectedCount",
+                        state.getAffectedCount(),
+                        "message",
+                        "기존 투표가 삭제됩니다."));
     }
 
     @Getter

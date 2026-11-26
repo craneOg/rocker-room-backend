@@ -66,6 +66,30 @@ class PerformanceMemberServiceTest {
     }
 
     @Test
+    void invisibleDraftPerformanceAnswersNotFoundBeforeAnyStateReason() {
+        when(performance.getStatus()).thenReturn(PerformanceStatus.DRAFT);
+        when(performanceService.detail(1L, 2L, 7L))
+                .thenThrow(new BusinessException(ErrorCode.NOT_FOUND, "공연을 찾을 수 없습니다."));
+
+        assertThatThrownBy(() -> service.register(1L, 2L, 7L, PerformanceMemberSource.APPLICATION, null))
+                .isInstanceOfSatisfying(
+                        BusinessException.class,
+                        exception -> assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.NOT_FOUND));
+    }
+
+    @Test
+    void graduatedMemberGetsForbiddenBeforeApplicationClosed() {
+        when(actor.getStatus()).thenReturn(MembershipStatus.GRADUATED);
+        when(policy.getApplicationState()).thenReturn(FeatureState.CLOSED);
+
+        assertThatThrownBy(() -> service.register(1L, 2L, 7L, PerformanceMemberSource.APPLICATION, null))
+                .isInstanceOfSatisfying(BusinessException.class, exception -> {
+                    assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.FORBIDDEN);
+                    assertThat(exception.getDetails().get(0).getReason()).isEqualTo("GRADUATED_APPLICATION_FORBIDDEN");
+                });
+    }
+
+    @Test
     void guestCannotApplyEvenWhenApplicationIsOpen() {
         when(actor.getMemberType()).thenReturn(MemberType.GUEST);
 

@@ -14,7 +14,6 @@ import com.crane.bandwebbackend.domain.schedule.repository.PracticeScheduleSongR
 import com.crane.bandwebbackend.domain.schedule.repository.PracticeScheduleTeamRepository;
 import com.crane.bandwebbackend.global.error.BusinessException;
 import com.crane.bandwebbackend.global.error.ErrorCode;
-import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.List;
@@ -68,12 +67,9 @@ public class PracticeScheduleService {
             Long songId,
             boolean mine,
             Pageable pageable) {
-        // 조회 기간을 93일로 제한하고 소속·공연 열람 권한을 확인한다.
-        if (from == null
-                || to == null
-                || !from.isBefore(to)
-                || Duration.between(from, to).compareTo(Duration.ofDays(93)) > 0) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "조회 기간은 93일 이하여야 합니다.");
+        // 조회 기간 상한은 두지 않고(API-105) 소속·공연 열람 권한을 확인한다.
+        if (from == null || to == null || !from.isBefore(to)) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "조회 기간이 올바르지 않습니다.");
         }
         Membership actor = membershipService.requireMember(clubId, actorUserId);
         performanceService.detail(clubId, performanceId, actorUserId);

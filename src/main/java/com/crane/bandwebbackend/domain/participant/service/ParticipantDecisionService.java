@@ -1,5 +1,6 @@
 package com.crane.bandwebbackend.domain.participant.service;
 
+import com.crane.bandwebbackend.domain.club.entity.ClubStatus;
 import com.crane.bandwebbackend.domain.membership.service.MembershipService;
 import com.crane.bandwebbackend.domain.participant.entity.PerformanceMember;
 import com.crane.bandwebbackend.domain.participant.entity.PerformanceMemberStatus;
@@ -41,6 +42,10 @@ public class ParticipantDecisionService {
         // 관리자 권한을 확인하고 공연 행을 잠가 버전 검사를 원자적으로 수행한다.
         memberships.requireAdmin(clubId, actorUserId);
         Performance performance = performances.requireLocked(clubId, performanceId);
+        // G-08: 비활성 동아리에서는 승인할 수 없다.
+        if (performance.getClub().getStatus() != ClubStatus.ACTIVE) {
+            throw new BusinessException(ErrorCode.STATE_CONFLICT, "CLUB_INACTIVE", "비활성 동아리에서는 변경할 수 없습니다.");
+        }
         if (!String.valueOf(performance.getVersion()).equals(performanceVersion)) {
             throw new BusinessException(ErrorCode.VERSION_CONFLICT, "공연 버전이 달라졌습니다.");
         }

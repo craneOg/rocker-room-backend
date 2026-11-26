@@ -110,12 +110,12 @@ class PerformanceReviewIntegrationTest {
     }
 
     @Test
-    @DisplayName("API-41 객원 공연 상세에는 본인이 참석하는 다음 확정 일정만 표시한다")
-    void guestSeesOnlyAttendedNextSchedule() {
+    @DisplayName("API-39 객원 공연 상세에는 counts·nextSchedule을 생략한다")
+    void guestDetailOmitsCountsAndNextSchedule() {
         var detail = details.read(1L, 1L, 9L);
 
-        assertThat(detail.getNextSchedule()).isNotNull();
-        assertThat(detail.getNextSchedule().getId()).isEqualTo("11");
+        assertThat(detail.getCounts()).isNull();
+        assertThat(detail.getNextSchedule()).isNull();
     }
 
     @Test

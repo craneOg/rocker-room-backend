@@ -139,7 +139,13 @@ public class PerformanceLockService {
                 "PERFORMANCE",
                 performanceId,
                 null,
-                Map.of("confirmedSongCount", evaluation.getNormalizedSetlist().size()));
+                Map.of(
+                        "confirmedSongCount",
+                        evaluation.getNormalizedSetlist().size(),
+                        "orders",
+                        evaluation.getNormalizedSetlist().stream()
+                                .map(row -> Map.of("songId", row.getSongId(), "order", row.getOrder()))
+                                .toList()));
         entityManager.flush();
         return new LockMutationResponse(
                 PerformanceResponse.from(performance), evaluation.getWarnings(), LockMutationResponse.Effects.none());

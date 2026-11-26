@@ -1,8 +1,8 @@
 package com.crane.bandwebbackend.domain.performance.service;
 
 import com.crane.bandwebbackend.domain.membership.entity.MemberType;
+import com.crane.bandwebbackend.domain.membership.entity.MembershipRole;
 import com.crane.bandwebbackend.domain.membership.service.MembershipService;
-import com.crane.bandwebbackend.domain.participant.service.ParticipationLookup;
 import com.crane.bandwebbackend.domain.performance.dto.PerformanceDetailResponse;
 import com.crane.bandwebbackend.domain.performance.dto.PerformancePolicyResponse;
 import com.crane.bandwebbackend.domain.performance.dto.PerformanceResponse;
@@ -14,8 +14,6 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.Comparator;
-import java.util.List;
-import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,7 +24,6 @@ import org.springframework.transaction.annotation.Transactional;
 public class PerformanceDetailReader {
     private final PerformanceService performances;
     private final MembershipService memberships;
-    private final ParticipationLookup participants;
     private final EntityManager entityManager;
     private final ScheduleLookup schedules;
 
@@ -36,6 +33,12 @@ public class PerformanceDetailReader {
         // 공연과 정책 접근 권한을 확인하고 두 엔티티를 조회한다.
         var performance = performances.detail(clubId, performanceId, actorUserId);
         var policy = performances.policy(clubId, performanceId, actorUserId);
+        var actor = memberships.requireMember(clubId, actorUserId);
+        // API-039: GUEST에는 counts·nextSchedule을 생략한다.
+        if (actor.getMemberType() == MemberType.GUEST) {
+            return new PerformanceDetailResponse(
+                    PerformanceResponse.from(performance), PerformancePolicyResponse.from(policy), null, null);
+        }
         // 팀·후보곡·확정곡·승인 참여자 수를 상세 화면 집계로 묶는다.
         var counts = new PerformanceDetailResponse.Counts(
                 count("SELECT COUNT(*) FROM team WHERE performance_id = :id", performanceId),
@@ -45,20 +48,11 @@ public class PerformanceDetailReader {
                         "SELECT COUNT(*) FROM performance_member WHERE performance_id = :id AND status = 'APPROVED'",
                         performanceId));
         LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
-        // 현재 이후의 가장 이른 확정 일정을 한국 시각 응답으로 변환한다.
-        var actor = memberships.requireMember(clubId, actorUserId);
-        List<PracticeSchedule> visibleSchedules = schedules.schedulesOfPerformance(clubId, performanceId);
-        if (actor.getMemberType() == MemberType.GUEST) {
-            Set<Long> attendedIds = participants
-                    .approvedMemberId(performanceId, actor.getId())
-                    .map(memberId -> Set.copyOf(schedules.attendedScheduleIds(performanceId, memberId)))
-                    .orElseGet(Set::of);
-            visibleSchedules = visibleSchedules.stream()
-                    .filter(schedule -> attendedIds.contains(schedule.getId()))
-                    .toList();
-        }
-        var next = visibleSchedules.stream()
-                .filter(schedule -> schedule.getStatus() == ScheduleStatus.CONFIRMED
+        // E-07: 임원은 임시 일정까지, 그 밖의 부원은 확정 일정만 대상으로 한다(취소 제외).
+        boolean admin = actor.getRole() == MembershipRole.CLUB_ADMIN;
+        var next = schedules.schedulesOfPerformance(clubId, performanceId).stream()
+                .filter(schedule -> (schedule.getStatus() == ScheduleStatus.CONFIRMED
+                                || admin && schedule.getStatus() == ScheduleStatus.TENTATIVE)
                         && !schedule.getStartAt().isBefore(now))
                 .min(Comparator.comparing(PracticeSchedule::getStartAt))
                 .map(schedule -> new PerformanceDetailResponse.NextSchedule(

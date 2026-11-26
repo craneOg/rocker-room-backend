@@ -131,8 +131,23 @@ public class ScheduleCreateService {
         if (status == ScheduleStatus.CONFIRMED && !warnings.hasAttendees(schedule.getId())) {
             throw new BusinessException(ErrorCode.RULE_VIOLATION, "SCHEDULE_TARGET_EMPTY", "확정 일정에 참석 대상이 없습니다.");
         }
+        // U-09: 생성된 일정의 유형·상태·시각과 연결 대상 ID를 남긴다.
         auditRecorder.record(
-                clubId, actorUserId, "SCHEDULE_CREATED", "PRACTICE_SCHEDULE", schedule.getId(), null, Map.of());
+                clubId,
+                actorUserId,
+                "SCHEDULE_CREATED",
+                "PRACTICE_SCHEDULE",
+                schedule.getId(),
+                null,
+                Map.of(
+                        "to",
+                        Map.of(
+                                "eventType", type.name(),
+                                "status", status.name(),
+                                "startAt", schedule.getStartAt().toString(),
+                                "endAt", schedule.getEndAt().toString(),
+                                "teamIds", teamIds,
+                                "songIds", songIds)));
         return new ScheduleEditService.EditResult(
                 schedule, warnings.warningsFor(clubId, performanceId, schedule.getId(), actorUserId));
     }

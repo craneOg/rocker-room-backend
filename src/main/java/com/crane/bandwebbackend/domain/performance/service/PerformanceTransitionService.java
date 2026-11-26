@@ -96,7 +96,11 @@ public class PerformanceTransitionService {
             throw new BusinessException(ErrorCode.STATE_CONFLICT, "CLUB_INACTIVE", "비활성 동아리에서는 변경할 수 없습니다.");
         }
         if (source != null && performance.getStatus() != source) {
-            throw new BusinessException(ErrorCode.STATE_CONFLICT, "INVALID_STATE", "공연 상태가 맞지 않습니다.");
+            // API-152: 종료(FINISHED) 공연이 아니면 reason NOT_FINISHED
+            String reasonCode = source == PerformanceStatus.FINISHED && target == PerformanceStatus.LOCKED
+                    ? "NOT_FINISHED"
+                    : "INVALID_STATE";
+            throw new BusinessException(ErrorCode.STATE_CONFLICT, reasonCode, "공연 상태가 맞지 않습니다.");
         }
         // 0.4: 되돌리기를 포함한 모든 공연 상태 변경은 요청 버전이 필요하다.
         verifyVersion(performance, version);

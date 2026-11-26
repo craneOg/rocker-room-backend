@@ -7,6 +7,7 @@ import com.crane.bandwebbackend.global.error.BusinessException;
 import com.crane.bandwebbackend.global.error.ErrorCode;
 import com.crane.bandwebbackend.global.error.ErrorDetail;
 import jakarta.persistence.EntityManager;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
@@ -58,8 +59,20 @@ public class ParticipantRemovalPolicy {
         }
     }
 
+    /** 상태 변경 전 값을 알 수 없는 호출(소속 탈퇴)은 변경 후 값만 남긴다. */
     public void recordException(Performance performance, Long actorUserId, Long participantId, String reason) {
+        recordException(performance, actorUserId, participantId, reason, null, "WITHDRAWN");
+    }
+
+    /** X-07: 확정 공연의 참여 상태 변경 전·후 값을 감사 기록에 남긴다. */
+    public void recordException(
+            Performance performance, Long actorUserId, Long participantId, String reason, String from, String to) {
         if (performance.getStatus() == PerformanceStatus.LOCKED) {
+            Map<String, Object> detail = new HashMap<>();
+            if (from != null) {
+                detail.put("from", from);
+            }
+            detail.put("to", to);
             auditRecorder.record(
                     performance.getClub().getId(),
                     actorUserId,
@@ -67,7 +80,7 @@ public class ParticipantRemovalPolicy {
                     "PERFORMANCE_MEMBER",
                     participantId,
                     reason,
-                    Map.of());
+                    detail);
         }
     }
 }

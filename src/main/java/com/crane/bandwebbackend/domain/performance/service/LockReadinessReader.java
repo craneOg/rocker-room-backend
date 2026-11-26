@@ -3,7 +3,9 @@ package com.crane.bandwebbackend.domain.performance.service;
 import jakarta.persistence.EntityManager;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
@@ -18,16 +20,22 @@ public class LockReadinessReader {
     /** 공연 확정 점검에 필요한 곡·팀·참여자·오디션 정보를 조회한다. */
     @Transactional(readOnly = true)
     public LockChecklistEvaluator.Snapshot read(Long performanceId) {
-        return read(performanceId, false);
+        return read(performanceId, false, true);
+    }
+
+    /** 홈 점검처럼 개수만 쓰는 경로용으로 이름 조회 없이 읽는다. */
+    @Transactional(readOnly = true)
+    public LockChecklistEvaluator.Snapshot readWithoutNames(Long performanceId) {
+        return read(performanceId, false, false);
     }
 
     /** 0.4/L-05·06: 공연 잠금 획득 후 이전 RR 스냅샷 대신 최신 행으로 확정 조건을 검사한다. */
     @Transactional(propagation = Propagation.MANDATORY)
     public LockChecklistEvaluator.Snapshot readLocked(Long performanceId) {
-        return read(performanceId, true);
+        return read(performanceId, true, true);
     }
 
-    private LockChecklistEvaluator.Snapshot read(Long performanceId, boolean current) {
+    private LockChecklistEvaluator.Snapshot read(Long performanceId, boolean current, boolean withNames) {
         // 확정 곡과 담당 팀 상태를 잠금 평가용 행으로 변환한다.
         List<LockChecklistEvaluator.SongRow> songs = rows("""
 				SELECT s.id, s.setlist_order, s.assigned_team_id, t.status
@@ -91,8 +99,37 @@ public class LockReadinessReader {
                 .setParameter("performanceId", performanceId)
                 .getResultList();
         Number max = limits.isEmpty() ? null : (Number) limits.get(0);
+        // L-01~L-11 message에 넣을 곡명·팀명·참여자 표시 이름을 읽는다(내부 ID 대신).
+        var names = !withNames
+                ? LockChecklistEvaluator.Names.EMPTY
+                : new LockChecklistEvaluator.Names(
+                        names("SELECT id, title FROM song WHERE performance_id = :performanceId", performanceId),
+                        names("SELECT id, name FROM team WHERE performance_id = :performanceId", performanceId),
+                        names("""
+				SELECT pm.id, COALESCE(m.display_name, u.name)
+				FROM performance_member pm
+				JOIN membership m ON m.id = pm.membership_id
+				JOIN users u ON u.id = m.user_id
+				WHERE pm.performance_id = :performanceId
+				""", performanceId));
         return new LockChecklistEvaluator.Snapshot(
-                songs, players, teams, participants, requirements, auditions, max == null ? null : max.intValue());
+                songs,
+                players,
+                teams,
+                participants,
+                requirements,
+                auditions,
+                max == null ? null : max.intValue(),
+                names);
+    }
+
+    /** ID와 표시 이름 두 열을 맵으로 읽는다. */
+    private Map<Long, String> names(String sql, Long performanceId) {
+        Map<Long, String> result = new HashMap<>();
+        for (Object[] row : rows(sql, performanceId, false)) {
+            result.put(number(row[0]), (String) row[1]);
+        }
+        return result;
     }
 
     @SuppressWarnings("unchecked")
