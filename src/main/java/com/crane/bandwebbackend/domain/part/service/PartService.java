@@ -18,7 +18,6 @@ import com.crane.bandwebbackend.global.error.ErrorDetail;
 import com.crane.bandwebbackend.global.response.ApiIds;
 import com.crane.bandwebbackend.global.response.RevisionTag;
 import jakarta.persistence.EntityManager;
-import jakarta.persistence.LockModeType;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -69,24 +68,34 @@ public class PartService {
                 .toList();
     }
 
+    /** API-033: 파트별 사용 인원 수(활동·휴학·졸업 소속). 사용 중지 파트도 센다. 소속이 없으면 맵에 없다 */
+    @Transactional(readOnly = true)
+    public Map<Long, Long> memberCounts(Long clubId) {
+        return membershipPartRepository
+                .countMembersByPart(
+                        clubId, List.of(MembershipStatus.ACTIVE, MembershipStatus.ON_LEAVE, MembershipStatus.GRADUATED))
+                .stream()
+                .collect(Collectors.toMap(row -> (Long) row[0], row -> (Long) row[1]));
+    }
+
     /** PART-02. 동아리 행을 먼저 잠가 동시 생성/수정의 정렬·중복 검사를 직렬화한다. */
     @Transactional
     public Part create(Long clubId, Long actorUserId, String name, Integer displayOrder) {
         // 관리자 권한을 확인하고 동아리 행을 잠가 이름 중복 검사를 직렬화한다.
-        Membership actor = membershipService.requireAdmin(clubId, actorUserId);
-        entityManager.lock(actor.getClub(), LockModeType.PESSIMISTIC_WRITE);
+        membershipService.requireAdmin(clubId, actorUserId);
+        // G-08: 비활성 동아리는 409. 잠금도 함께 잡는다
+        Club club = entityLookup.lockActiveClub(clubId);
         String normalized = validateName(name);
         if (repository.existsByClub_IdAndName(clubId, normalized)) {
-            throw new BusinessException(ErrorCode.DUPLICATE, "같은 이름의 파트가 있습니다.");
+            throw partNameTaken();
         }
         // 애플리케이션 검사 이후의 동시 삽입 충돌도 DB 예외를 동일한 중복 오류로 변환한다.
         try {
-            Part part = repository.saveAndFlush(
-                    Part.create(actor.getClub(), normalized, displayOrder == null ? 0 : displayOrder));
+            Part part = repository.saveAndFlush(Part.create(club, normalized, displayOrder == null ? 0 : displayOrder));
             entityManager.refresh(part);
             return part;
         } catch (DataIntegrityViolationException exception) {
-            throw new BusinessException(ErrorCode.DUPLICATE, "같은 이름의 파트가 있습니다.");
+            throw partNameTaken();
         }
     }
 
@@ -105,8 +114,8 @@ public class PartService {
     public Part update(
             Long clubId, Long partId, Long actorUserId, String expectedRevision, String name, Integer displayOrder) {
         // 관리자·동아리·파트 순서로 잠가 동시 수정의 교착 가능성을 줄인다.
-        Membership actor = membershipService.requireAdmin(clubId, actorUserId);
-        entityManager.lock(actor.getClub(), LockModeType.PESSIMISTIC_WRITE);
+        membershipService.requireAdmin(clubId, actorUserId);
+        entityLookup.lockActiveClub(clubId);
         Part part = requireLocked(clubId, partId, expectedRevision);
         if (name == null && displayOrder == null) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "변경할 정보가 없습니다.");
@@ -115,7 +124,7 @@ public class PartService {
         if (name != null) {
             String normalized = validateName(name);
             if (!normalized.equals(part.getName()) && repository.existsByClub_IdAndName(clubId, normalized)) {
-                throw new BusinessException(ErrorCode.DUPLICATE, "같은 이름의 파트가 있습니다.");
+                throw partNameTaken();
             }
             name = normalized;
         }
@@ -124,7 +133,7 @@ public class PartService {
         try {
             repository.flush();
         } catch (DataIntegrityViolationException exception) {
-            throw new BusinessException(ErrorCode.DUPLICATE, "같은 이름의 파트가 있습니다.");
+            throw partNameTaken();
         }
         entityManager.refresh(part);
         return part;
@@ -134,8 +143,8 @@ public class PartService {
     @Transactional
     public Part setActive(Long clubId, Long partId, Long actorUserId, String expectedRevision, boolean active) {
         // 권한과 revision을 잠금 상태에서 확인한다.
-        Membership actor = membershipService.requireAdmin(clubId, actorUserId);
-        entityManager.lock(actor.getClub(), LockModeType.PESSIMISTIC_WRITE);
+        membershipService.requireAdmin(clubId, actorUserId);
+        entityLookup.lockActiveClub(clubId);
         Part part = requireLocked(clubId, partId, expectedRevision);
         // 동일 상태 요청은 멱등하게 아무 변경 없이 현재 파트를 반환한다.
         if (part.isActive() != active) {
@@ -176,16 +185,7 @@ public class PartService {
             parts.add(part);
         }
         // 본인·임원 저장 모두 감사 기록을 남기되, 바뀐 것이 없으면 남기지 않는다(API-019와 같은 기준)
-        if (!held.equals(new HashSet<>(ids))) {
-            auditRecorder.record(
-                    clubId,
-                    actorUserId,
-                    "MEMBERSHIP_PARTS_CHANGED",
-                    "MEMBERSHIP",
-                    membershipId,
-                    null,
-                    Map.of("from", sortedIds(held), "to", sortedIds(ids)));
-        }
+        auditPartsChanged(clubId, actorUserId, membershipId, null, held, ids);
         // 삭제를 먼저 반영해야 같은 (소속, 파트) 키를 다시 넣을 때 충돌하지 않는다
         membershipPartRepository.deleteByMembership_Id(membershipId);
         membershipPartRepository.flush();
@@ -199,6 +199,30 @@ public class PartService {
             throw new BusinessException(ErrorCode.VERSION_CONFLICT, "보유 파트가 먼저 변경되었습니다.");
         }
         return target;
+    }
+
+    /** 소속의 보유 파트 ID 집합. API-142가 처리 전·후 값을 비교할 때 쓴다 */
+    @Transactional(readOnly = true)
+    public Set<Long> heldPartIds(Long membershipId) {
+        return membershipPartRepository.findByMembership_Id(membershipId).stream()
+                .map(row -> row.getPart().getId())
+                .collect(Collectors.toSet());
+    }
+
+    /** API-032·142 공통: 바뀐 것이 있을 때만 from·to 파트 ID를 MEMBERSHIP_PARTS_CHANGED로 남긴다 */
+    public void auditPartsChanged(
+            Long clubId, Long actorUserId, Long membershipId, String reason, Set<Long> from, Collection<Long> to) {
+        if (from.equals(new HashSet<>(to))) {
+            return;
+        }
+        auditRecorder.record(
+                clubId,
+                actorUserId,
+                "MEMBERSHIP_PARTS_CHANGED",
+                "MEMBERSHIP",
+                membershipId,
+                reason,
+                Map.of("from", sortedIds(from), "to", sortedIds(to)));
     }
 
     // 감사 detail은 ID 문자열을 오름차순으로 담는다(U-09)
@@ -228,6 +252,10 @@ public class PartService {
     private static BusinessException invalidPartIds(String message) {
         return new BusinessException(
                 ErrorCode.VALIDATION_ERROR, message, List.of(ErrorDetail.of("partIds", "INVALID_VALUE")));
+    }
+
+    private static BusinessException partNameTaken() {
+        return new BusinessException(ErrorCode.DUPLICATE, "PART_NAME_TAKEN", "같은 이름의 파트가 있습니다.");
     }
 
     /** 파트 행을 잠그고 요청 버전과 현재 버전의 일치를 확인한다. */

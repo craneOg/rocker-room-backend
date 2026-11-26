@@ -2,12 +2,13 @@ package com.crane.bandwebbackend.domain.part.dto;
 
 import com.crane.bandwebbackend.domain.part.entity.Part;
 import com.crane.bandwebbackend.global.response.RevisionTag;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Builder;
 import lombok.Getter;
 
 @Getter
-@Builder
+@Builder(toBuilder = true)
 public class PartResponse {
     private final String id;
     private final String clubId;
@@ -15,6 +16,10 @@ public class PartResponse {
     private final int displayOrder;
     private final boolean active;
     private final String revision;
+
+    // API-033 목록 응답에만 담는다(API-034·035 응답에는 없음)
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private final Long memberCount;
 
     public static PartResponse from(Part part) {
         return PartResponse.builder()
@@ -25,6 +30,10 @@ public class PartResponse {
                 .active(part.isActive())
                 .revision(RevisionTag.from("part", part.getId(), part.getUpdatedAt()))
                 .build();
+    }
+
+    public static PartResponse from(Part part, long memberCount) {
+        return from(part).toBuilder().memberCount(memberCount).build();
     }
 
     @JsonProperty("isActive")

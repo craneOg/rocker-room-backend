@@ -36,13 +36,15 @@ class PartServiceTest {
     private final ParticipationLookup participationLookup = mock(ParticipationLookup.class);
     private final EntityManager entityManager = mock(EntityManager.class);
     private final MembershipPartRepository membershipPartRepository = mock(MembershipPartRepository.class);
+    private final com.crane.bandwebbackend.domain.membership.service.CoreEntityLookupService entityLookup =
+            mock(com.crane.bandwebbackend.domain.membership.service.CoreEntityLookupService.class);
     private final PartService service = new PartService(
             repository,
             membershipService,
             participationLookup,
             entityManager,
             membershipPartRepository,
-            mock(com.crane.bandwebbackend.domain.membership.service.CoreEntityLookupService.class),
+            entityLookup,
             mock(com.crane.bandwebbackend.global.audit.AuditRecorder.class));
 
     @Test
@@ -67,7 +69,7 @@ class PartServiceTest {
         Membership actor = mock(Membership.class);
         Club club = mock(Club.class);
         when(membershipService.requireAdmin(1L, 7L)).thenReturn(actor);
-        when(actor.getClub()).thenReturn(club);
+        when(entityLookup.lockActiveClub(1L)).thenReturn(club);
         when(repository.saveAndFlush(any(Part.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         service.create(1L, 7L, "베이스", null);
