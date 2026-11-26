@@ -90,6 +90,9 @@ public final class SongRequests {
 
         // PROPOSED(기본) 또는 CONFIRMED(A만)
         private SongStatus status;
+
+        // 필요 편성(선택). API-079와 같은 검사
+        private List<@NotNull @Valid Requirement> requirements;
     }
 
     // API-080
@@ -236,6 +239,10 @@ public final class SongRequests {
 
         @NotNull
         private List<@NotNull @Valid Requirement> items;
+
+        // LOCKED 공연이면 필수(X-02)
+        @Size(max = 500)
+        private String reason;
     }
 
     @Getter

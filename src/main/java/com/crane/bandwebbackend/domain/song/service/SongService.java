@@ -38,6 +38,7 @@ import com.crane.bandwebbackend.global.audit.AuditLog;
 import com.crane.bandwebbackend.global.audit.AuditLogRepository;
 import com.crane.bandwebbackend.global.error.BusinessException;
 import com.crane.bandwebbackend.global.error.ErrorCode;
+import com.crane.bandwebbackend.global.error.ErrorDetail;
 import com.crane.bandwebbackend.global.response.Effects;
 import com.crane.bandwebbackend.global.response.MutationResult;
 import com.crane.bandwebbackend.global.response.PageResponse;
@@ -51,6 +52,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -93,6 +95,8 @@ public class SongService {
             PerformanceRef ref,
             String status,
             Long candidateTeamId,
+            Long assignedTeamId,
+            String q,
             boolean proposedByMe,
             boolean unresponded,
             String sort,
@@ -112,6 +116,7 @@ public class SongService {
                 .collect(Collectors.groupingBy(r -> r.getSong().getId()));
         Long me = access.myMemberId();
         Long myMembership = access.getMembership().getId();
+        String keyword = q == null ? "" : q.strip().toLowerCase(Locale.ROOT);
 
         List<Song> all = songSupport.getAll(pid);
         List<Song> visible = all.stream()
@@ -122,6 +127,10 @@ public class SongService {
                 .filter(s -> candidateTeamId == null
                         || (s.getCandidateTeam() != null
                                 && s.getCandidateTeam().getId().equals(candidateTeamId)))
+                .filter(s -> assignedTeamId == null
+                        || (s.getAssignedTeam() != null
+                                && s.getAssignedTeam().getId().equals(assignedTeamId)))
+                .filter(s -> keyword.isEmpty() || matches(s, keyword))
                 .filter(s -> !proposedByMe || s.getProposedBy().getId().equals(myMembership))
                 .filter(s -> !unresponded || isUnresponded(s, snap, policy, me))
                 .sorted(comparator(order, snap))
@@ -144,6 +153,13 @@ public class SongService {
                 .myProposalCount(myProposalCount)
                 .myVoteCount(myVoteCount)
                 .build();
+    }
+
+    // 제목·아티스트에 검색어 포함(대소문자 무시)
+    private static boolean matches(Song s, String keyword) {
+        return s.getTitle().toLowerCase(Locale.ROOT).contains(keyword)
+                || (s.getArtist() != null
+                        && s.getArtist().toLowerCase(Locale.ROOT).contains(keyword));
     }
 
     private static Set<SongStatus> parseStatuses(String status) {
@@ -339,11 +355,12 @@ public class SongService {
             if (candidateTeam.getStatus() == TeamStatus.REJECTED || candidateTeam.getStatus() == TeamStatus.WITHDRAWN) {
                 throw BusinessException.invalidState("반려되었거나 철회된 팀입니다.");
             }
+            // S-02
             if (!access.isAdmin() && !teamService.isMember(candidateTeam.getId(), access.myMemberId())) {
-                throw new BusinessException(ErrorCode.FORBIDDEN, "팀원만 팀 후보곡을 등록할 수 있습니다.");
+                throw new BusinessException(ErrorCode.RULE_VIOLATION, "NOT_TEAM_MEMBER", "팀원만 팀 후보곡을 등록할 수 있습니다.");
             }
-        } else if (policy.getCandidateScope() == CandidateScope.TEAM_MEMBERS && !access.isAdmin()) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "TEAM_REQUIRED", "팀 범위 후보곡만 등록할 수 있습니다.");
+        } else if (policy.getCandidateScope() == CandidateScope.TEAM_MEMBERS) {
+            throw new BusinessException(ErrorCode.RULE_VIOLATION, "TEAM_REQUIRED", "팀 범위 후보곡만 등록할 수 있습니다.");
         }
 
         // S-03: 한도 계산에서 임원 직접 등록 곡과 철회 곡 제외
@@ -366,6 +383,10 @@ public class SongService {
         }
         Song song = songRepository.saveAndFlush(Song.propose(
                 access.getPerformance(), candidateTeam, title, artist, url, req.getMemo(), access.getMembership()));
+        // 직접 확정의 M-04 경고에 반영되도록 확정 전에 저장
+        if (req.getRequirements() != null) {
+            saveRequirements(access, song, req.getRequirements());
+        }
         if (direct) {
             warnings.addAll(applyConfirm(access, song, req));
         }
@@ -404,29 +425,70 @@ public class SongService {
     @Transactional
     public SongViews.RequirementsResult replaceRequirements(
             PerformanceRef ref, Long songId, SongRequests.Requirements req) {
-        PerformanceAccess access = admin(accessService.get(ref));
+        // X-03: LOCKED 예외 수정은 공연 행 → 곡 행 순서로 잠금(API-062·080 등과 같은 순서)
+        PerformanceAccess access = admin(accessService.getForUpdate(ref));
         Song song = songSupport.getSong(access.performanceId(), songId);
         // #82: 곡 행을 먼저 잠그고 최신 version으로 다시 읽어, 자식 INSERT 뒤 잠금 승격 교착을 막고 패자는 409로 보낸다
         em.refresh(song, LockModeType.PESSIMISTIC_WRITE);
         song.verifyVersion(req.getVersion());
-        Set<Long> seen = new HashSet<>();
-        for (SongRequests.Requirement r : req.getItems()) {
-            if (!seen.add(r.getPartId())) {
-                throw new BusinessException(ErrorCode.VALIDATION_ERROR, "DUPLICATE_PART", "같은 파트가 중복되었습니다.");
-            }
+        // S-09
+        if (song.getStatus() == SongStatus.WITHDRAWN) {
+            throw BusinessException.invalidState("철회된 곡은 수정할 수 없습니다.");
         }
-        Map<Long, Part> parts = accessService.getParts(access.clubId(), seen);
-        requirementRepository.deleteBySongId(songId);
-        requirementRepository.saveAll(req.getItems().stream()
-                .map(r -> SongPartRequirement.of(song, parts.get(r.getPartId()), r.getRequiredCount()))
-                .toList());
+        access.requireReasonIfLocked(req.getReason());
+        String before = access.isLocked() ? requirementsJson(requirementRepository.findBySongId(songId)) : null;
+        saveRequirements(access, song, req.getItems());
         forceIncrement(song);
+        // X-07
+        if (access.isLocked()) {
+            audit(
+                    access,
+                    "LOCKED_EXCEPTION_EDIT",
+                    song,
+                    req.getReason(),
+                    "{\"requirements\":{\"from\":" + before + ",\"to\":"
+                            + requirementsJson(requirementRepository.findBySongId(songId)) + "}}");
+        }
         return SongViews.RequirementsResult.builder()
                 .songVersion(song.getVersion())
                 .items(requirementRepository.findBySongId(songId).stream()
                         .map(SongViews.Requirement::of)
                         .toList())
                 .build();
+    }
+
+    // 필요 편성 전체 교체(API-079, 076의 requirements). 중복 파트 400, 같은 동아리 파트만
+    private void saveRequirements(PerformanceAccess access, Song song, List<SongRequests.Requirement> items) {
+        Set<Long> seen = new HashSet<>();
+        for (SongRequests.Requirement r : items) {
+            if (!seen.add(r.getPartId())) {
+                throw new BusinessException(ErrorCode.VALIDATION_ERROR, "DUPLICATE_PART", "같은 파트가 중복되었습니다.");
+            }
+        }
+        Map<Long, Part> parts = accessService.getParts(access.clubId(), seen);
+        requirementRepository.deleteBySongId(song.getId());
+        requirementRepository.saveAll(items.stream()
+                .map(r -> SongPartRequirement.of(song, parts.get(r.getPartId()), r.getRequiredCount()))
+                .toList());
+    }
+
+    // 감사 detail용 [{partId, requiredCount}]. 파트 ID 순
+    private static String requirementsJson(List<SongPartRequirement> rows) {
+        return rows.stream()
+                .sorted(Comparator.comparing(r -> r.getPart().getId()))
+                .map(r -> "{\"partId\":" + r.getPart().getId() + ",\"requiredCount\":" + r.getRequiredCount() + "}")
+                .collect(Collectors.joining(",", "[", "]"));
+    }
+
+    // 감사 detail용 [{performanceMemberId, partId}]
+    private static String sessionsJson(List<SongSessionMember> rows) {
+        return rows.stream()
+                .sorted(Comparator.comparing((SongSessionMember r) ->
+                                r.getPerformanceMember().getId())
+                        .thenComparing(r -> r.getPart().getId()))
+                .map(r -> "{\"performanceMemberId\":" + r.getPerformanceMember().getId() + ",\"partId\":"
+                        + r.getPart().getId() + "}")
+                .collect(Collectors.joining(",", "[", "]"));
     }
 
     // ---------- API-080 확정 ----------
@@ -459,6 +521,7 @@ public class SongService {
         }
         Team team = resolveAssignedTeam(access, song, f);
         Map<Long, Integer> before = confirmedOrders(access.performanceId());
+        String sessionsBefore = sessionsJson(songSupport.sessionsOf(song.getId()));
         Integer order = f.getSetlistOrder();
         if (!access.isLocked() && order != null && before.containsValue(order)) {
             throw new BusinessException(ErrorCode.DUPLICATE, "SETLIST_ORDER_TAKEN", "이미 사용 중인 세트리스트 순서입니다.");
@@ -467,7 +530,8 @@ public class SongService {
         songRepository.flush();
 
         List<Warning> warnings = List.of();
-        if (f.getSessions() != null) {
+        // 생략이나 빈 배열은 연주자 없이 확정(API-076·080). 빈 배열 거절은 LOCKED만(위에서 처리)
+        if (f.getSessions() != null && !f.getSessions().isEmpty()) {
             warnings = replaceSessionRows(access, song, f.getSessions(), null);
         }
         if (access.isLocked()) {
@@ -475,7 +539,14 @@ public class SongService {
                     access.performanceId(),
                     insertAt(orderedIds(access.performanceId(), song.getId()), song.getId(), order));
             verifyLockRequirements(access.performanceId());
-            auditLocked(access, song, f.getReason(), before);
+            // X-07: 담당 팀·연주자 전·후 값도 함께
+            auditLocked(
+                    access,
+                    song,
+                    f.getReason(),
+                    before,
+                    "\"assignedTeamId\":{\"from\":null,\"to\":" + idOf(team) + "},\"sessions\":{\"from\":"
+                            + sessionsBefore + ",\"to\":" + sessionsJson(songSupport.sessionsOf(song.getId())) + "},");
         }
         audit(access, "SONG_DECIDED", song, f.getReason(), "{\"from\":\"PROPOSED\",\"to\":\"CONFIRMED\"}");
         return warnings;
@@ -547,7 +618,10 @@ public class SongService {
                         .scheduleIds(upcoming)
                         .build());
             }
-            throw BusinessException.confirmationRequired("선정곡을 제외하면 담당 팀·순서가 해제됩니다.", Warning.toMaps(warnings));
+            throw BusinessException.confirmationRequired(
+                    "선정곡을 제외하면 담당 팀·순서가 해제됩니다.",
+                    List.of(ErrorDetail.of(null, "CONFIRMED_SONG_REJECTION")),
+                    Warning.toMaps(warnings));
         }
         Map<Long, Integer> before = confirmedOrders(access.performanceId());
         song.reject(blankToNull(req.getDecisionNote()));
@@ -628,7 +702,8 @@ public class SongService {
 
     @Transactional
     public MutationResult<SongResponse> assignTeam(PerformanceRef ref, Long songId, SongRequests.AssignTeam req) {
-        PerformanceAccess access = admin(accessService.get(ref));
+        // X-03: LOCKED 예외 수정은 공연 행을 먼저 잠금
+        PerformanceAccess access = admin(accessService.getForUpdate(ref));
         Song song = songSupport.getSong(access.performanceId(), songId);
         song.verifyVersion(req.getVersion());
         if (!song.isConfirmed()) {
@@ -666,7 +741,8 @@ public class SongService {
      */
     @Transactional
     public MutationResult<SongResponse> replaceSessions(PerformanceRef ref, Long songId, SongRequests.Sessions req) {
-        PerformanceAccess access = accessService.get(ref);
+        // X-03: LOCKED 예외 수정은 공연 행 → 곡 행 순서로 잠금
+        PerformanceAccess access = accessService.getForUpdate(ref);
         access.requireEditable();
         Song song = songSupport.getSong(access.performanceId(), songId);
         // #82: 곡 행을 먼저 잠그고 최신 version으로 다시 읽어, 자식 INSERT 뒤 잠금 승격 교착을 막고 패자는 409로 보낸다
@@ -690,12 +766,20 @@ public class SongService {
             teamOnly = teamService.memberIdsByTeam(access.performanceId()).getOrDefault(team.getId(), Set.of());
         }
         Map<Long, Integer> before = access.isLocked() ? confirmedOrders(access.performanceId()) : Map.of();
+        String sessionsBefore = sessionsJson(songSupport.sessionsOf(song.getId()));
         List<Warning> warnings = replaceSessionRows(access, song, req.getItems(), teamOnly);
         forceIncrement(song);
         if (access.isLocked() && song.isConfirmed()) {
             songRepository.flush();
             verifyLockRequirements(access.performanceId());
-            auditLocked(access, song, req.getReason(), before);
+            // X-07: 연주자 전·후 값
+            auditLocked(
+                    access,
+                    song,
+                    req.getReason(),
+                    before,
+                    "\"sessions\":{\"from\":" + sessionsBefore + ",\"to\":"
+                            + sessionsJson(songSupport.sessionsOf(song.getId())) + "},");
         }
         return result(song, warnings, null);
     }
@@ -739,10 +823,9 @@ public class SongService {
                 items.stream().map(SongRequests.Session::getPartId).collect(Collectors.toSet()));
         boolean strict = access.isLocked() && song.isConfirmed();
         for (PerformanceMember pm : pms.values()) {
-            boolean ok = strict
-                    ? pm.getStatus() == PerformanceMemberStatus.APPROVED
-                            && VALID_MEMBERSHIP.contains(pm.getMembership().getStatus())
-                    : pm.isActiveParticipant();
+            // M-02: 연주자는 APPROVED 참여자. LOCKED 선정곡은 유효 소속까지
+            boolean ok = pm.getStatus() == PerformanceMemberStatus.APPROVED
+                    && (!strict || VALID_MEMBERSHIP.contains(pm.getMembership().getStatus()));
             if (!ok) {
                 throw new BusinessException(
                         ErrorCode.RULE_VIOLATION, "SESSION_MEMBER_INVALID", "연주자로 지정할 수 없는 참여자가 있습니다.");
@@ -807,9 +890,16 @@ public class SongService {
             throw new BusinessException(
                     ErrorCode.VALIDATION_ERROR, "SOURCE_SONG_WITH_MEMBERS", "sourceSongId와 members를 함께 보낼 수 없습니다.");
         }
+        if (req.getVersion() == null) {
+            throw new BusinessException(
+                    ErrorCode.VALIDATION_ERROR, "version이 필요합니다.", List.of(ErrorDetail.of("version", "INVALID_VALUE")));
+        }
         PerformanceAccess access = admin(accessService.getForUpdate(ref));
         access.requireStatus(PerformanceStatus.ACTIVE);
         Song song = songSupport.getSong(access.performanceId(), req.getSourceSongId());
+        // 다른 곡 쓰기와 같이 곡 행을 잠근 뒤 version 검사(#82)
+        em.refresh(song, LockModeType.PESSIMISTIC_WRITE);
+        song.verifyVersion(req.getVersion());
         if (!song.isConfirmed()) {
             throw BusinessException.invalidState("선정곡만 연주자로 팀을 만들 수 있습니다.");
         }
@@ -965,7 +1055,18 @@ public class SongService {
 
     // X-07: 사유와 변경 전·후 순서(순서가 바뀐 곡 전체)
     private void auditLocked(PerformanceAccess access, Song song, String reason, Map<Long, Integer> before) {
-        auditLockedOrders(access, "SONG", song.getId(), "\"status\":\"" + song.getStatus() + "\",", reason, before);
+        auditLocked(access, song, reason, before, "");
+    }
+
+    // extra = 곡 상태 뒤에 붙일 추가 변경 전·후 값(`"key":{...},` 형식)
+    private void auditLocked(
+            PerformanceAccess access, Song song, String reason, Map<Long, Integer> before, String extra) {
+        auditLockedOrders(
+                access, "SONG", song.getId(), "\"status\":\"" + song.getStatus() + "\"," + extra, reason, before);
+    }
+
+    private static Long idOf(Team team) {
+        return team == null ? null : team.getId();
     }
 
     // 세트리스트 순서 일괄 저장(API-088)의 LOCKED 감사 기록. 형식은 곡 예외 수정과 같음
