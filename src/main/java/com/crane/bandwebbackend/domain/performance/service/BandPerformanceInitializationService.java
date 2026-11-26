@@ -41,9 +41,10 @@ public class BandPerformanceInitializationService {
         entityManager.persist(team);
         entityManager.flush();
 
-        // 동아리의 활성 정회원만 자동 참여 대상으로 선정한다.
+        // F-02: 동아리의 활동·휴학 정회원을 자동 참여 대상으로 선정한다.
         List<Membership> eligible = memberships.listAdmin(performance.getClub().getId(), actorUserId).stream()
-                .filter(member -> member.getStatus() == MembershipStatus.ACTIVE)
+                .filter(member -> member.getStatus() == MembershipStatus.ACTIVE
+                        || member.getStatus() == MembershipStatus.ON_LEAVE)
                 .filter(member -> member.getMemberType() == MemberType.REGULAR)
                 .sorted(Comparator.comparing(Membership::getId))
                 .toList();
