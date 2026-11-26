@@ -2,6 +2,7 @@ package com.crane.bandwebbackend.domain.evaluation.dto;
 
 import com.crane.bandwebbackend.domain.playability.entity.PlayabilityAnswer;
 import com.crane.bandwebbackend.global.serialization.IdString;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
 import java.util.Map;
 import lombok.Builder;
@@ -30,8 +31,14 @@ public class EvaluationSummary {
         private final Long partId;
 
         private final String partName;
+        // 명세 키는 답 이름 그대로(POSSIBLE 등)
+        @JsonProperty("POSSIBLE")
         private final int possible;
+
+        @JsonProperty("IMPOSSIBLE")
         private final int impossible;
+
+        @JsonProperty("UNDECIDED")
         private final int undecided;
     }
 }

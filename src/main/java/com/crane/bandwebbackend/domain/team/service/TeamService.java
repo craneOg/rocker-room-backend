@@ -7,9 +7,11 @@ import com.crane.bandwebbackend.domain.part.entity.Part;
 import com.crane.bandwebbackend.domain.participant.entity.PerformanceMember;
 import com.crane.bandwebbackend.domain.participant.entity.PerformanceMemberSource;
 import com.crane.bandwebbackend.domain.participant.entity.PerformanceMemberStatus;
+import com.crane.bandwebbackend.domain.participant.service.ParticipantAssignmentService;
 import com.crane.bandwebbackend.domain.participant.service.PerformanceAccess;
 import com.crane.bandwebbackend.domain.participant.service.PerformanceAccessService;
 import com.crane.bandwebbackend.domain.participant.service.PerformanceRef;
+import com.crane.bandwebbackend.domain.participant.service.TeamLeaderSuccession;
 import com.crane.bandwebbackend.domain.performance.entity.PerformancePolicy;
 import com.crane.bandwebbackend.domain.performance.entity.PerformanceStatus;
 import com.crane.bandwebbackend.domain.song.entity.Song;
@@ -28,8 +30,10 @@ import com.crane.bandwebbackend.domain.team.repository.TeamMemberRepository;
 import com.crane.bandwebbackend.domain.team.repository.TeamRepository;
 import com.crane.bandwebbackend.global.audit.AuditLog;
 import com.crane.bandwebbackend.global.audit.AuditLogRepository;
+import com.crane.bandwebbackend.global.audit.AuditRecorder;
 import com.crane.bandwebbackend.global.error.BusinessException;
 import com.crane.bandwebbackend.global.error.ErrorCode;
+import com.crane.bandwebbackend.global.error.ErrorDetail;
 import com.crane.bandwebbackend.global.response.Effects;
 import com.crane.bandwebbackend.global.response.MutationResult;
 import com.crane.bandwebbackend.global.response.Warning;
@@ -38,6 +42,7 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -71,6 +76,9 @@ public class TeamService {
     private final PerformanceAccessService accessService;
     private final SongSupport songSupport;
     private final AuditLogRepository auditLogRepository;
+    private final AuditRecorder auditRecorder;
+    private final TeamLeaderSuccession succession;
+    private final ParticipantAssignmentService assignments;
     private final EntityManager em;
 
     // ---------- 조회 도우미 ----------
@@ -342,8 +350,9 @@ public class TeamService {
         }
         String name = requireName(req.getName());
         requireUniqueName(access.performanceId(), name, team);
+        String oldName = team.getName();
         team.rename(name);
-        auditIfLocked(access, team, req.getReason(), "{\"field\":\"name\"}");
+        auditIfLocked(access, team, req.getReason(), Map.of("teamName", fromTo(oldName, name)));
         return result(access, team, List.of());
     }
 
@@ -351,7 +360,8 @@ public class TeamService {
 
     @Transactional
     public TeamResults.Result addMember(PerformanceRef ref, Long teamId, TeamRequests.AddMember req) {
-        PerformanceAccess access = accessService.get(ref);
+        // X-03: LOCKED 예외 수정은 공연 행을 먼저 잠그고, 그다음 팀 행(#80)
+        PerformanceAccess access = accessService.getForUpdate(ref);
         access.requireEditable();
         Team team = getTeam(access.performanceId(), teamId);
         // #80: 팀원 INSERT(공유 락)보다 먼저 팀 행을 잠그고 최신 version으로 갱신해 교착 방지
@@ -377,7 +387,7 @@ public class TeamService {
         PerformanceMember pm = enroll(access, membership, access.isAdmin() && team.getStatus() == TeamStatus.APPROVED);
         TeamMember member = teamMemberRepository.save(TeamMember.of(team, pm, part));
         forceIncrement(team);
-        auditIfLocked(access, team, req.getReason(), "{\"addedPerformanceMemberId\":" + pm.getId() + "}");
+        auditIfLocked(access, team, req.getReason(), Map.of("addedPerformanceMemberId", pm.getId()));
         return result(access, team, partWarnings(List.of(member)));
     }
 
@@ -386,15 +396,23 @@ public class TeamService {
     @Transactional
     public TeamResults.Result changeMemberPart(
             PerformanceRef ref, Long teamId, Long teamMemberId, TeamRequests.ChangePart req) {
-        PerformanceAccess access = accessService.get(ref);
+        PerformanceAccess access = accessService.getForUpdate(ref);
         access.requireEditable();
         Team team = getTeam(access.performanceId(), teamId);
         team.verifyVersion(req.getVersion());
         requireMemberEditable(access, team, req.getReason());
         TeamMember member = getTeamMember(team, teamMemberId);
+        Long oldPartId = member.getPart() == null ? null : member.getPart().getId();
         member.changePart(
                 req.getPartId() == null ? null : accessService.getActivePart(access.clubId(), req.getPartId()));
         forceIncrement(team);
+        auditIfLocked(
+                access,
+                team,
+                req.getReason(),
+                Map.of(
+                        "performanceMemberId", member.getPerformanceMember().getId(),
+                        "partId", fromTo(oldPartId, req.getPartId())));
         return result(access, team, partWarnings(List.of(member)));
     }
 
@@ -403,7 +421,7 @@ public class TeamService {
     @Transactional
     public TeamResults.Result removeMember(
             PerformanceRef ref, Long teamId, Long teamMemberId, TeamRequests.RemoveMember req) {
-        PerformanceAccess access = accessService.get(ref);
+        PerformanceAccess access = accessService.getForUpdate(ref);
         access.requireEditable();
         Team team = getTeam(access.performanceId(), teamId);
         team.verifyVersion(req.getVersion());
@@ -413,6 +431,7 @@ public class TeamService {
         if (team.isLeader(pmId)) {
             throw new BusinessException(ErrorCode.STATE_CONFLICT, "LEADER_CHANGE_REQUIRED", "팀장을 먼저 교체해 주세요.");
         }
+        List<Long> songIds = new ArrayList<>();
         if (req.isRemoveSessions()) {
             // 담당 팀 선정곡에서 그 사람의 연주자 행 제거. 마지막 연주자가 없어지는 곡이 있으면 거절
             Map<Song, List<SongSessionMember>> bySong =
@@ -421,7 +440,6 @@ public class TeamService {
                                     && s.getSong().getAssignedTeam() != null
                                     && s.getSong().getAssignedTeam().getId().equals(teamId))
                             .collect(Collectors.groupingBy(SongSessionMember::getSong));
-            List<Long> songIds = new ArrayList<>();
             bySong.forEach((song, sessions) -> {
                 boolean has = sessions.stream()
                         .anyMatch(s -> s.getPerformanceMember().getId().equals(pmId));
@@ -439,7 +457,11 @@ public class TeamService {
         }
         teamMemberRepository.delete(member);
         forceIncrement(team);
-        auditIfLocked(access, team, req.getReason(), "{\"removedPerformanceMemberId\":" + pmId + "}");
+        auditIfLocked(
+                access,
+                team,
+                req.getReason(),
+                Map.of("removedPerformanceMemberId", pmId, "removedSessionSongIds", songIds));
         return result(access, team, List.of());
     }
 
@@ -447,7 +469,7 @@ public class TeamService {
 
     @Transactional
     public TeamResults.Result changeLeader(PerformanceRef ref, Long teamId, TeamRequests.Leader req) {
-        PerformanceAccess access = accessService.get(ref);
+        PerformanceAccess access = accessService.getForUpdate(ref);
         access.requireEditable();
         Team team = getTeam(access.performanceId(), teamId);
         team.verifyVersion(req.getVersion());
@@ -456,6 +478,8 @@ public class TeamService {
         } else {
             requireLeader(access, team);
             access.requireStatus(PerformanceStatus.ACTIVE);
+            // T-06: DRAFT 팀만 제출자가 수정 가능
+            requireTeamStatus(team, TeamStatus.DRAFT);
             if (req.getLeaderMembershipId() == null) {
                 throw new BusinessException(ErrorCode.FORBIDDEN, "팀장 해제는 임원만 할 수 있습니다.");
             }
@@ -469,8 +493,15 @@ public class TeamService {
                     .orElseThrow(() -> new BusinessException(
                             ErrorCode.STATE_CONFLICT, "LEADER_NOT_TEAM_MEMBER", "팀장은 팀원 중에서 지정해야 합니다."));
         }
+        Long oldLeaderMembershipId = team.getLeader() == null
+                ? null
+                : team.getLeader().getMembership().getId();
         team.changeLeader(leader);
-        auditIfLocked(access, team, req.getReason(), "{\"field\":\"leader\"}");
+        auditIfLocked(
+                access,
+                team,
+                req.getReason(),
+                Map.of("leaderMembershipId", fromTo(oldLeaderMembershipId, req.getLeaderMembershipId())));
         return result(access, team, List.of());
     }
 
@@ -524,6 +555,7 @@ public class TeamService {
             if (!req.isConfirmed() && songSupport.countConfirmedInScope(teamId) > 0) {
                 throw BusinessException.confirmationRequired(
                         "이 팀 범위의 선정곡이 있습니다. 확인 후 다시 요청해 주세요.",
+                        List.of(ErrorDetail.of(null, "CONFIRMED_SONGS_IN_TEAM_SCOPE")),
                         Warning.toMaps(List.of(Warning.builder()
                                 .type("CONFIRMED_SONGS_IN_TEAM_SCOPE")
                                 .teamId(teamId)
@@ -545,7 +577,8 @@ public class TeamService {
                 .build();
     }
 
-    // 다른 팀의 승인 팀원이거나 다른 승인 근거(임원 지정·본인 신청)가 있으면 그대로 둠
+    // 다른 팀의 승인 팀원이거나 다른 승인 근거(임원 지정·본인 신청)가 있으면 그대로 둠.
+    // 거절된 참여자는 P-07: 팀장이면 승계(U-05), 팀원·연주자에서 제거
     private List<Long> rejectTeamOnlyApplicants(Long performanceId, Long teamId) {
         Map<Long, Team> teams = getTeams(performanceId).stream().collect(Collectors.toMap(Team::getId, t -> t));
         List<TeamMember> all = membersOfPerformance(performanceId);
@@ -554,18 +587,23 @@ public class TeamService {
                         && teams.get(m.getTeam().getId()).getStatus() == TeamStatus.APPROVED)
                 .map(m -> m.getPerformanceMember().getId())
                 .collect(Collectors.toSet());
-        List<Long> rejected = new ArrayList<>();
-        all.stream()
+        List<PerformanceMember> targets = all.stream()
                 .filter(m -> m.getTeam().getId().equals(teamId))
                 .map(TeamMember::getPerformanceMember)
                 .filter(pm -> pm.getStatus() == PerformanceMemberStatus.APPLIED
                         && pm.getSource() == PerformanceMemberSource.TEAM_SUBMISSION
                         && !inOtherApproved.contains(pm.getId()))
-                .forEach(pm -> {
-                    pm.reject();
-                    rejected.add(pm.getId());
-                });
-        return rejected;
+                .toList();
+        // 전원 먼저 거절해야 팀장 승계 후보에서 빠진다
+        targets.forEach(PerformanceMember::reject);
+        em.flush();
+        for (PerformanceMember pm : targets) {
+            succession.apply(performanceId, pm.getId(), new HashMap<>(), TeamLeaderSuccession.Mode.ADMIN_REMOVAL);
+            assignments.removeAssignments(performanceId, pm.getId());
+        }
+        // 승계가 팀 행을 직접 갱신하므로 응답에 최신 팀장·version이 담기게 다시 읽음
+        em.refresh(getTeam(performanceId, teamId));
+        return targets.stream().map(PerformanceMember::getId).toList();
     }
 
     /** API-073 철회. 승인 팀 해체는 A만. 담당 선정곡이 있거나 기본 팀이면 거절. 팀 범위 후보곡은 TEAM_WITHDRAWN. */
@@ -608,7 +646,8 @@ public class TeamService {
             TeamRequests.Transition req,
             boolean adminOnly,
             BiConsumer<PerformanceAccess, Team> action) {
-        PerformanceAccess access = accessService.get(ref);
+        // 공연 행 → 팀·곡 행 순서로 잠금(API-065~068과 같은 순서). P-07이 다른 팀·소속 행도 바꾼다
+        PerformanceAccess access = accessService.getForUpdate(ref);
         access.requireEditable();
         access.requireStatus(PerformanceStatus.ACTIVE);
         Team team = getTeam(access.performanceId(), teamId);
@@ -630,7 +669,12 @@ public class TeamService {
         PerformanceAccess access = accessService.getForUpdate(ref);
         access.requireAdmin();
         access.requireEditable();
-        Team team = getApprovedTeam(access.performanceId(), req.getTeamId());
+        // 다른 공연의 팀도 404가 아니라 409 TEAM_NOT_APPROVED(API-155)
+        Team team = teamRepository
+                .findByIdAndPerformanceId(req.getTeamId(), access.performanceId())
+                .filter(t -> t.getStatus() == TeamStatus.APPROVED)
+                .orElseThrow(() ->
+                        new BusinessException(ErrorCode.STATE_CONFLICT, "TEAM_NOT_APPROVED", "승인된 팀만 지정할 수 있습니다."));
         team.verifyVersion(req.getVersion());
         List<Team> previous = teamRepository.findByPerformanceIdAndIsDefaultTrue(access.performanceId());
         previous.forEach(t -> t.markDefault(false));
@@ -818,15 +862,22 @@ public class TeamService {
                         .type("PART_NOT_REGISTERED")
                         .membershipId(m.getPerformanceMember().getMembership().getId())
                         .partId(m.getPart().getId())
-                        .partName(m.getPart().getName())
                         .build())
                 .toList();
     }
 
-    private void auditIfLocked(PerformanceAccess access, Team team, String reason, String detail) {
+    // X-07: 사유와 변경 전·후 값(ID와 값만, U-09)
+    private void auditIfLocked(PerformanceAccess access, Team team, String reason, Map<String, Object> detail) {
         if (access.isLocked()) {
-            auditLogRepository.save(AuditLog.create(
-                    access.clubId(), access.userId(), "LOCKED_EXCEPTION_EDIT", "TEAM", team.getId(), reason, detail));
+            auditRecorder.record(
+                    access.clubId(), access.userId(), "LOCKED_EXCEPTION_EDIT", "TEAM", team.getId(), reason, detail);
         }
+    }
+
+    private static Map<String, Object> fromTo(Object from, Object to) {
+        Map<String, Object> change = new LinkedHashMap<>();
+        change.put("from", from);
+        change.put("to", to);
+        return change;
     }
 }

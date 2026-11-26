@@ -163,14 +163,14 @@ public class Song extends BaseTimeEntity {
 
     // REJECTED → PROPOSED(재검토, SONG-003 9-5). 이전 제외 사유는 감사 기록으로 남기고 decisionNote는 유지
     public void reconsider() {
-        requireStatus(SongStatus.REJECTED);
+        requireStatus(SongStatus.REJECTED, "NOT_REJECTED");
         this.status = SongStatus.PROPOSED;
         this.decidedAt = LocalDateTime.now(ZoneOffset.UTC);
     }
 
     // 철회는 PROPOSED에서만. 임원 삭제도 WITHDRAWN + ADMIN(S-11)
     public void withdraw(WithdrawalType type) {
-        requireStatus(SongStatus.PROPOSED);
+        requireStatus(SongStatus.PROPOSED, "NOT_PROPOSED");
         this.status = SongStatus.WITHDRAWN;
         this.withdrawalType = type;
     }
@@ -217,6 +217,13 @@ public class Song extends BaseTimeEntity {
     private void requireStatus(SongStatus expected) {
         if (status != expected) {
             throw invalidTransition();
+        }
+    }
+
+    // API-156·157은 상태 오류 reason이 별도로 정해져 있음(NOT_REJECTED·NOT_PROPOSED)
+    private void requireStatus(SongStatus expected, String reason) {
+        if (status != expected) {
+            throw new BusinessException(ErrorCode.STATE_CONFLICT, reason, "현재 곡 상태(" + status + ")에서는 할 수 없습니다.");
         }
     }
 

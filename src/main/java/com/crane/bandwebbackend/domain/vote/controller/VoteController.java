@@ -6,6 +6,7 @@ import com.crane.bandwebbackend.domain.vote.dto.VoteRequest;
 import com.crane.bandwebbackend.domain.vote.service.VoteService;
 import jakarta.validation.Valid;
 import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -28,13 +29,16 @@ public class VoteController {
 
     // API-095
     @GetMapping
-    public List<EvaluationRows.Vote> list(
+    public Map<String, List<EvaluationRows.Vote>> list(
             @PathVariable Long clubId,
             @PathVariable Long performanceId,
             @PathVariable Long songId,
             @AuthenticationPrincipal(expression = "userId()") Long userId,
             @RequestParam(required = false) Long performanceMemberId) {
-        return voteService.list(new PerformanceRef(clubId, performanceId, userId), songId, performanceMemberId);
+        // 명세: {items: Vote[]}
+        return Map.of(
+                "items",
+                voteService.list(new PerformanceRef(clubId, performanceId, userId), songId, performanceMemberId));
     }
 
     // API-096

@@ -2,7 +2,6 @@ package com.crane.bandwebbackend.domain.team.dto;
 
 import com.crane.bandwebbackend.global.serialization.IdString;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.util.List;
@@ -23,6 +22,10 @@ public final class TeamRequests {
         // 있으면 API-086
         @IdString
         private Long sourceSongId;
+
+        // API-086에서만 사용(곡의 version). API-062에서는 무시
+        @IdString
+        private Long version;
 
         @Size(max = 100)
         private String name;
@@ -56,7 +59,7 @@ public final class TeamRequests {
         @IdString
         private Long version;
 
-        @NotBlank
+        // 비어 있으면 서비스가 400 NAME_REQUIRED(doc_teamerr)로 응답
         @Size(max = 100)
         private String name;
 
