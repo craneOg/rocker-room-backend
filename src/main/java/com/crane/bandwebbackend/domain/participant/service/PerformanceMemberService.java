@@ -85,12 +85,18 @@ public class PerformanceMemberService {
             }
             target = actor;
             if (performance.getStatus() != PerformanceStatus.ACTIVE) {
-                throw new BusinessException(ErrorCode.STATE_CONFLICT, "신청 가능한 공연 상태가 아닙니다.");
+                throw new BusinessException(ErrorCode.STATE_CONFLICT, "PERFORMANCE_NOT_ACTIVE", "신청 가능한 공연 상태가 아닙니다.");
             }
             PerformancePolicy policy = performanceService.policy(clubId, performanceId, actorUserId);
-            if (policy.getApplicationState() != FeatureState.OPEN
-                    || (policy.getApplicationDeadline() != null && !now.isBefore(policy.getApplicationDeadline()))) {
-                throw new BusinessException(ErrorCode.STATE_CONFLICT, "참여 신청이 열려 있지 않습니다.");
+            if (policy.getApplicationState() != FeatureState.OPEN) {
+                throw new BusinessException(ErrorCode.STATE_CONFLICT, "APPLICATION_CLOSED", "참여 신청이 열려 있지 않습니다.");
+            }
+            if (policy.getApplicationDeadline() != null && !now.isBefore(policy.getApplicationDeadline())) {
+                throw new BusinessException(ErrorCode.STATE_CONFLICT, "DEADLINE_PASSED", "참여 신청 마감 시각이 지났습니다.");
+            }
+            if (target.getStatus() == MembershipStatus.GRADUATED) {
+                throw new BusinessException(
+                        ErrorCode.FORBIDDEN, "GRADUATED_APPLICATION_FORBIDDEN", "졸업한 부원은 공연에 신청할 수 없습니다.");
             }
             if (target.getMemberType() != MemberType.REGULAR
                     || (target.getStatus() != MembershipStatus.ACTIVE
