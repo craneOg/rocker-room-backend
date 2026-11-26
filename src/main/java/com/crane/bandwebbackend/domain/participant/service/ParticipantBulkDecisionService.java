@@ -55,7 +55,7 @@ public class ParticipantBulkDecisionService {
         if (new HashSet<>(ids).size() != ids.size()) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "performanceMemberIds에 중복 값이 있습니다.");
         }
-        // G-08: 비활성 동아리는 항목 처리 전에 요청 전체를 409로 거절한다.
+        // G-08: 비활성 동아리는 항목 처리 전에 한 번 확인해 요청 전체를 409로 거절한다(잠금은 바로 풀리고, 항목마다 approve·remove가 다시 검사한다).
         entityLookup.lockActiveClub(clubId);
         // 각 참여자를 새 트랜잭션에서 처리해 일부 실패 결과를 반환한다.
         TransactionTemplate tx = new TransactionTemplate(transactionManager);
