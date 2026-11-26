@@ -75,6 +75,43 @@ class MembershipSpecAlignmentApiTest {
     }
 
     @Test
+    @DisplayName("member-01 API-021: 객원 본인 상세는 REJECTED·WITHDRAWN 참여를 제외하고 신청·승인 공연만 담는다")
+    void guestSelfDetailExcludesRejectedAndWithdrawn() throws Exception {
+        jdbc.update("INSERT INTO users (id, name, handle) VALUES (5, '객원', 'guest_5')");
+        jdbc.update("INSERT INTO membership (id, club_id, user_id, member_type, role, status, join_source)"
+                + " VALUES (5, 1, 5, 'GUEST', 'MEMBER', 'ACTIVE', 'JOIN_CODE')");
+        for (int id : new int[] {21, 22}) {
+            jdbc.update(
+                    "INSERT INTO performance (id, club_id, title, preset, status, created_by_user_id)"
+                            + " VALUES (?, 1, '공연', 'CUSTOM', 'ACTIVE', 1)",
+                    id);
+            jdbc.update(
+                    "INSERT INTO performance_policy (performance_id, candidate_state, playability_state,"
+                            + " vote_state, vote_method, vote_max_choices, team_submission_state, availability_state)"
+                            + " VALUES (?, 'OPEN', 'OPEN', 'OPEN', 'APPROVAL', 1, 'OPEN', 'OPEN')",
+                    id);
+        }
+        jdbc.update("INSERT INTO performance_member (id, performance_id, club_id, membership_id, status, source) VALUES"
+                + " (31, 1, 1, 5, 'REJECTED', 'APPLICATION'),"
+                + " (32, 21, 1, 5, 'WITHDRAWN', 'APPLICATION'),"
+                + " (33, 22, 1, 5, 'APPROVED', 'APPLICATION')");
+        read(5, "/memberships/5")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.performances.length()").value(1))
+                .andExpect(jsonPath("$.data.performances[0].id").value("22"));
+    }
+
+    @Test
+    @DisplayName("G-05 API-021: 탈퇴한 본인의 상세는 프로필만 주고 performances는 빈 배열이다")
+    void withdrawnSelfDetailHasNoPerformances() throws Exception {
+        jdbc.update("INSERT INTO performance_member (id, performance_id, club_id, membership_id, status, source)"
+                + " VALUES (34, 1, 1, 4, 'APPROVED', 'APPLICATION')");
+        read(4, "/memberships/4")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.performances.length()").value(0));
+    }
+
+    @Test
     @DisplayName("G-05 API-029: 탈퇴·가입 대기·초대 대기 본인의 프로필 수정은 403, 활동 중이면 200")
     void displayNameRequiresValidMembership() throws Exception {
         jdbc.update("INSERT INTO users (id, name, handle) VALUES (5, '대기', 'pending_5'), (6, '초대', 'invited_6')");

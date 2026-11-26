@@ -8,7 +8,7 @@ import lombok.Builder;
 import lombok.Getter;
 
 @Getter
-@Builder(toBuilder = true)
+@Builder
 public class PartResponse {
     private final String id;
     private final String clubId;
@@ -22,18 +22,21 @@ public class PartResponse {
     private final Long memberCount;
 
     public static PartResponse from(Part part) {
+        return builderOf(part).build();
+    }
+
+    public static PartResponse from(Part part, long memberCount) {
+        return builderOf(part).memberCount(memberCount).build();
+    }
+
+    private static PartResponseBuilder builderOf(Part part) {
         return PartResponse.builder()
                 .id(part.getId().toString())
                 .clubId(part.getClub().getId().toString())
                 .name(part.getName())
                 .displayOrder(part.getDisplayOrder())
                 .active(part.isActive())
-                .revision(RevisionTag.from("part", part.getId(), part.getUpdatedAt()))
-                .build();
-    }
-
-    public static PartResponse from(Part part, long memberCount) {
-        return from(part).toBuilder().memberCount(memberCount).build();
+                .revision(RevisionTag.from("part", part.getId(), part.getUpdatedAt()));
     }
 
     @JsonProperty("isActive")

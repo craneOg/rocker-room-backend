@@ -82,9 +82,7 @@ public class PartService {
     @Transactional
     public Part create(Long clubId, Long actorUserId, String name, Integer displayOrder) {
         // 관리자 권한을 확인하고 동아리 행을 잠가 이름 중복 검사를 직렬화한다.
-        membershipService.requireAdmin(clubId, actorUserId);
-        // G-08: 비활성 동아리는 409. 잠금도 함께 잡는다
-        Club club = entityLookup.lockActiveClub(clubId);
+        Club club = lockActiveClub(membershipService.requireAdmin(clubId, actorUserId));
         String normalized = validateName(name);
         if (repository.existsByClub_IdAndName(clubId, normalized)) {
             throw partNameTaken();
@@ -97,6 +95,13 @@ public class PartService {
         } catch (DataIntegrityViolationException exception) {
             throw partNameTaken();
         }
+    }
+
+    // G-08: 권한 확인(404·403)을 통과한 뒤 동아리 행을 잠그고 최신 상태로 다시 읽어 비활성이면 409.
+    // 권한 확인 때 읽은 동아리가 잠금 전 값일 수 있어 lockAndRefresh로 갱신한다
+    private Club lockActiveClub(Membership admin) {
+        entityLookup.lockAndRefresh(admin.getClub());
+        return entityLookup.lockActiveClub(admin.getClub().getId());
     }
 
     // 동아리 생성(API-011) 전용: 권한 검사 없이 기본 파트 6개를 만든다. 다른 곳에서 호출하지 않는다
@@ -114,8 +119,7 @@ public class PartService {
     public Part update(
             Long clubId, Long partId, Long actorUserId, String expectedRevision, String name, Integer displayOrder) {
         // 관리자·동아리·파트 순서로 잠가 동시 수정의 교착 가능성을 줄인다.
-        membershipService.requireAdmin(clubId, actorUserId);
-        entityLookup.lockActiveClub(clubId);
+        lockActiveClub(membershipService.requireAdmin(clubId, actorUserId));
         Part part = requireLocked(clubId, partId, expectedRevision);
         if (name == null && displayOrder == null) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "변경할 정보가 없습니다.");
@@ -143,8 +147,7 @@ public class PartService {
     @Transactional
     public Part setActive(Long clubId, Long partId, Long actorUserId, String expectedRevision, boolean active) {
         // 권한과 revision을 잠금 상태에서 확인한다.
-        membershipService.requireAdmin(clubId, actorUserId);
-        entityLookup.lockActiveClub(clubId);
+        lockActiveClub(membershipService.requireAdmin(clubId, actorUserId));
         Part part = requireLocked(clubId, partId, expectedRevision);
         // 동일 상태 요청은 멱등하게 아무 변경 없이 현재 파트를 반환한다.
         if (part.isActive() != active) {
@@ -189,15 +192,9 @@ public class PartService {
         // 삭제를 먼저 반영해야 같은 (소속, 파트) 키를 다시 넣을 때 충돌하지 않는다
         membershipPartRepository.deleteByMembership_Id(membershipId);
         membershipPartRepository.flush();
-        // API-142 ADD는 동아리 잠금 없이 넣으므로 같은 (소속, 파트)가 먼저 들어오면 키 충돌이 난다.
-        // 500 대신 409 VERSION_CONFLICT로 돌려 FE가 다시 불러온 뒤 재시도하게 한다
-        try {
-            membershipPartRepository.saveAll(
-                    parts.stream().map(part -> MembershipPart.of(target, part)).toList());
-            membershipPartRepository.flush();
-        } catch (DataIntegrityViolationException exception) {
-            throw new BusinessException(ErrorCode.VERSION_CONFLICT, "보유 파트가 먼저 변경되었습니다.");
-        }
+        membershipPartRepository.saveAll(
+                parts.stream().map(part -> MembershipPart.of(target, part)).toList());
+        membershipPartRepository.flush();
         return target;
     }
 
@@ -212,7 +209,19 @@ public class PartService {
     /** API-032·142 공통: 바뀐 것이 있을 때만 from·to 파트 ID를 MEMBERSHIP_PARTS_CHANGED로 남긴다 */
     public void auditPartsChanged(
             Long clubId, Long actorUserId, Long membershipId, String reason, Set<Long> from, Collection<Long> to) {
-        if (from.equals(new HashSet<>(to))) {
+        auditPartsChanged(clubId, actorUserId, membershipId, reason, from, to, false);
+    }
+
+    /** written=true면 집합이 같아도(동시 변경으로 상쇄된 경우) 실제 쓰기가 있었으므로 기록한다 */
+    public void auditPartsChanged(
+            Long clubId,
+            Long actorUserId,
+            Long membershipId,
+            String reason,
+            Set<Long> from,
+            Collection<Long> to,
+            boolean written) {
+        if (!written && from.equals(new HashSet<>(to))) {
             return;
         }
         auditRecorder.record(

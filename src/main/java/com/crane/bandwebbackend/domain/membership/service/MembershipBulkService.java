@@ -161,6 +161,10 @@ public class MembershipBulkService {
 
     /** 분리 트랜잭션에서 소속 한 건에 일괄 작업을 적용한다. */
     private Boolean applyOne(Long clubId, Long actorUserId, Long id, MembershipBulkRequest request, Params params) {
+        // API-032와 같이 동아리 잠금·비활성 재검사를 먼저 한다(항목 도중 비활성화·동시 단건 저장 직렬화, G-08)
+        if (request.getAction() == MembershipBulkRequest.Action.CHANGE_PARTS) {
+            entityLookup.lockActiveClub(clubId);
+        }
         // 개별 소속을 다시 조회해 다른 트랜잭션에서 바뀐 최신 상태를 검증한다.
         var member = memberships.require(clubId, id);
         if (member.getStatus() != MembershipStatus.ACTIVE
@@ -176,6 +180,7 @@ public class MembershipBulkService {
         // 파트 추가·삭제는 중복에 안전한 SQL로 적용하고 한 번의 감사 로그를 남긴다.
         if (request.getAction() == MembershipBulkRequest.Action.CHANGE_PARTS) {
             Set<Long> before = partService.heldPartIds(id);
+            int written = 0;
             for (Long partId : params.getPartIds()) {
                 if (params.getMode().equals("ADD")) {
                     Part current = parts.findByIdAndClub_Id(partId, clubId)
@@ -183,7 +188,7 @@ public class MembershipBulkService {
                     if (!current.isActive()) {
                         throw new BusinessException(ErrorCode.RULE_VIOLATION, "PART_INACTIVE", "사용 중지 파트는 추가할 수 없습니다.");
                     }
-                    entityManager
+                    written += entityManager
                             .createNativeQuery("""
 							INSERT IGNORE INTO membership_part (membership_id, part_id)
 							VALUES (:membershipId, :partId)
@@ -192,7 +197,7 @@ public class MembershipBulkService {
                             .setParameter("partId", partId)
                             .executeUpdate();
                 } else {
-                    entityManager
+                    written += entityManager
                             .createNativeQuery("""
 							DELETE FROM membership_part WHERE membership_id = :membershipId AND part_id = :partId
 							""")
@@ -201,9 +206,9 @@ public class MembershipBulkService {
                             .executeUpdate();
                 }
             }
-            // API-032와 같은 규칙: 바뀐 것이 있을 때만 from·to 파트 ID를 남긴다
+            // 바뀐 것이 있을 때만(집합 차이 또는 실제 쓰기 행 수) from·to 파트 ID를 남긴다
             partService.auditPartsChanged(
-                    clubId, actorUserId, id, request.getReason(), before, partService.heldPartIds(id));
+                    clubId, actorUserId, id, request.getReason(), before, partService.heldPartIds(id), written > 0);
             return false;
         }
         // 이미 유효 참여자인 경우는 성공한 건너뜀으로 표시하고, 아니면 관리자 참여를 생성한다.

@@ -59,16 +59,24 @@ public class MemberDirectoryService {
         boolean admin = actor.getRole() == MembershipRole.CLUB_ADMIN
                 && actor.getMemberType() == MemberType.REGULAR
                 && (actor.getStatus() == MembershipStatus.ACTIVE || actor.getStatus() == MembershipStatus.ON_LEAVE);
-        List<MemberPerformanceItem> performances = performancesOf(membershipId, actor, admin);
+        List<MemberPerformanceItem> performances = performancesOf(membershipId, actor);
         return self || admin
                 ? MembershipResponse.from(member, parts, actorUserId, performances)
                 : MembershipPublicItem.from(member, parts, actorUserId, performances);
     }
 
     /** API-021: 호출자가 볼 수 있는 공연만. DRAFT는 임원만, 객원은 신청·승인 중인 공연만(G-06) */
-    private List<MemberPerformanceItem> performancesOf(Long membershipId, Membership actor, boolean admin) {
+    private List<MemberPerformanceItem> performancesOf(Long membershipId, Membership actor) {
+        // G-05: 공연 API가 거부하는 비유효 소속(탈퇴 등) 본인에게는 공연 정보를 주지 않는다
+        if (actor.getStatus() != MembershipStatus.ACTIVE
+                && actor.getStatus() != MembershipStatus.ON_LEAVE
+                && actor.getStatus() != MembershipStatus.GRADUATED) {
+            return List.of();
+        }
         return participationLookup.membersOfMembership(membershipId).stream()
-                .filter(row -> admin || row.getPerformance().getStatus() != PerformanceStatus.DRAFT)
+                // DRAFT 판정은 PerformanceService와 같은 기준(role)
+                .filter(row -> actor.getRole() == MembershipRole.CLUB_ADMIN
+                        || row.getPerformance().getStatus() != PerformanceStatus.DRAFT)
                 .filter(row -> actor.getMemberType() != MemberType.GUEST
                         || row.getStatus() == PerformanceMemberStatus.APPLIED
                         || row.getStatus() == PerformanceMemberStatus.APPROVED)
