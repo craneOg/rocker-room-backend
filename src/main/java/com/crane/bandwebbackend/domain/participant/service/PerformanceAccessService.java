@@ -2,6 +2,7 @@ package com.crane.bandwebbackend.domain.participant.service;
 
 import com.crane.bandwebbackend.domain.membership.entity.MemberType;
 import com.crane.bandwebbackend.domain.membership.entity.Membership;
+import com.crane.bandwebbackend.domain.membership.entity.MembershipRole;
 import com.crane.bandwebbackend.domain.membership.entity.MembershipStatus;
 import com.crane.bandwebbackend.domain.part.entity.MembershipPart;
 import com.crane.bandwebbackend.domain.part.entity.Part;
@@ -10,6 +11,7 @@ import com.crane.bandwebbackend.domain.participant.entity.PerformanceMemberSourc
 import com.crane.bandwebbackend.domain.participant.entity.PerformanceMemberStatus;
 import com.crane.bandwebbackend.domain.performance.entity.Performance;
 import com.crane.bandwebbackend.domain.performance.entity.PerformancePolicy;
+import com.crane.bandwebbackend.domain.performance.entity.PerformanceStatus;
 import com.crane.bandwebbackend.global.error.BusinessException;
 import com.crane.bandwebbackend.global.error.ErrorCode;
 import jakarta.persistence.EntityManager;
@@ -65,19 +67,29 @@ public class PerformanceAccessService {
         Object[] row = em.createQuery(
                         "select m, pm from Membership m join fetch m.club join fetch m.user"
                                 + " left join PerformanceMember pm on pm.membership = m and pm.performance.id = :pid"
-                                + " where m.club.id = :clubId and m.user.id = :userId and m.status in :statuses",
+                                + " where m.club.id = :clubId and m.user.id = :userId",
                         Object[].class)
                 .setParameter("pid", performance.getId())
                 .setParameter("clubId", clubId)
                 .setParameter("userId", userId)
-                .setParameter("statuses", ACCESSIBLE)
                 .getResultStream()
                 .findFirst()
                 .orElseThrow(PerformanceAccessService::notFound);
         Membership membership = (Membership) row[0];
         PerformanceMember pm = (PerformanceMember) row[1];
-        // 외부 객원은 자신이 참여한 공연만 열람
-        if (membership.getMemberType() == MemberType.GUEST && pm == null) {
+        // G-05: 소속 행은 있으나 활동·휴학·졸업이 아니면 403
+        if (!ACCESSIBLE.contains(membership.getStatus())) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "활동 가능한 동아리 소속이 아닙니다.");
+        }
+        // 2.1: DRAFT 공연은 임원만 열람
+        if (performance.getStatus() == PerformanceStatus.DRAFT && membership.getRole() != MembershipRole.CLUB_ADMIN) {
+            throw notFound();
+        }
+        // G-06: 외부 객원은 자신이 신청·승인된 공연만 열람
+        if (membership.getMemberType() == MemberType.GUEST
+                && (pm == null
+                        || (pm.getStatus() != PerformanceMemberStatus.APPLIED
+                                && pm.getStatus() != PerformanceMemberStatus.APPROVED))) {
             throw notFound();
         }
         return new PerformanceAccess(performance, membership, pm);

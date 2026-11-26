@@ -6,6 +6,7 @@ import com.crane.bandwebbackend.domain.membership.entity.MembershipStatus;
 import com.crane.bandwebbackend.domain.membership.service.MembershipService;
 import com.crane.bandwebbackend.domain.participant.service.ParticipationLookup;
 import com.crane.bandwebbackend.domain.performance.entity.Performance;
+import com.crane.bandwebbackend.domain.performance.entity.PerformanceStatus;
 import com.crane.bandwebbackend.domain.performance.service.PerformanceService;
 import com.crane.bandwebbackend.domain.schedule.dto.CalendarEvent;
 import com.crane.bandwebbackend.domain.schedule.entity.PracticeSchedule;
@@ -69,6 +70,10 @@ public class CalendarReader {
             }
             // 각 동아리에서 승인된 공연 참여자로 등록된 공연만 개인 캘린더에 포함한다.
             for (Performance performance : performances.list(clubId, actorUserId)) {
+                // API-114: DRAFT 공연은 제외한다.
+                if (performance.getStatus() == PerformanceStatus.DRAFT) {
+                    continue;
+                }
                 Long participantId = participants
                         .approvedMemberId(performance.getId(), membership.getId())
                         .orElse(null);
