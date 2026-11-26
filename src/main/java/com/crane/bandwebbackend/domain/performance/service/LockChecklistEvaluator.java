@@ -2,6 +2,7 @@ package com.crane.bandwebbackend.domain.performance.service;
 
 import com.crane.bandwebbackend.domain.performance.dto.LockChecklistItem;
 import com.crane.bandwebbackend.domain.performance.dto.LockValidationResponse;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -147,6 +148,30 @@ public final class LockChecklistEvaluator {
 
         @JsonProperty("maxSongsPerMember")
         private Integer maxSongsPerMember;
+
+        // 점검 message에 넣을 곡명·팀명·참여자 이름(없으면 이름 없는 문구)
+        @JsonIgnore
+        private Names names;
+
+        public Snapshot(
+                List<SongRow> songs,
+                List<PlayerRow> players,
+                List<TeamRow> teams,
+                List<ParticipantRow> participants,
+                List<RequirementRow> requirements,
+                List<AuditionRow> auditions,
+                Integer maxSongsPerMember) {
+            this(songs, players, teams, participants, requirements, auditions, maxSongsPerMember, null);
+        }
+    }
+
+    /** L-01~L-11 message용 표시 이름. 키는 곡·팀·공연 참여자 ID다. */
+    @Getter
+    @AllArgsConstructor
+    public static class Names {
+        private final Map<Long, String> songs;
+        private final Map<Long, String> teams;
+        private final Map<Long, String> members;
     }
 
     @Getter
@@ -195,24 +220,49 @@ public final class LockChecklistEvaluator {
                     .computeIfAbsent(player.getPerformanceMemberId(), ignored -> new HashSet<>())
                     .add(player.getSongId());
         }
+        Names names = snapshot.getNames() == null ? new Names(Map.of(), Map.of(), Map.of()) : snapshot.getNames();
         Map<String, List<LockChecklistItem>> byCheck = new LinkedHashMap<>();
         for (int i = 1; i <= 11; i++) byCheck.put(checkId(i), new ArrayList<>());
 
         // L-01~L-03: 곡 순서·승인 팀·승인 연주자 필수 조건을 검사한다.
         for (SongRow song : ordered) {
             if (song.getOrder() == null)
-                add(byCheck, 1, "SETLIST_ORDER_MISSING", "선정곡에 세트리스트 순서가 없습니다.", "SONG", song.getId());
+                add(
+                        byCheck,
+                        1,
+                        "SETLIST_ORDER_MISSING",
+                        songLabel(names, song.getId()) + "세트리스트 순서가 없습니다.",
+                        "SONG",
+                        song.getId());
             if (song.getAssignedTeamId() == null || !"APPROVED".equals(song.getAssignedTeamStatus())) {
-                add(byCheck, 2, "TEAM_NOT_APPROVED", "선정곡의 담당 팀이 승인되지 않았습니다.", "SONG", song.getId());
+                add(
+                        byCheck,
+                        2,
+                        "TEAM_NOT_APPROVED",
+                        songLabel(names, song.getId()) + "담당 팀이 승인되지 않았습니다.",
+                        "SONG",
+                        song.getId());
             }
             if (approvedPlayersBySong.getOrDefault(song.getId(), Set.of()).isEmpty()) {
-                add(byCheck, 3, "PLAYER_MISSING", "선정곡에 승인된 연주자가 없습니다.", "SONG", song.getId());
+                add(
+                        byCheck,
+                        3,
+                        "PLAYER_MISSING",
+                        songLabel(names, song.getId()) + "승인된 연주자가 없습니다.",
+                        "SONG",
+                        song.getId());
             }
         }
         // L-04~L-06: 대기 중인 팀·참여자·오디션을 확정 차단 오류로 수집한다.
         for (TeamRow team : snapshot.getTeams()) {
             if ("SUBMITTED".equals(team.getStatus()))
-                add(byCheck, 4, "SUBMITTED_TEAM", "심사 대기 중인 팀이 있습니다.", "TEAM", team.getId());
+                add(
+                        byCheck,
+                        4,
+                        "SUBMITTED_TEAM",
+                        label("「", names.getTeams().get(team.getId()), "」 ") + "팀이 심사 대기 중입니다.",
+                        "TEAM",
+                        team.getId());
         }
         for (ParticipantRow participant : snapshot.getParticipants()) {
             if ("APPLIED".equals(participant.getStatus()))
@@ -220,13 +270,23 @@ public final class LockChecklistEvaluator {
                         byCheck,
                         5,
                         "APPLIED_PARTICIPANT",
-                        "승인 대기 중인 공연 참여자가 있습니다.",
+                        memberLabel(names, participant.getId()) + "공연 참여 승인 대기 중입니다.",
                         "PERFORMANCE_MEMBER",
                         participant.getId());
         }
         for (AuditionRow audition : snapshot.getAuditions()) {
             if (audition.getResult() == null)
-                add(byCheck, 6, "AUDITION_PENDING", "심사 대기 중인 오디션이 있습니다.", "AUDITION", audition.getId());
+                add(
+                        byCheck,
+                        6,
+                        "AUDITION_PENDING",
+                        (audition.getPerformanceMemberId() == null
+                                        ? ""
+                                        : memberLabel(names, audition.getPerformanceMemberId()))
+                                + songLabel(names, audition.getSongId())
+                                + "오디션이 심사 대기 중입니다.",
+                        "AUDITION",
+                        audition.getId());
         }
         // L-07~L-09: 파트 부족과 참여곡 누락·권장 곡 수 초과를 경고한다.
         for (RequirementRow requirement : snapshot.getRequirements()) {
@@ -239,7 +299,8 @@ public final class LockChecklistEvaluator {
                         byCheck,
                         7,
                         "PART_SHORTAGE",
-                        requirement.getPartName() + "이 " + missing + "명 부족합니다.",
+                        songLabel(names, requirement.getSongId()) + requirement.getPartName() + "이 " + missing
+                                + "명 부족합니다.",
                         "SONG",
                         requirement.getSongId());
         }
@@ -253,11 +314,17 @@ public final class LockChecklistEvaluator {
                         byCheck,
                         8,
                         "NO_SONG_PARTICIPATION",
-                        "참여곡이 없는 승인 참여자입니다.",
+                        memberLabel(names, participant.getId()) + "참여곡이 없습니다.",
                         "PERFORMANCE_MEMBER",
                         participant.getId());
             if (snapshot.getMaxSongsPerMember() != null && count > snapshot.getMaxSongsPerMember()) {
-                add(byCheck, 9, "SONG_LIMIT_EXCEEDED", "권장 출연 곡 수를 초과했습니다.", "PERFORMANCE_MEMBER", participant.getId());
+                add(
+                        byCheck,
+                        9,
+                        "SONG_LIMIT_EXCEEDED",
+                        memberLabel(names, participant.getId()) + "권장 출연 곡 수를 초과했습니다.",
+                        "PERFORMANCE_MEMBER",
+                        participant.getId());
             }
         }
         // L-10: 인접 곡에 중복 배정된 연주자를 찾아 연속 출연을 경고한다.
@@ -272,7 +339,7 @@ public final class LockChecklistEvaluator {
                         byCheck,
                         10,
                         "CONSECUTIVE_APPEARANCE",
-                        "같은 연주자가 연속 출연합니다. 참여자 ID: " + playerId,
+                        memberLabel(names, playerId) + i + "·" + (i + 1) + "번 연속 출연합니다.",
                         "SONG",
                         current.getId());
         }
@@ -292,7 +359,13 @@ public final class LockChecklistEvaluator {
         for (SongRow song : ordered) {
             AuditionRow latest = latestSongAudition.get(song.getId());
             if (latest != null && "FAILED".equals(latest.getResult()))
-                add(byCheck, 11, "FAILED_SONG_AUDITION", "최신 곡 심사에서 탈락한 선정곡입니다.", "SONG", song.getId());
+                add(
+                        byCheck,
+                        11,
+                        "FAILED_SONG_AUDITION",
+                        songLabel(names, song.getId()) + "최신 곡 심사에서 탈락했습니다.",
+                        "SONG",
+                        song.getId());
         }
 
         // 검사 번호 순으로 만족 항목을 채우고 1~6은 오류, 7~11은 경고로 분리한다.
@@ -310,6 +383,20 @@ public final class LockChecklistEvaluator {
             }
         }
         return new Evaluation(List.copyOf(items), List.copyOf(hard), List.copyOf(warnings), List.copyOf(normalized));
+    }
+
+    /** 「곡명」 형태의 접두어. 이름을 모르면 빈 문자열이다(내부 ID는 넣지 않는다). */
+    private static String songLabel(Names names, long songId) {
+        return label("「", names.getSongs().get(songId), "」 ");
+    }
+
+    /** 참여자 이름 접두어. 이름을 모르면 빈 문자열이다. */
+    private static String memberLabel(Names names, long memberId) {
+        return label("", names.getMembers().get(memberId), " ");
+    }
+
+    private static String label(String prefix, String name, String suffix) {
+        return name == null ? "" : prefix + name + suffix;
     }
 
     /** 잠금 점검 항목을 검사 번호별 결과 맵에 추가한다. */
