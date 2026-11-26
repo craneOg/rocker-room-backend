@@ -40,7 +40,7 @@ class TeamAddMemberConcurrencyApiTest {
     JdbcTemplate jdbc;
 
     @Test
-    @DisplayName("같은 version으로 동시에 팀원을 추가하면 200 한 건, 나머지는 409 VERSION_CONFLICT")
+    @DisplayName("같은 version으로 동시에 팀원을 추가하면 201 한 건, 나머지는 409 VERSION_CONFLICT")
     void concurrentAddMember() throws Exception {
         jdbc.update("INSERT INTO team (id, performance_id, name, is_default, status, source, created_by_user_id)"
                 + " VALUES (200, 1, '동시성팀', FALSE, 'APPROVED', 'ADMIN', 1)");
@@ -60,7 +60,7 @@ class TeamAddMemberConcurrencyApiTest {
                                 .content("{\"version\":\"" + version + "\",\"membershipId\":\"" + membershipId + "\"}"))
                         .andReturn()
                         .getResponse();
-                return response.getStatus() + (response.getStatus() == 200 ? "" : response.getContentAsString());
+                return response.getStatus() + (response.getStatus() == 201 ? "" : response.getContentAsString());
             }));
         }
         start.countDown();
@@ -70,7 +70,7 @@ class TeamAddMemberConcurrencyApiTest {
         }
         pool.shutdown();
 
-        assertThat(bodies).filteredOn(b -> b.equals("200")).hasSize(1);
+        assertThat(bodies).filteredOn(b -> b.equals("201")).hasSize(1);
         assertThat(bodies)
                 .filteredOn(b -> b.startsWith("409") && b.contains("VERSION_CONFLICT"))
                 .hasSize(1);

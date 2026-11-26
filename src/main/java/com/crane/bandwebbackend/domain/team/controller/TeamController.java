@@ -99,6 +99,7 @@ public class TeamController {
 
     // API-065
     @PostMapping("/{teamId}/members")
+    @ResponseStatus(HttpStatus.CREATED)
     public TeamResults.Result addMember(
             @PathVariable Long clubId,
             @PathVariable Long performanceId,
