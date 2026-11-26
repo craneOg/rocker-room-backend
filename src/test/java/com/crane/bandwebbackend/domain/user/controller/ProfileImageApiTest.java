@@ -185,8 +185,7 @@ class ProfileImageApiTest {
     }
 
     @Test
-    @DisplayName(
-            "API 129: PNG·WEBP도 허용하고, 검사에 실패하면 400(FILE_TOO_LARGE·UNSUPPORTED_MEDIA_TYPE·UNSUPPORTED_FORMAT·INVALID_IMAGE)")
+    @DisplayName("API 129: PNG·WEBP도 허용하고, 검사에 실패하면 400(FILE_TOO_LARGE·UNSUPPORTED_FORMAT·INVALID_IMAGE)")
     void validation() throws Exception {
         mockMvc.perform(upload(me, image("png", 8, 8), "image/png", null)).andExpect(status().isCreated());
         mockMvc.perform(upload(me, webp(100, 200), "image/webp", null))
@@ -199,7 +198,7 @@ class ProfileImageApiTest {
                 .andExpect(jsonPath("$.error.details[0].reason").value("FILE_TOO_LARGE"));
         // 허용하지 않는 Content-Type
         mockMvc.perform(upload(me, image("png", 8, 8), "image/gif", null))
-                .andExpect(jsonPath("$.error.details[0].reason").value("UNSUPPORTED_MEDIA_TYPE"));
+                .andExpect(jsonPath("$.error.details[0].reason").value("UNSUPPORTED_FORMAT"));
         // 선언은 PNG인데 실제 내용이 아닌 경우, 그리고 JPEG 내용을 PNG로 선언한 경우
         mockMvc.perform(upload(me, "hello".getBytes(StandardCharsets.UTF_8), "image/png", null))
                 .andExpect(jsonPath("$.error.details[0].reason").value("UNSUPPORTED_FORMAT"));

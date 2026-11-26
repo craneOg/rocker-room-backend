@@ -38,7 +38,8 @@ class JoinBulkDecisionServiceTest {
                     if (id == 4L) throw new BusinessException(ErrorCode.RULE_VIOLATION, "OTHER_REASON", "규칙");
                     throw new BusinessException(ErrorCode.NOT_FOUND, "대상 없음");
                 });
-        var result = new JoinBulkDecisionService(memberships, decisions, transactionManager)
+        var result = new JoinBulkDecisionService(
+                        memberships, decisions, mock(CoreEntityLookupService.class), transactionManager)
                 .decide(
                         1L,
                         1L,
@@ -71,7 +72,8 @@ class JoinBulkDecisionServiceTest {
                     }
                     return mock(Membership.class);
                 });
-        JoinBulkDecisionService service = new JoinBulkDecisionService(memberships, decisions, transactionManager);
+        JoinBulkDecisionService service = new JoinBulkDecisionService(
+                memberships, decisions, mock(CoreEntityLookupService.class), transactionManager);
 
         var result = service.decide(
                 10L,

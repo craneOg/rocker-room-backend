@@ -165,7 +165,7 @@ public class MembershipService {
             LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
             if (existing.getStatus() == MembershipStatus.INVITED
                     && now.isBefore(invitationExpiresAt(existing.getInvitedAt()))) {
-                throw new BusinessException(ErrorCode.DUPLICATE, "유효한 초대가 이미 있습니다.");
+                throw new BusinessException(ErrorCode.DUPLICATE, "DUPLICATE_MEMBERSHIP", "유효한 초대가 이미 있습니다.");
             }
             MembershipStatus before = existing.getStatus();
             try {
@@ -181,11 +181,17 @@ public class MembershipService {
                         Map.of("from", before.toString(), "to", "INVITED"));
                 return existing;
             } catch (IllegalStateException exception) {
-                throw new BusinessException(ErrorCode.DUPLICATE, "이미 유효한 소속이 있습니다.");
+                throw new BusinessException(ErrorCode.DUPLICATE, "DUPLICATE_MEMBERSHIP", "이미 유효한 소속이 있습니다.");
             }
         }
-        Membership invited = repository.saveAndFlush(
-                Membership.invite(club, user, type, displayName, LocalDateTime.now(ZoneOffset.UTC)));
+        // 동시 초대·가입 신청은 uk_membership_club_user 위반으로 걸러 reason 있는 409로 돌려준다
+        Membership invited;
+        try {
+            invited = repository.saveAndFlush(
+                    Membership.invite(club, user, type, displayName, LocalDateTime.now(ZoneOffset.UTC)));
+        } catch (DataIntegrityViolationException exception) {
+            throw duplicateMembership();
+        }
         auditRecorder.record(
                 clubId,
                 actorUserId,

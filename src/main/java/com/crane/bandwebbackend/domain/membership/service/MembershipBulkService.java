@@ -5,6 +5,7 @@ import com.crane.bandwebbackend.domain.membership.dto.MembershipBulkResponse;
 import com.crane.bandwebbackend.domain.membership.entity.MembershipStatus;
 import com.crane.bandwebbackend.domain.part.entity.Part;
 import com.crane.bandwebbackend.domain.part.repository.PartRepository;
+import com.crane.bandwebbackend.domain.part.service.PartService;
 import com.crane.bandwebbackend.domain.participant.entity.PerformanceMemberSource;
 import com.crane.bandwebbackend.domain.participant.entity.PerformanceMemberStatus;
 import com.crane.bandwebbackend.domain.participant.service.ParticipationLookup;
@@ -21,6 +22,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
@@ -40,6 +42,8 @@ public class MembershipBulkService {
     private final MembershipService memberships;
     private final MembershipStatusService statusService;
     private final PartRepository parts;
+    private final PartService partService;
+    private final CoreEntityLookupService entityLookup;
     private final PerformanceService performances;
     private final ParticipationLookup performanceMembers;
     private final PerformanceMemberService participantService;
@@ -51,6 +55,8 @@ public class MembershipBulkService {
     public MembershipBulkResponse process(Long clubId, Long actorUserId, MembershipBulkRequest request) {
         // 관리자 권한과 요청 크기·본문 형식·사유 길이를 일괄 검증한다.
         memberships.requireAdmin(clubId, actorUserId);
+        // G-08: 비활성 동아리는 항목 처리 전에 요청 전체를 409로 거절한다
+        entityLookup.lockActiveClub(clubId);
         if (request == null
                 || request.getMembershipIds() == null
                 || request.getMembershipIds().isEmpty()
@@ -169,6 +175,7 @@ public class MembershipBulkService {
         }
         // 파트 추가·삭제는 중복에 안전한 SQL로 적용하고 한 번의 감사 로그를 남긴다.
         if (request.getAction() == MembershipBulkRequest.Action.CHANGE_PARTS) {
+            Set<Long> before = partService.heldPartIds(id);
             for (Long partId : params.getPartIds()) {
                 if (params.getMode().equals("ADD")) {
                     Part current = parts.findByIdAndClub_Id(partId, clubId)
@@ -194,14 +201,9 @@ public class MembershipBulkService {
                             .executeUpdate();
                 }
             }
-            auditRecorder.record(
-                    clubId,
-                    actorUserId,
-                    "MEMBERSHIP_PARTS_CHANGED",
-                    "MEMBERSHIP",
-                    id,
-                    request.getReason(),
-                    Map.of("mode", params.getMode()));
+            // API-032와 같은 규칙: 바뀐 것이 있을 때만 from·to 파트 ID를 남긴다
+            partService.auditPartsChanged(
+                    clubId, actorUserId, id, request.getReason(), before, partService.heldPartIds(id));
             return false;
         }
         // 이미 유효 참여자인 경우는 성공한 건너뜀으로 표시하고, 아니면 관리자 참여를 생성한다.
