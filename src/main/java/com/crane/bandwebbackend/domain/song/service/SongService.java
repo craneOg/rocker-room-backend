@@ -436,7 +436,13 @@ public class SongService {
             throw BusinessException.invalidState("철회된 곡은 수정할 수 없습니다.");
         }
         access.requireReasonIfLocked(req.getReason());
-        String before = access.isLocked() ? requirementsJson(requirementRepository.findBySongId(songId)) : null;
+        String before = null;
+        if (access.isLocked()) {
+            List<SongPartRequirement> rows = requirementRepository.findBySongId(songId);
+            before = requirementsJson(rows);
+            // 벌크 삭제 뒤 saveAll(merge)이 옛 관리 엔티티에 합쳐져 행이 사라지거나 409가 나지 않도록 분리
+            rows.forEach(em::detach);
+        }
         saveRequirements(access, song, req.getItems());
         forceIncrement(song);
         // X-07
@@ -521,7 +527,7 @@ public class SongService {
         }
         Team team = resolveAssignedTeam(access, song, f);
         Map<Long, Integer> before = confirmedOrders(access.performanceId());
-        String sessionsBefore = sessionsJson(songSupport.sessionsOf(song.getId()));
+        String sessionsBefore = access.isLocked() ? sessionsJson(songSupport.sessionsOf(song.getId())) : null;
         Integer order = f.getSetlistOrder();
         if (!access.isLocked() && order != null && before.containsValue(order)) {
             throw new BusinessException(ErrorCode.DUPLICATE, "SETLIST_ORDER_TAKEN", "이미 사용 중인 세트리스트 순서입니다.");
@@ -766,7 +772,7 @@ public class SongService {
             teamOnly = teamService.memberIdsByTeam(access.performanceId()).getOrDefault(team.getId(), Set.of());
         }
         Map<Long, Integer> before = access.isLocked() ? confirmedOrders(access.performanceId()) : Map.of();
-        String sessionsBefore = sessionsJson(songSupport.sessionsOf(song.getId()));
+        String sessionsBefore = access.isLocked() ? sessionsJson(songSupport.sessionsOf(song.getId())) : null;
         List<Warning> warnings = replaceSessionRows(access, song, req.getItems(), teamOnly);
         forceIncrement(song);
         if (access.isLocked() && song.isConfirmed()) {

@@ -173,6 +173,38 @@ class SongSpecApiTest extends SongApiTestSupport {
     }
 
     @Test
+    @DisplayName("LOCKED 기존 편성이 있는 곡에서 한 파트는 유지·한 파트는 개수 변경해도 200, 두 행 모두 남고 감사 전·후 값 정확")
+    void requirementsInLockedKeepUnchangedAndChangedRows() throws Exception {
+        song(100, "곡A", null, "PROPOSED");
+        jdbc.update(
+                "INSERT INTO song_part_requirement (song_id, part_id, required_count) VALUES (100, 1, 1), (100, 2, 1)");
+        lockPerformance();
+
+        send(
+                        put(BASE + "/songs/100/requirements"),
+                        ADMIN,
+                        "{\"version\":\"" + version("song", 100)
+                                + "\",\"items\":[{\"partId\":\"1\",\"requiredCount\":2},{\"partId\":\"2\",\"requiredCount\":1}],"
+                                + "\"reason\":\"편성 조정\"}")
+                .andExpect(status().isOk());
+
+        assertThat(
+                        jdbc.queryForList(
+                                "SELECT part_id, required_count FROM song_part_requirement WHERE song_id = 100 ORDER BY part_id"))
+                .extracting(r -> r.get("part_id") + ":" + r.get("required_count"))
+                .containsExactly("1:2", "2:1");
+        String detail = lockedAuditDetail("SONG", 100);
+        assertThat((Integer) JsonPath.read(detail, "$.requirements.from[0].requiredCount"))
+                .isEqualTo(1);
+        assertThat((Integer) JsonPath.read(detail, "$.requirements.from[1].partId"))
+                .isEqualTo(2);
+        assertThat((Integer) JsonPath.read(detail, "$.requirements.to[0].requiredCount"))
+                .isEqualTo(2);
+        assertThat((Integer) JsonPath.read(detail, "$.requirements.to[1].partId"))
+                .isEqualTo(2);
+    }
+
+    @Test
     @DisplayName("S-09 철회된 곡의 필요 편성 저장은 409 STATE_CONFLICT")
     void requirementsOfWithdrawnSongIs409() throws Exception {
         jdbc.update("INSERT INTO song (id, performance_id, title, status, withdrawal_type, proposed_by_membership_id)"

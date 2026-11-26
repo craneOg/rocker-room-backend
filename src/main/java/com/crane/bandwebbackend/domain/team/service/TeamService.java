@@ -646,7 +646,8 @@ public class TeamService {
             TeamRequests.Transition req,
             boolean adminOnly,
             BiConsumer<PerformanceAccess, Team> action) {
-        PerformanceAccess access = accessService.get(ref);
+        // 공연 행 → 팀·곡 행 순서로 잠금(API-065~068과 같은 순서). P-07이 다른 팀·소속 행도 바꾼다
+        PerformanceAccess access = accessService.getForUpdate(ref);
         access.requireEditable();
         access.requireStatus(PerformanceStatus.ACTIVE);
         Team team = getTeam(access.performanceId(), teamId);
