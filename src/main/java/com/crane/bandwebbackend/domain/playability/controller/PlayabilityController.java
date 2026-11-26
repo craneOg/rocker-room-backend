@@ -6,6 +6,7 @@ import com.crane.bandwebbackend.domain.playability.dto.PlayabilityRequest;
 import com.crane.bandwebbackend.domain.playability.service.PlayabilityService;
 import jakarta.validation.Valid;
 import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -28,13 +29,15 @@ public class PlayabilityController {
 
     // API-090
     @GetMapping
-    public List<EvaluationRows.Playability> list(
+    public Map<String, List<EvaluationRows.Playability>> list(
             @PathVariable Long clubId,
             @PathVariable Long performanceId,
             @PathVariable Long songId,
             @AuthenticationPrincipal(expression = "userId()") Long userId,
             @RequestParam(required = false) Long performanceMemberId) {
-        return playabilityService.list(ref(clubId, performanceId, userId), songId, performanceMemberId);
+        // 명세: {items: Playability[]}
+        return Map.of(
+                "items", playabilityService.list(ref(clubId, performanceId, userId), songId, performanceMemberId));
     }
 
     // API-091

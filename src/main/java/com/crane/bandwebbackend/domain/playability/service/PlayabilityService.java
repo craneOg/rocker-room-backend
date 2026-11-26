@@ -156,7 +156,8 @@ public class PlayabilityService {
                 policy.getPlayabilityState(), policy.getPlayabilityDeadline(), "PLAYABILITY_CLOSED");
         if (song.getCandidateTeam() != null
                 && !teamService.isMember(song.getCandidateTeam().getId(), pm.getId())) {
-            throw new BusinessException(ErrorCode.FORBIDDEN, "OUT_OF_CANDIDATE_SCOPE", "팀 후보곡은 팀원만 응답할 수 있습니다.");
+            // V-02
+            throw new BusinessException(ErrorCode.RULE_VIOLATION, "OUT_OF_CANDIDATE_SCOPE", "팀 후보곡은 팀원만 응답할 수 있습니다.");
         }
         return song;
     }

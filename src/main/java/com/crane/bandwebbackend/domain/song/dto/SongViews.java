@@ -3,6 +3,7 @@ package com.crane.bandwebbackend.domain.song.dto;
 import com.crane.bandwebbackend.domain.audition.entity.AuditionEntry;
 import com.crane.bandwebbackend.domain.audition.entity.AuditionResult;
 import com.crane.bandwebbackend.domain.evaluation.dto.EvaluationSummary;
+import com.crane.bandwebbackend.domain.participant.service.PerformanceAccessService;
 import com.crane.bandwebbackend.domain.playability.entity.PlayabilityAnswer;
 import com.crane.bandwebbackend.domain.schedule.entity.PracticeSchedule;
 import com.crane.bandwebbackend.domain.schedule.entity.ScheduleStatus;
@@ -142,7 +143,7 @@ public final class SongViews {
         private final Long id;
 
         private final String title;
-        private final ScheduleType scheduleType;
+        private final ScheduleType eventType;
         private final ScheduleStatus status;
         private final OffsetDateTime startAt;
         private final OffsetDateTime endAt;
@@ -152,7 +153,7 @@ public final class SongViews {
             return Schedule.builder()
                     .id(s.getId())
                     .title(s.getTitle())
-                    .scheduleType(s.getScheduleType())
+                    .eventType(s.getScheduleType())
                     .status(s.getStatus())
                     .startAt(KstTime.toKst(s.getStartAt()))
                     .endAt(KstTime.toKst(s.getEndAt()))
@@ -169,8 +170,13 @@ public final class SongViews {
         @IdString
         private final Long id;
 
+        // 지원자가 없으면 SONG, 있으면 SESSION
+        private final String type;
+
         @IdString
-        private final Long performanceMemberId;
+        private final Long applicantPerformanceMemberId;
+
+        private final String applicantName;
 
         @IdString
         private final Long partId;
@@ -178,21 +184,26 @@ public final class SongViews {
         private final String partName;
         private final AuditionResult result;
         private final String comment;
-        private final OffsetDateTime reviewedAt;
+        private final OffsetDateTime judgedAt;
         private final OffsetDateTime createdAt;
 
         public static Audition of(AuditionEntry a) {
             return Audition.builder()
                     .id(a.getId())
-                    .performanceMemberId(
+                    .type(a.getPerformanceMember() == null ? "SONG" : "SESSION")
+                    .applicantPerformanceMemberId(
                             a.getPerformanceMember() == null
                                     ? null
                                     : a.getPerformanceMember().getId())
+                    .applicantName(
+                            a.getPerformanceMember() == null
+                                    ? null
+                                    : PerformanceAccessService.displayName(a.getPerformanceMember()))
                     .partId(a.getPart() == null ? null : a.getPart().getId())
                     .partName(a.getPart() == null ? null : a.getPart().getName())
                     .result(a.getResult())
                     .comment(a.getComment())
-                    .reviewedAt(KstTime.toKst(a.getReviewedAt()))
+                    .judgedAt(KstTime.toKst(a.getReviewedAt()))
                     .createdAt(KstTime.toKst(a.getCreatedAt()))
                     .build();
         }
