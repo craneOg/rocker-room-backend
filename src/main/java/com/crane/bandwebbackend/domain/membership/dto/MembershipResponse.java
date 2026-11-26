@@ -6,6 +6,7 @@ import com.crane.bandwebbackend.domain.membership.entity.Membership;
 import com.crane.bandwebbackend.domain.membership.entity.MembershipRole;
 import com.crane.bandwebbackend.domain.membership.entity.MembershipStatus;
 import com.crane.bandwebbackend.domain.part.dto.PartResponse;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
@@ -77,6 +78,11 @@ public class MembershipResponse {
     @JsonProperty("parts")
     private List<PartResponse> parts;
 
+    // API-021 상세 응답에만 담는다(목록 항목에서는 생략)
+    @JsonProperty("performances")
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private List<MemberPerformanceItem> performances;
+
     @JsonProperty("createdAt")
     private OffsetDateTime createdAt;
 
@@ -90,6 +96,15 @@ public class MembershipResponse {
 
     /** 소속 엔티티를 응답 데이터로 변환한다 */
     public static MembershipResponse from(Membership membership, List<PartResponse> parts, Long viewerUserId) {
+        return from(membership, parts, viewerUserId, null);
+    }
+
+    /** 소속 엔티티를 응답 데이터로 변환한다(상세는 참여 공연 목록 포함) */
+    public static MembershipResponse from(
+            Membership membership,
+            List<PartResponse> parts,
+            Long viewerUserId,
+            List<MemberPerformanceItem> performances) {
         LocalDateTime invited = membership.getInvitedAt();
         OffsetDateTime expires = invited == null
                 ? null
@@ -121,6 +136,7 @@ public class MembershipResponse {
                 .requestedAt(kst(membership.getCreatedAt()))
                 .leftAt(kst(membership.getLeftAt()))
                 .parts(parts)
+                .performances(performances)
                 .createdAt(kst(membership.getCreatedAt()))
                 .updatedAt(kst(membership.getUpdatedAt()))
                 .build();
