@@ -1,5 +1,6 @@
 package com.crane.bandwebbackend.domain.membership.service;
 
+import com.crane.bandwebbackend.domain.membership.dto.MemberPerformanceItem;
 import com.crane.bandwebbackend.domain.membership.dto.MembershipPublicItem;
 import com.crane.bandwebbackend.domain.membership.dto.MembershipResponse;
 import com.crane.bandwebbackend.domain.membership.entity.MemberType;
@@ -9,6 +10,9 @@ import com.crane.bandwebbackend.domain.membership.entity.MembershipStatus;
 import com.crane.bandwebbackend.domain.membership.repository.MembershipRepository;
 import com.crane.bandwebbackend.domain.part.dto.PartResponse;
 import com.crane.bandwebbackend.domain.part.service.MembershipPartReader;
+import com.crane.bandwebbackend.domain.participant.entity.PerformanceMemberStatus;
+import com.crane.bandwebbackend.domain.participant.service.ParticipationLookup;
+import com.crane.bandwebbackend.domain.performance.entity.PerformanceStatus;
 import com.crane.bandwebbackend.domain.user.entity.User;
 import com.crane.bandwebbackend.global.error.BusinessException;
 import com.crane.bandwebbackend.global.error.ErrorCode;
@@ -43,21 +47,42 @@ public class MemberDirectoryService {
     private final MembershipRepository repository;
     private final MembershipPartReader partReader;
     private final CoreEntityLookupService entityLookup;
+    private final ParticipationLookup participationLookup;
 
     @Transactional(readOnly = true)
     public Object detail(Long clubId, Long membershipId, Long actorUserId) {
         Membership member = membershipService.detail(clubId, membershipId, actorUserId);
         List<PartResponse> parts = partReader.partsOf(membershipId);
-        if (member.getUser().getId().equals(actorUserId)) {
-            return MembershipResponse.from(member, parts, actorUserId);
-        }
-        Membership actor = membershipService.requireMember(clubId, actorUserId);
+        boolean self = member.getUser().getId().equals(actorUserId);
+        // 본인은 비유효 소속이어도 조회할 수 있으므로 소속 검사를 다시 하지 않는다
+        Membership actor = self ? member : membershipService.requireMember(clubId, actorUserId);
         boolean admin = actor.getRole() == MembershipRole.CLUB_ADMIN
                 && actor.getMemberType() == MemberType.REGULAR
                 && (actor.getStatus() == MembershipStatus.ACTIVE || actor.getStatus() == MembershipStatus.ON_LEAVE);
-        return admin
-                ? MembershipResponse.from(member, parts, actorUserId)
-                : MembershipPublicItem.from(member, parts, actorUserId);
+        List<MemberPerformanceItem> performances = performancesOf(membershipId, actor);
+        return self || admin
+                ? MembershipResponse.from(member, parts, actorUserId, performances)
+                : MembershipPublicItem.from(member, parts, actorUserId, performances);
+    }
+
+    /** API-021: 호출자가 볼 수 있는 공연만. DRAFT는 임원만, 객원은 신청·승인 중인 공연만(G-06) */
+    private List<MemberPerformanceItem> performancesOf(Long membershipId, Membership actor) {
+        // G-05: 공연 API가 거부하는 비유효 소속(탈퇴 등) 본인에게는 공연 정보를 주지 않는다
+        if (actor.getStatus() != MembershipStatus.ACTIVE
+                && actor.getStatus() != MembershipStatus.ON_LEAVE
+                && actor.getStatus() != MembershipStatus.GRADUATED) {
+            return List.of();
+        }
+        return participationLookup.membersOfMembership(membershipId).stream()
+                // DRAFT 판정은 PerformanceService와 같은 기준(role)
+                .filter(row -> actor.getRole() == MembershipRole.CLUB_ADMIN
+                        || row.getPerformance().getStatus() != PerformanceStatus.DRAFT)
+                .filter(row -> actor.getMemberType() != MemberType.GUEST
+                        || row.getStatus() == PerformanceMemberStatus.APPLIED
+                        || row.getStatus() == PerformanceMemberStatus.APPROVED)
+                .sorted(Comparator.comparing(row -> row.getPerformance().getId()))
+                .map(MemberPerformanceItem::from)
+                .toList();
     }
 
     /** 소속 목록을 조회한다 */
@@ -107,6 +132,8 @@ public class MemberDirectoryService {
         // 상태·역할·유형·검색어·파트를 모두 적용한 뒤 관리자와 이름 순으로 정렬한다.
         List<Membership> selected = all.stream()
                 .filter(member -> statusFilter.contains(member.getStatus()))
+                // API-020: 탈퇴 필터는 가입 확정일이 있는 소속만(가입 신청 취소자 제외)
+                .filter(member -> member.getStatus() != MembershipStatus.WITHDRAWN || member.getApprovedAt() != null)
                 .filter(member -> role == null || member.getRole() == role)
                 .filter(member -> type == null || member.getMemberType() == type)
                 .filter(member -> query.isEmpty()

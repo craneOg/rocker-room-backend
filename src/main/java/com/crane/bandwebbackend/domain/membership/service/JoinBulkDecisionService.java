@@ -25,12 +25,15 @@ import org.springframework.transaction.support.TransactionTemplate;
 public class JoinBulkDecisionService {
     private final MembershipService memberships;
     private final MembershipDecisionService decisions;
+    private final CoreEntityLookupService entityLookup;
     private final PlatformTransactionManager transactionManager;
 
     /** 소속 신청을 승인하거나 거절한다 */
     public JoinBulkDecisionResponse decide(Long clubId, Long actorUserId, JoinBulkDecisionRequest request) {
         // 일괄 결정 권한과 요청 크기·사유·중복 식별자를 먼저 검증한다.
         memberships.requireAdmin(clubId, actorUserId);
+        // G-08: 비활성 동아리는 항목 처리 전에 요청 전체를 409로 거절한다
+        entityLookup.lockActiveClub(clubId);
         if (request == null
                 || request.getDecision() == null
                 || request.getMembershipIds() == null

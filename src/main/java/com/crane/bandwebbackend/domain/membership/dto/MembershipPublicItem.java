@@ -4,6 +4,7 @@ import com.crane.bandwebbackend.domain.membership.entity.MemberType;
 import com.crane.bandwebbackend.domain.membership.entity.Membership;
 import com.crane.bandwebbackend.domain.membership.entity.MembershipRole;
 import com.crane.bandwebbackend.domain.part.dto.PartResponse;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
 import lombok.AccessLevel;
@@ -39,6 +40,11 @@ public class MembershipPublicItem {
     @JsonProperty("parts")
     private List<Part> parts;
 
+    // API-021 상세 응답에만 담는다(목록 항목에서는 생략)
+    @JsonProperty("performances")
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private List<MemberPerformanceItem> performances;
+
     @Getter
     @AllArgsConstructor
     @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -60,6 +66,12 @@ public class MembershipPublicItem {
 
     /** 소속 엔티티를 응답 데이터로 변환한다 */
     public static MembershipPublicItem from(Membership member, List<PartResponse> parts, Long viewerUserId) {
+        return from(member, parts, viewerUserId, null);
+    }
+
+    /** 소속 엔티티를 응답 데이터로 변환한다(상세는 참여 공연 목록 포함) */
+    public static MembershipPublicItem from(
+            Membership member, List<PartResponse> parts, Long viewerUserId, List<MemberPerformanceItem> performances) {
         return new MembershipPublicItem(
                 member.getId().toString(),
                 member.getDisplayName() == null ? member.getUser().getName() : member.getDisplayName(),
@@ -70,6 +82,7 @@ public class MembershipPublicItem {
                         .profileImageUrlFor(member.getUser().getId().equals(viewerUserId) ? member.getUser() : null),
                 parts.stream()
                         .map(part -> new Part(part.getId(), part.getName(), part.getDisplayOrder(), part.isActive()))
-                        .toList());
+                        .toList(),
+                performances);
     }
 }

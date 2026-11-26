@@ -240,11 +240,12 @@ public class AdminClubQueryRepository {
         return out;
     }
 
-    // ACTIVE 동아리 중 임원이 없거나 임원이 모두 cutoff 이전에 마지막으로 활동한 곳. 오래된 순
+    // 상태와 무관하게(승계 후보 없이 INACTIVE가 된 동아리 포함, API-118 필터와 같은 기준) 임원이 없거나
+    // 임원이 모두 cutoff 이전에 마지막으로 활동한 곳. 오래된 순
     public List<AttentionRow> findAttention(LocalDateTime cutoff, int limit) {
         return jdbc.query(
-                "SELECT id, name, admin_count, admin_last_active_at FROM (" + BASE + ") t WHERE status = 'ACTIVE'"
-                        + " AND (admin_count = 0 OR admin_last_active_at IS NULL OR admin_last_active_at < :cutoff)"
+                "SELECT id, name, admin_count, admin_last_active_at FROM (" + BASE + ") t WHERE"
+                        + " (admin_count = 0 OR admin_last_active_at IS NULL OR admin_last_active_at < :cutoff)"
                         + " ORDER BY admin_last_active_at ASC, id ASC LIMIT :limit",
                 new MapSqlParameterSource("cutoff", cutoff).addValue("limit", limit),
                 (rs, i) -> AttentionRow.builder()

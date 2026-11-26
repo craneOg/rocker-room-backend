@@ -29,8 +29,7 @@ public class UploadedImage {
     private final String extension;
     private final String contentType;
 
-    // 실패하면 400 VALIDATION_ERROR(field file, reason
-    // FILE_TOO_LARGE·UNSUPPORTED_MEDIA_TYPE·UNSUPPORTED_FORMAT·INVALID_IMAGE)
+    // 실패하면 400 VALIDATION_ERROR(field file, reason FILE_TOO_LARGE·UNSUPPORTED_FORMAT·INVALID_IMAGE)
     public static UploadedImage validate(byte[] bytes, String declaredContentType) {
         if (bytes.length > MAX_BYTES) {
             throw invalid("FILE_TOO_LARGE");
@@ -38,7 +37,7 @@ public class UploadedImage {
         String declared =
                 declaredContentType == null ? "" : declaredContentType.strip().toLowerCase(Locale.ROOT);
         if (!List.of("image/jpeg", "image/png", "image/webp").contains(declared)) {
-            throw invalid("UNSUPPORTED_MEDIA_TYPE");
+            throw invalid("UNSUPPORTED_FORMAT");
         }
         if (bytes.length == 0) {
             throw invalid("INVALID_IMAGE");

@@ -45,10 +45,12 @@ public class PartController {
             @PathVariable String clubId,
             @RequestParam(defaultValue = "true") boolean includeInactive,
             HttpServletRequest request) {
-        var items =
-                service.list(ApiIds.positive(clubId, "clubId"), currentActor.requireUserId(), includeInactive).stream()
-                        .map(PartResponse::from)
-                        .toList();
+        Long id = ApiIds.positive(clubId, "clubId");
+        var parts = service.list(id, currentActor.requireUserId(), includeInactive);
+        var counts = service.memberCounts(id);
+        var items = parts.stream()
+                .map(part -> PartResponse.from(part, counts.getOrDefault(part.getId(), 0L)))
+                .toList();
         return ApiResponse.ok(new PartListResponse(items));
     }
 

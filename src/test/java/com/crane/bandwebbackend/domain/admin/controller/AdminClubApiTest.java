@@ -359,7 +359,7 @@ class AdminClubApiTest {
         long none = club("No Admin Club", "CLUB", "ACTIVE", ownerless, null);
         member(none, ownerless, "MEMBER", "ACTIVE", "REGULAR", "JOIN_CODE");
         long creator = user("c", "inactive_creator", false, "ACTIVE", ts(1));
-        club("Closed", "CLUB", "INACTIVE", creator, null); // 비활성은 지표·주의 대상에서 제외
+        long closed = club("Closed", "CLUB", "INACTIVE", creator, null); // 비활성은 지표에서 제외, 임원이 없으면 주의 대상(U-05 ③)
         user("탈퇴자", "gone_user_x", false, "WITHDRAWN", ts(2));
 
         mockMvc.perform(get("/api/v1/admin/overview").cookie(access(admin)))
@@ -369,9 +369,9 @@ class AdminClubApiTest {
                 .andExpect(jsonPath("$.data.metrics.ongoingPerformances").value(1))
                 .andExpect(jsonPath("$.data.metrics.totalUsers")
                         .value(count("SELECT COUNT(*) FROM users WHERE status <> 'WITHDRAWN'")))
-                .andExpect(jsonPath("$.data.attention", hasSize(2)))
+                .andExpect(jsonPath("$.data.attention", hasSize(3)))
                 .andExpect(jsonPath("$.data.attention[?(@.reason=='NO_ADMIN')].clubId")
-                        .value(String.valueOf(none)))
+                        .value(org.hamcrest.Matchers.containsInAnyOrder(String.valueOf(none), String.valueOf(closed))))
                 .andExpect(jsonPath("$.data.attention[?(@.reason=='ADMIN_INACTIVE_180D')].clubName")
                         .value("Stale Club"))
                 .andExpect(jsonPath("$.meta.requestId").exists());

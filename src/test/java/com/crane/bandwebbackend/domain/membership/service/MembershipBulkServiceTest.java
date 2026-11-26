@@ -46,6 +46,8 @@ class MembershipBulkServiceTest {
                 memberships,
                 statusService,
                 mock(PartRepository.class),
+                mock(com.crane.bandwebbackend.domain.part.service.PartService.class),
+                mock(CoreEntityLookupService.class),
                 mock(PerformanceService.class),
                 mock(ParticipationLookup.class),
                 mock(PerformanceMemberService.class),

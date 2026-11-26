@@ -1,12 +1,14 @@
 package com.crane.bandwebbackend.global.security;
 
 import com.crane.bandwebbackend.global.error.ErrorCode;
+import com.crane.bandwebbackend.global.error.ErrorDetail;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.List;
 import java.util.Set;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -31,7 +33,11 @@ public class RequestedWithFilter extends OncePerRequestFilter {
             String value = request.getHeader(HEADER);
             if (value == null || value.isBlank()) {
                 SecurityErrorWriter.write(
-                        objectMapper, response, ErrorCode.FORBIDDEN, SecurityErrorWriter.FORBIDDEN_MESSAGE);
+                        objectMapper,
+                        response,
+                        ErrorCode.FORBIDDEN,
+                        SecurityErrorWriter.FORBIDDEN_MESSAGE,
+                        List.of(ErrorDetail.of(HEADER, "REQUIRED_HEADER_MISSING")));
                 return;
             }
         }

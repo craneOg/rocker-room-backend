@@ -207,6 +207,8 @@ public class MembershipStatusService {
     public Membership updateDisplayName(Long clubId, Long membershipId, Long actorUserId, String displayName) {
         // 동아리 상태를 잠근 뒤 대상 소속과 요청자의 본인 여부를 확인한다.
         lockClub(clubId);
+        // G-05: 요청자 소속이 없으면 404, 활동·휴학·졸업이 아니면 403
+        membershipService.requireMember(clubId, actorUserId);
         Membership member = membershipService.require(clubId, membershipId);
         if (!member.getUser().getId().equals(actorUserId)) {
             throw new BusinessException(ErrorCode.FORBIDDEN, "본인의 표시 이름만 바꿀 수 있습니다.");

@@ -153,6 +153,8 @@ public class MembershipService {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "소속 유형이 필요합니다.");
         }
         Club club = requireClub(clubId);
+        // applyToJoin과 같은 순서로 동아리 행 → 기존 소속 행을 잠가 가입 신청과 직렬화한다
+        entityLookup.lockAndRefresh(club);
         if (club.getStatus() != ClubStatus.ACTIVE) {
             throw new BusinessException(ErrorCode.STATE_CONFLICT, "CLUB_INACTIVE", "비활성 동아리에는 직접 추가할 수 없습니다.");
         }
@@ -162,10 +164,11 @@ public class MembershipService {
                 repository.findByClub_IdAndUser_Id(clubId, user.getId()).orElse(null);
         // 재초대 가능한 종료 상태는 기존 행을 재사용해 동아리-사용자 유일성을 보존한다.
         if (existing != null) {
+            entityLookup.lockAndRefresh(existing);
             LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
             if (existing.getStatus() == MembershipStatus.INVITED
                     && now.isBefore(invitationExpiresAt(existing.getInvitedAt()))) {
-                throw new BusinessException(ErrorCode.DUPLICATE, "유효한 초대가 이미 있습니다.");
+                throw new BusinessException(ErrorCode.DUPLICATE, "DUPLICATE_MEMBERSHIP", "유효한 초대가 이미 있습니다.");
             }
             MembershipStatus before = existing.getStatus();
             try {
@@ -181,11 +184,17 @@ public class MembershipService {
                         Map.of("from", before.toString(), "to", "INVITED"));
                 return existing;
             } catch (IllegalStateException exception) {
-                throw new BusinessException(ErrorCode.DUPLICATE, "이미 유효한 소속이 있습니다.");
+                throw new BusinessException(ErrorCode.DUPLICATE, "DUPLICATE_MEMBERSHIP", "이미 유효한 소속이 있습니다.");
             }
         }
-        Membership invited = repository.saveAndFlush(
-                Membership.invite(club, user, type, displayName, LocalDateTime.now(ZoneOffset.UTC)));
+        // 동시 초대·가입 신청은 uk_membership_club_user 위반으로 걸러 reason 있는 409로 돌려준다
+        Membership invited;
+        try {
+            invited = repository.saveAndFlush(
+                    Membership.invite(club, user, type, displayName, LocalDateTime.now(ZoneOffset.UTC)));
+        } catch (DataIntegrityViolationException exception) {
+            throw duplicateMembership();
+        }
         auditRecorder.record(
                 clubId,
                 actorUserId,

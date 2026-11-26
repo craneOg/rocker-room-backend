@@ -28,7 +28,12 @@ class MemberDirectoryServiceTest {
         when(memberships.requireMember(1L, 7L)).thenReturn(actor);
         when(actor.getRole()).thenReturn(MembershipRole.MEMBER);
         when(actor.getMemberType()).thenReturn(MemberType.GUEST);
-        MemberDirectoryService service = new MemberDirectoryService(memberships, repository, partReader, entityLookup);
+        MemberDirectoryService service = new MemberDirectoryService(
+                memberships,
+                repository,
+                partReader,
+                entityLookup,
+                mock(com.crane.bandwebbackend.domain.participant.service.ParticipationLookup.class));
 
         assertThatThrownBy(() -> service.list(1L, 7L, false, null, null, null, null, null, PageRequest.of(0, 20)))
                 .isInstanceOfSatisfying(

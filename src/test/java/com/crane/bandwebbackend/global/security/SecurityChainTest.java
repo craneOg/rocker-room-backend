@@ -93,6 +93,15 @@ class SecurityChainTest {
                 .andExpect(content().contentTypeCompatibleWith("application/json"));
     }
 
+    private void assertHeaderMissing(ResultActions result) throws Exception {
+        result.andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code").value("FORBIDDEN"))
+                .andExpect(jsonPath("$.error.message").value("요청을 수행할 권한이 없습니다."))
+                .andExpect(jsonPath("$.error.details[0].field").value("X-Requested-With"))
+                .andExpect(jsonPath("$.error.details[0].reason").value("REQUIRED_HEADER_MISSING"))
+                .andExpect(jsonPath("$.error.requestId").value(org.hamcrest.Matchers.matchesPattern(REQUEST_ID)));
+    }
+
     private void assertUnauthorized(ResultActions result) throws Exception {
         result.andExpect(status().isUnauthorized());
         assertEnvelope(result, "UNAUTHENTICATED", "인증이 필요하거나 인증 정보가 유효하지 않습니다.");
@@ -177,17 +186,10 @@ class SecurityChainTest {
         long id = insertUser("ACTIVE", 0, false);
         Cookie valid = accessCookie(validToken(id, 0));
 
-        assertEnvelope(
-                mockMvc.perform(post(WRITE).cookie(valid)).andExpect(status().isForbidden()),
-                "FORBIDDEN",
-                "요청을 수행할 권한이 없습니다.");
-        assertEnvelope(
-                mockMvc.perform(post(WRITE)).andExpect(status().isForbidden()), "FORBIDDEN", "요청을 수행할 권한이 없습니다.");
-        assertEnvelope(
-                mockMvc.perform(post(WRITE).cookie(valid).header("X-Requested-With", " "))
-                        .andExpect(status().isForbidden()),
-                "FORBIDDEN",
-                "요청을 수행할 권한이 없습니다.");
+        // common-04: 헤더 누락은 reason REQUIRED_HEADER_MISSING으로 구분한다
+        assertHeaderMissing(mockMvc.perform(post(WRITE).cookie(valid)));
+        assertHeaderMissing(mockMvc.perform(post(WRITE)));
+        assertHeaderMissing(mockMvc.perform(post(WRITE).cookie(valid).header("X-Requested-With", " ")));
         mockMvc.perform(delete(WRITE).cookie(valid)).andExpect(status().isForbidden());
     }
 
