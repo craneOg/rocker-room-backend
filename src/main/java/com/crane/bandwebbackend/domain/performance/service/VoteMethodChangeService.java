@@ -131,7 +131,12 @@ public class VoteMethodChangeService {
         return state.getAffectedCount() == 0
                 ? List.of()
                 : List.of(Map.of(
-                        "type", "VOTE_RESET", "affectedCount", state.getAffectedCount(), "message", "기존 투표가 삭제됩니다."));
+                        "type",
+                        "VOTES_DELETED",
+                        "affectedCount",
+                        state.getAffectedCount(),
+                        "message",
+                        "기존 투표가 삭제됩니다."));
     }
 
     @Getter
