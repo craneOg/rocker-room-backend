@@ -19,7 +19,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -71,9 +70,9 @@ public class PerformanceBasicEditService {
         Map<String, Object> from = new LinkedHashMap<>();
         Map<String, Object> to = new LinkedHashMap<>();
         // X-07: 바뀐 항목의 변경 전·후 값을 감사 기록에 남긴다.
-        diff(from, to, "title", performance.getTitle(), title);
-        diff(from, to, "performDate", performance.getPerformDate(), date);
-        diff(from, to, "location", performance.getLocation(), location);
+        AuditDiff.diff(from, to, "title", performance.getTitle(), title);
+        AuditDiff.diff(from, to, "performDate", performance.getPerformDate(), date);
+        AuditDiff.diff(from, to, "location", performance.getLocation(), location);
         // 엔티티 규칙으로 기본 정보를 변경하고 도메인 예외를 API 오류로 변환한다.
         try {
             performance.updateDetails(title, date, location);
@@ -111,15 +110,6 @@ public class PerformanceBasicEditService {
             }
         });
         return PerformanceUpdateResponse.from(PerformanceResponse.from(performance), warnings);
-    }
-
-    /** 값이 바뀐 항목만 변경 전·후 맵에 담는다(null은 "null"로 표기). */
-    private static void diff(
-            Map<String, Object> from, Map<String, Object> to, String key, Object before, Object after) {
-        if (!Objects.equals(before, after)) {
-            from.put(key, String.valueOf(before));
-            to.put(key, String.valueOf(after));
-        }
     }
 
     /** JSON 문자열을 null 허용 여부와 최대 길이에 맞게 검증한다. */
