@@ -4,6 +4,7 @@ import com.crane.bandwebbackend.domain.participant.entity.PerformanceMemberStatu
 import com.crane.bandwebbackend.domain.performance.entity.FeatureState;
 import com.crane.bandwebbackend.domain.performance.entity.Performance;
 import com.crane.bandwebbackend.domain.performance.entity.PerformancePolicy;
+import com.crane.bandwebbackend.domain.performance.entity.PerformanceStatus;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -79,12 +80,15 @@ public class PerformanceListItem {
     public static PerformanceListItem from(
             Performance performance, PerformancePolicy policy, PerformanceMemberStatus participation) {
         List<OpenFeature> features = new ArrayList<>();
-        add(features, "APPLICATION", policy.getApplicationState(), policy.getApplicationDeadline());
-        add(features, "CANDIDATE", policy.getCandidateState(), policy.getCandidateDeadline());
-        add(features, "PLAYABILITY", policy.getPlayabilityState(), policy.getPlayabilityDeadline());
-        add(features, "VOTE", policy.getVoteState(), policy.getVoteDeadline());
-        add(features, "TEAM_APPLICATION", policy.getTeamSubmissionState(), policy.getTeamSubmissionDeadline());
-        add(features, "AVAILABILITY", policy.getAvailabilityState(), policy.getAvailabilityDeadline());
+        // API-037: ACTIVE 공연만, 명세 나열 순서로 앞의 2개까지(G-10)
+        if (performance.getStatus() == PerformanceStatus.ACTIVE) {
+            add(features, "APPLICATION", policy.getApplicationState(), policy.getApplicationDeadline());
+            add(features, "TEAM_APPLICATION", policy.getTeamSubmissionState(), policy.getTeamSubmissionDeadline());
+            add(features, "CANDIDATE", policy.getCandidateState(), policy.getCandidateDeadline());
+            add(features, "PLAYABILITY", policy.getPlayabilityState(), policy.getPlayabilityDeadline());
+            add(features, "VOTE", policy.getVoteState(), policy.getVoteDeadline());
+            add(features, "AVAILABILITY", policy.getAvailabilityState(), policy.getAvailabilityDeadline());
+        }
         return new PerformanceListItem(
                 performance.getId().toString(),
                 performance.getClub().getId().toString(),
@@ -98,7 +102,7 @@ public class PerformanceListItem {
                 kst(performance.getCreatedAt()),
                 kst(performance.getUpdatedAt()),
                 participation,
-                features);
+                features.stream().limit(2).toList());
     }
 
     private static void add(List<OpenFeature> features, String name, FeatureState state, LocalDateTime deadline) {
