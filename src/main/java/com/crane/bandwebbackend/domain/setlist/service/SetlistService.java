@@ -109,13 +109,11 @@ public class SetlistService {
             throw new BusinessException(
                     ErrorCode.STATE_CONFLICT, "SETLIST_CHANGED", "선정곡 목록이 바뀌었습니다. 새로고침 후 다시 저장해 주세요.");
         }
+        // O-03: 빈 번호는 허용(LOCKED 진입 때 재부여), 중복만 거부(uk_song_setlist_order)
         List<Integer> assigned =
                 orders.values().stream().filter(Objects::nonNull).sorted().toList();
-        for (int i = 0; i < assigned.size(); i++) {
-            if (assigned.get(i) != i + 1) {
-                throw new BusinessException(
-                        ErrorCode.VALIDATION_ERROR, "INVALID_ORDER", "순서는 1부터 빠짐없이 중복 없이 지정해야 합니다.");
-            }
+        if (assigned.stream().distinct().count() != assigned.size()) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "INVALID_ORDER", "순서는 중복 없이 지정해야 합니다.");
         }
         // LOCKED는 전곡 배정 상태를 유지(L-01)
         if (access.isLocked() && assigned.size() != orders.size()) {
