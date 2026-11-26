@@ -111,9 +111,16 @@ public class ParticipantListReader {
                                     .atZoneSameInstant(ZoneId.of("Asia/Seoul"))
                                     .toOffsetDateTime(),
                             displayName(member),
-                            member.getMembership().getUser().getId().equals(actorUserId)
-                                    ? member.getMembership().getUser().getProfileImageUrl()
-                                    : null,
+                            // U-13: 공개 설정한 사진은 모두에게, 비공개면 본인에게만
+                            member.getMembership()
+                                    .getUser()
+                                    .profileImageUrlFor(
+                                            member.getMembership()
+                                                            .getUser()
+                                                            .getId()
+                                                            .equals(actorUserId)
+                                                    ? member.getMembership().getUser()
+                                                    : null),
                             member.getMembership().getMemberType(),
                             admin ? member.getMembership().getStatus() : null,
                             memberParts,
