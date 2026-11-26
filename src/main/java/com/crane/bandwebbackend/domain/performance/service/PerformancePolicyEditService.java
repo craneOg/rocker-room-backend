@@ -22,6 +22,7 @@ import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
@@ -89,6 +90,7 @@ public class PerformancePolicyEditService {
                 throw new BusinessException(ErrorCode.STATE_CONFLICT, "POLICY_SCOPE_CONFLICT", "기존 후보곡과 범위가 충돌합니다.");
             }
         }
+        Map<String, String> before = snapshot(policy);
         // 누락 필드는 기존 값으로 유지하면서 전체 정책 값 객체를 재구성한다.
         var values = new PerformancePolicy.Values(
                 value(body, "applicationState", FeatureState.class, policy.getApplicationState()),
@@ -129,7 +131,7 @@ public class PerformancePolicyEditService {
                 "PERFORMANCE",
                 performanceId,
                 null,
-                Map.of("version", version));
+                auditDetail(version, before, snapshot(policy)));
         entityManager.flush();
         entityManager.refresh(performance);
         // 기존 입력은 삭제하지 않으므로 축소된 기간·한도 영향을 경고로 알려 준다.
@@ -238,5 +240,45 @@ public class PerformancePolicyEditService {
         } catch (DateTimeException exception) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, key + "가 유효하지 않습니다.");
         }
+    }
+
+    /** 감사 기록용으로 정책 값을 문자열 맵으로 만든다(null은 "null"). */
+    private static Map<String, String> snapshot(PerformancePolicy policy) {
+        Map<String, String> values = new LinkedHashMap<>();
+        values.put("applicationState", String.valueOf(policy.getApplicationState()));
+        values.put("applicationDeadline", String.valueOf(policy.getApplicationDeadline()));
+        values.put("candidateState", String.valueOf(policy.getCandidateState()));
+        values.put("candidateDeadline", String.valueOf(policy.getCandidateDeadline()));
+        values.put("candidateScope", String.valueOf(policy.getCandidateScope()));
+        values.put("candidateLimitPerMember", String.valueOf(policy.getCandidateLimitPerMember()));
+        values.put("playabilityState", String.valueOf(policy.getPlayabilityState()));
+        values.put("playabilityDeadline", String.valueOf(policy.getPlayabilityDeadline()));
+        values.put("voteState", String.valueOf(policy.getVoteState()));
+        values.put("voteDeadline", String.valueOf(policy.getVoteDeadline()));
+        values.put("voteMaxChoices", String.valueOf(policy.getVoteMaxChoices()));
+        values.put("playabilityResultPublic", String.valueOf(policy.isPlayabilityResultPublic()));
+        values.put("voteResultPublic", String.valueOf(policy.isVoteResultPublic()));
+        values.put("teamApplicationState", String.valueOf(policy.getTeamSubmissionState()));
+        values.put("teamApplicationDeadline", String.valueOf(policy.getTeamSubmissionDeadline()));
+        values.put("availabilityState", String.valueOf(policy.getAvailabilityState()));
+        values.put("availabilityDeadline", String.valueOf(policy.getAvailabilityDeadline()));
+        values.put("practiceSeasonStart", String.valueOf(policy.getPracticeSeasonStart()));
+        values.put("practiceSeasonEnd", String.valueOf(policy.getPracticeSeasonEnd()));
+        values.put("maxSongsPerMember", String.valueOf(policy.getMaxSongsPerMember()));
+        return values;
+    }
+
+    /** U-09: ID(버전)와 바뀐 항목의 변경 전·후 값만 남긴다. */
+    private static Map<String, Object> auditDetail(
+            String version, Map<String, String> before, Map<String, String> after) {
+        Map<String, String> from = new LinkedHashMap<>();
+        Map<String, String> to = new LinkedHashMap<>();
+        after.forEach((key, value) -> {
+            if (!value.equals(before.get(key))) {
+                from.put(key, before.get(key));
+                to.put(key, value);
+            }
+        });
+        return Map.of("version", version, "from", from, "to", to);
     }
 }

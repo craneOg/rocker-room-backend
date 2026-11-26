@@ -31,8 +31,10 @@ import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -114,6 +116,16 @@ public class ScheduleEditService {
                                     .toList());
         }
         title = ScheduleTitles.resolve(title, schedule.getPerformance(), type, null, 0);
+        // U-09: 바뀐 항목의 변경 전·후 값을 감사 기록에 남긴다.
+        Map<String, Object> from = new LinkedHashMap<>();
+        Map<String, Object> to = new LinkedHashMap<>();
+        diff(from, to, "eventType", schedule.getScheduleType(), type);
+        diff(from, to, "title", schedule.getTitle(), title);
+        diff(from, to, "startAt", schedule.getStartAt(), start);
+        diff(from, to, "endAt", schedule.getEndAt(), end);
+        diff(from, to, "location", schedule.getLocation(), location);
+        diff(from, to, "memo", schedule.getMemo(), memo);
+        diff(from, to, "forAllParticipants", schedule.isForAllParticipants(), all);
         // 엔티티가 보장하는 시간·필드 불변식을 적용하고 검증 오류로 변환한다.
         try {
             schedule.replace(type, title, start, end, location, all, memo);
@@ -123,6 +135,11 @@ public class ScheduleEditService {
         // teamIds가 명시된 경우에만 기존 팀 연결을 요청 값으로 완전히 교체한다.
         if (body.has("teamIds")) {
             List<Long> ids = ids(body.get("teamIds"), "teamIds");
+            List<Long> oldIds = teamLinks.findByPracticeSchedule_Id(scheduleId).stream()
+                    .map(link -> link.getTeam().getId())
+                    .sorted()
+                    .toList();
+            diff(from, to, "teamIds", oldIds, ids.stream().sorted().toList());
             teamLinks.deleteAll(teamLinks.findByPracticeSchedule_Id(scheduleId));
             teamLinks.flush();
             for (Long id : ids) {
@@ -136,6 +153,11 @@ public class ScheduleEditService {
         // songIds가 명시된 경우에만 기존 곡 연결을 요청 값으로 완전히 교체한다.
         if (body.has("songIds")) {
             List<Long> ids = ids(body.get("songIds"), "songIds");
+            List<Long> oldIds = songLinks.findByPracticeSchedule_Id(scheduleId).stream()
+                    .map(link -> link.getSong().getId())
+                    .sorted()
+                    .toList();
+            diff(from, to, "songIds", oldIds, ids.stream().sorted().toList());
             songLinks.deleteAll(songLinks.findByPracticeSchedule_Id(scheduleId));
             songLinks.flush();
             for (Long id : ids) {
@@ -161,8 +183,17 @@ public class ScheduleEditService {
                 "PRACTICE_SCHEDULE",
                 scheduleId,
                 null,
-                Map.of("version", version));
+                Map.of("version", version, "from", from, "to", to));
         return new EditResult(schedule, warnings);
+    }
+
+    /** 값이 바뀐 항목만 변경 전·후 맵에 담는다(null은 "null"로 표기). */
+    private static void diff(
+            Map<String, Object> from, Map<String, Object> to, String key, Object before, Object after) {
+        if (!Objects.equals(before, after)) {
+            from.put(key, before instanceof List ? before : String.valueOf(before));
+            to.put(key, after instanceof List ? after : String.valueOf(after));
+        }
     }
 
     @Getter
