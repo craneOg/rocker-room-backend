@@ -1,5 +1,6 @@
 package com.crane.bandwebbackend.domain.participant.service;
 
+import com.crane.bandwebbackend.domain.membership.service.CoreEntityLookupService;
 import com.crane.bandwebbackend.domain.membership.service.MembershipService;
 import com.crane.bandwebbackend.domain.participant.dto.ParticipantBulkDecisionRequest;
 import com.crane.bandwebbackend.domain.participant.dto.ParticipantBulkDecisionResponse;
@@ -27,6 +28,7 @@ public class ParticipantBulkDecisionService {
     private final ParticipantDecisionService approvals;
     private final ParticipantRemovalService removals;
     private final PlatformTransactionManager transactionManager;
+    private final CoreEntityLookupService entityLookup;
 
     /** 공연 참여 신청을 승인하거나 거절한다 */
     public ParticipantBulkDecisionResponse decide(
@@ -53,6 +55,8 @@ public class ParticipantBulkDecisionService {
         if (new HashSet<>(ids).size() != ids.size()) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "performanceMemberIds에 중복 값이 있습니다.");
         }
+        // G-08: 비활성 동아리는 항목 처리 전에 요청 전체를 409로 거절한다.
+        entityLookup.lockActiveClub(clubId);
         // 각 참여자를 새 트랜잭션에서 처리해 일부 실패 결과를 반환한다.
         TransactionTemplate tx = new TransactionTemplate(transactionManager);
         tx.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
@@ -86,11 +90,13 @@ public class ParticipantBulkDecisionService {
             } catch (BusinessException exception) {
                 String reason = exception.getErrorCode() == ErrorCode.NOT_FOUND
                         ? "NOT_FOUND"
-                        : exception.getErrorCode() == ErrorCode.STATE_CONFLICT
-                                ? "NOT_APPLIED"
-                                : exception.getDetails().isEmpty()
-                                        ? exception.getErrorCode().name()
-                                        : exception.getDetails().get(0).getReason();
+                        : exception.getDetails().isEmpty()
+                                ? exception.getErrorCode().name()
+                                : exception.getDetails().get(0).getReason();
+                // 신청 대기가 아닌 참여자(INVALID_STATE)만 NOT_APPLIED로 표기하고 다른 충돌은 원래 사유를 쓴다.
+                if (exception.getErrorCode() == ErrorCode.STATE_CONFLICT && "INVALID_STATE".equals(reason)) {
+                    reason = "NOT_APPLIED";
+                }
                 failed.add(new ParticipantBulkDecisionResponse.Failure(id.toString(), reason));
             } catch (RuntimeException exception) {
                 failed.add(new ParticipantBulkDecisionResponse.Failure(id.toString(), "INTERNAL_ERROR"));
