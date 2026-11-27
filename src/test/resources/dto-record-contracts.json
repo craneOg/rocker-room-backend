@@ -788,6 +788,12 @@
       "updatedAt" : "2026-11-01T09:00:00+09:00"
     }
   },
+  "com.crane.bandwebbackend.domain.performance.dto.PerformanceRevertRequest" : {
+    "violations" : [ ],
+    "json" : {
+      "reason" : "1"
+    }
+  },
   "com.crane.bandwebbackend.domain.performance.dto.PerformanceTransitionRequest" : {
     "violations" : [ "version:NotBlank" ],
     "json" : {

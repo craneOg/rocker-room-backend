@@ -26,7 +26,7 @@ public class PerformanceTransitionService {
 
     /** API-151: Member 입력이 있으면 공개 전 상태로 되돌릴 수 없다. */
     @Transactional
-    public Performance revertToDraft(Long clubId, Long performanceId, Long actorUserId, String version, String reason) {
+    public Performance revertToDraft(Long clubId, Long performanceId, Long actorUserId, String reason) {
         // 관리자 권한을 확인하고 공연 행을 잠가 되돌리기 판단과 상태 변경을 직렬화한다.
         membershipService.requireAdmin(clubId, actorUserId);
         Performance performance = repository
@@ -38,7 +38,6 @@ public class PerformanceTransitionService {
         if (performance.getStatus() != PerformanceStatus.ACTIVE) {
             throw new BusinessException(ErrorCode.STATE_CONFLICT, "NOT_ACTIVE", "진행 중 공연이 아닙니다.");
         }
-        verifyVersion(performance, version);
         if (reason != null && (reason.isBlank() || reason.length() > 500)) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "사유는 1~500자여야 합니다.");
         }
@@ -77,6 +76,38 @@ public class PerformanceTransitionService {
         return performance;
     }
 
+    /** API-152: 종료된 공연을 확정 상태로 되돌린다. 공연 행 잠금으로 동시성을 처리한다. */
+    @Transactional
+    public Performance revertToLocked(Long clubId, Long performanceId, Long actorUserId, String reason) {
+        membershipService.requireAdmin(clubId, actorUserId);
+        Performance performance = repository
+                .findWithLockByIdAndClub_Id(performanceId, clubId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "공연을 찾을 수 없습니다."));
+        if (performance.getClub().getStatus() != ClubStatus.ACTIVE) {
+            throw new BusinessException(ErrorCode.STATE_CONFLICT, "CLUB_INACTIVE", "비활성 동아리에서는 변경할 수 없습니다.");
+        }
+        if (performance.getStatus() != PerformanceStatus.FINISHED) {
+            throw new BusinessException(ErrorCode.STATE_CONFLICT, "NOT_FINISHED", "종료된 공연이 아닙니다.");
+        }
+        if (reason == null || reason.isBlank()) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "REASON_REQUIRED", "사유가 필요합니다.");
+        }
+        if (reason.length() > 500) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "사유는 500자 이하여야 합니다.");
+        }
+        performance.transitionTo(PerformanceStatus.LOCKED);
+        auditRecorder.record(
+                clubId,
+                actorUserId,
+                "PERFORMANCE_STATUS_CHANGED",
+                "PERFORMANCE",
+                performanceId,
+                reason,
+                Map.of("from", "FINISHED", "to", "LOCKED"));
+        entityManager.flush();
+        return performance;
+    }
+
     /** 공연 변경한다 */
     @Transactional
     public Performance change(
@@ -96,20 +127,20 @@ public class PerformanceTransitionService {
             throw new BusinessException(ErrorCode.STATE_CONFLICT, "CLUB_INACTIVE", "비활성 동아리에서는 변경할 수 없습니다.");
         }
         if (source != null && performance.getStatus() != source) {
-            // API-152: 종료(FINISHED) 공연이 아니면 reason NOT_FINISHED
-            String reasonCode = source == PerformanceStatus.FINISHED && target == PerformanceStatus.LOCKED
-                    ? "NOT_FINISHED"
-                    : "INVALID_STATE";
-            throw new BusinessException(ErrorCode.STATE_CONFLICT, reasonCode, "공연 상태가 맞지 않습니다.");
+            throw new BusinessException(ErrorCode.STATE_CONFLICT, "INVALID_STATE", "공연 상태가 맞지 않습니다.");
         }
-        // 0.4: 되돌리기를 포함한 모든 공연 상태 변경은 요청 버전이 필요하다.
+        // 되돌리기(API-151·152)를 제외한 공연 상태 변경은 요청 버전이 필요하다.
         verifyVersion(performance, version);
+        // API-047: 종료는 ACTIVE·LOCKED에서만 가능하다. 사유 검증보다 먼저 상태 충돌로 거절한다.
+        if (target == PerformanceStatus.FINISHED
+                && performance.getStatus() != PerformanceStatus.ACTIVE
+                && performance.getStatus() != PerformanceStatus.LOCKED) {
+            throw new BusinessException(ErrorCode.STATE_CONFLICT, "INVALID_STATE", "공연 상태가 맞지 않습니다.");
+        }
         // 취소·복구·확정 해제처럼 영향이 큰 전이는 필수 사유를 요구한다.
         if ((target == PerformanceStatus.CANCELED
                         || performance.getStatus() == PerformanceStatus.CANCELED
-                        || (performance.getStatus() == PerformanceStatus.LOCKED && target == PerformanceStatus.ACTIVE)
-                        || (performance.getStatus() == PerformanceStatus.FINISHED
-                                && target == PerformanceStatus.LOCKED))
+                        || (performance.getStatus() == PerformanceStatus.LOCKED && target == PerformanceStatus.ACTIVE))
                 && (reason == null || reason.isBlank())) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "REASON_REQUIRED", "사유가 필요합니다.");
         }

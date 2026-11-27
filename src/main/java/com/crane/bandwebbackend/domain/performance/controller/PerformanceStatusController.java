@@ -1,6 +1,7 @@
 package com.crane.bandwebbackend.domain.performance.controller;
 
 import com.crane.bandwebbackend.domain.performance.dto.PerformanceResponse;
+import com.crane.bandwebbackend.domain.performance.dto.PerformanceRevertRequest;
 import com.crane.bandwebbackend.domain.performance.dto.PerformanceTransitionRequest;
 import com.crane.bandwebbackend.domain.performance.entity.PerformanceStatus;
 import com.crane.bandwebbackend.domain.performance.service.PerformanceTransitionService;
@@ -54,8 +55,7 @@ public class PerformanceStatusController {
             @PathVariable String performanceId,
             @Valid @RequestBody PerformanceTransitionRequest body,
             HttpServletRequest request) {
-        return ResponseEntity.ok(
-                change(clubId, performanceId, body, PerformanceStatus.LOCKED, PerformanceStatus.FINISHED, request));
+        return ResponseEntity.ok(change(clubId, performanceId, body, null, PerformanceStatus.FINISHED, request));
     }
 
     /** 공연 취소한다 */
@@ -84,10 +84,10 @@ public class PerformanceStatusController {
     public ResponseEntity<ApiResponse<PerformanceResponse>> revertToLocked(
             @PathVariable String clubId,
             @PathVariable String performanceId,
-            @Valid @RequestBody PerformanceTransitionRequest body,
+            @Valid @RequestBody PerformanceRevertRequest body,
             HttpServletRequest request) {
-        return ResponseEntity.ok(
-                change(clubId, performanceId, body, PerformanceStatus.FINISHED, PerformanceStatus.LOCKED, request));
+        return ResponseEntity.ok(ApiResponse.ok(PerformanceResponse.from(
+                service.revertToLocked(id(clubId), id(performanceId), actor.requireUserId(), body.getReason()))));
     }
 
     /** 공연 준비 상태로 되돌린다 */
@@ -95,10 +95,10 @@ public class PerformanceStatusController {
     public ResponseEntity<ApiResponse<PerformanceResponse>> revertToDraft(
             @PathVariable String clubId,
             @PathVariable String performanceId,
-            @Valid @RequestBody PerformanceTransitionRequest body,
+            @Valid @RequestBody PerformanceRevertRequest body,
             HttpServletRequest request) {
-        return ResponseEntity.ok(ApiResponse.ok(PerformanceResponse.from(service.revertToDraft(
-                id(clubId), id(performanceId), actor.requireUserId(), body.getVersion(), body.getReason()))));
+        return ResponseEntity.ok(ApiResponse.ok(PerformanceResponse.from(
+                service.revertToDraft(id(clubId), id(performanceId), actor.requireUserId(), body.getReason()))));
     }
 
     /** 공연 상태 변경 엔드포인트의 공통 호출과 응답 생성을 처리한다. */

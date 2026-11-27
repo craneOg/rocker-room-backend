@@ -300,14 +300,7 @@ class PerformanceSpecAlignmentIntegrationTest {
     @Test
     @DisplayName("performance-06/API-152 FINISHED가 아닌 공연을 확정으로 되돌리면 reason NOT_FINISHED")
     void revertToLockedRequiresFinished() {
-        assertThatThrownBy(() -> transitions.change(
-                        1L,
-                        1L,
-                        1L,
-                        com.crane.bandwebbackend.domain.performance.entity.PerformanceStatus.FINISHED,
-                        com.crane.bandwebbackend.domain.performance.entity.PerformanceStatus.LOCKED,
-                        version(),
-                        "사유"))
+        assertThatThrownBy(() -> transitions.revertToLocked(1L, 1L, 1L, "사유"))
                 .isInstanceOfSatisfying(
                         BusinessException.class,
                         e -> assertThat(e.getDetails().get(0).getReason()).isEqualTo("NOT_FINISHED"));

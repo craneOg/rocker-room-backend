@@ -109,6 +109,7 @@ public class Performance extends BaseTimeEntity {
             case ACTIVE ->
                 target == PerformanceStatus.DRAFT
                         || target == PerformanceStatus.LOCKED
+                        || target == PerformanceStatus.FINISHED
                         || target == PerformanceStatus.CANCELED;
             case LOCKED ->
                 target == PerformanceStatus.ACTIVE
