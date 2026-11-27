@@ -23,6 +23,8 @@ public class TeamLeaderSuccession {
     public enum Mode {
         SELF_WITHDRAWAL,
         ADMIN_REMOVAL,
+        /** API-058·060 임원의 거절·철회: 본인 철회와 같이 후임 지정 필수(SUBMITTED 팀 포함). */
+        ADMIN_PARTICIPANT_REMOVAL,
         MEMBERSHIP_WITHDRAWAL,
         SERVICE_WITHDRAWAL
     }
@@ -65,8 +67,8 @@ public class TeamLeaderSuccession {
                     .setParameter("teamId", teamId)
                     .setParameter("memberId", memberId)
                     .getResultList();
-            boolean self = mode == Mode.SELF_WITHDRAWAL;
-            // SUBMITTED의 관리자·탈퇴 처리는 지정값과 무관하게 자동 승계한다.
+            boolean self = mode == Mode.SELF_WITHDRAWAL || mode == Mode.ADMIN_PARTICIPANT_REMOVAL;
+            // SUBMITTED의 탈퇴·팀 반려 처리는 지정값과 무관하게 자동 승계한다.
             boolean useSpecified = self || !"SUBMITTED".equals(status);
             Object[] chosen;
             if (useSpecified && desired != null) {

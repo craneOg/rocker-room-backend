@@ -327,13 +327,25 @@ class ParticipantRemovalIntegrationTest {
 
     @ParameterizedTest
     @CsvSource({"APPROVED,false", "SUBMITTED,false", "APPROVED,true", "SUBMITTED,true"})
-    @DisplayName("P-07 관리자 거절·참여 해제는 미지정 시 자동 승계한다")
-    void adminAutomaticallySucceeds(String status, boolean reject) {
+    @DisplayName("API-058·060 관리자 거절·참여 해제도 후임 미지정이면 400 SUCCESSOR_REQUIRED, 지정하면 성공한다")
+    void adminRequiresSuccessor(String status, boolean reject) {
         jdbc.update("UPDATE team SET status=? WHERE id=1", status);
         if (reject) {
             jdbc.update("UPDATE performance_member SET status='APPLIED' WHERE id=2");
         }
-        removal.remove(1L, 1L, 2L, 1L, new ParticipantRemovalRequest("0", null, List.of()), reject);
+        assertThatThrownBy(() ->
+                        removal.remove(1L, 1L, 2L, 1L, new ParticipantRemovalRequest("0", null, List.of()), reject))
+                .isInstanceOfSatisfying(
+                        BusinessException.class,
+                        e -> assertThat(e.getDetails().get(0).getReason()).isEqualTo("SUCCESSOR_REQUIRED"));
+        assertThat(count("SELECT leader_member_id FROM team WHERE id=1")).isEqualTo(2);
+        removal.remove(
+                1L,
+                1L,
+                2L,
+                1L,
+                new ParticipantRemovalRequest("0", null, List.of(new ParticipantRemovalRequest.Successor("1", "3"))),
+                reject);
         assertRemoved(reject ? "REJECTED" : "WITHDRAWN");
     }
 
