@@ -123,7 +123,7 @@ public class MembershipWithdrawalService {
                             && participant.getStatus() != PerformanceMemberStatus.APPROVED)) {
                 continue;
             }
-            removalPolicy.validate(participant.getPerformance(), participant.getId(), request.getReason(), false);
+            removalPolicy.validateWithoutReason(participant.getPerformance(), participant.getId());
             affectedSchedules.addAll(
                     schedules.attendedScheduleIds(participant.getPerformance().getId(), participant.getId()));
             affectedUsers.addAll(succession.apply(

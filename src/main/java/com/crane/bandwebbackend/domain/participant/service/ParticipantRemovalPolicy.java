@@ -33,6 +33,17 @@ public class ParticipantRemovalPolicy {
         if (reject) {
             return;
         }
+        requireSongPlayers(performance, participantId);
+    }
+
+    /** API-030: 소속 해제·나가기는 reason이 선택이므로 사유 검사 없이 X-04만 확인한다. */
+    public void validateWithoutReason(Performance performance, Long participantId) {
+        if (performance.getStatus() == PerformanceStatus.LOCKED) {
+            requireSongPlayers(performance, participantId);
+        }
+    }
+
+    private void requireSongPlayers(Performance performance, Long participantId) {
         // X-04/L-03: 대상자의 연결을 제거한 뒤에도 확정 곡마다 승인 연주자가 남아야 한다.
         @SuppressWarnings("unchecked")
         List<Number> emptySongs = entityManager
