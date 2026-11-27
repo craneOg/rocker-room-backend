@@ -26,7 +26,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
 /** API-033~035 명세 정합성(#109 memberCount, #132 G-08, #137 PART_NAME_TAKEN). 시드: 파트 1·2, 소속 2가 파트 1 보유. */
-@SpringBootTest(properties = "rocker.api-v2.enabled=true")
+@SpringBootTest
 @ActiveProfiles("test")
 @AutoConfigureMockMvc
 @Import(TestcontainersConfiguration.class)

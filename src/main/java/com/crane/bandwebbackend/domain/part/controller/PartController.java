@@ -13,7 +13,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -29,11 +28,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * PART-01~04. 사용자 ID는 인증 연결 지점에서만 받는다. 관리자 권한은 요청 시 DB 소속으로 확인한다.
- * 변경 API를 켜기 전에 인증·CSRF와 POST 멱등 재시도 처리를 연결해야 한다.
+ * 인증·CSRF는 공통 필터가 처리하고, POST 멱등 재시도는 Idempotency-Key 헤더로 처리한다.
  */
 @RestController
 @RequestMapping("/api/v1/clubs/{clubId}/parts")
-@ConditionalOnProperty(prefix = "rocker.api-v2", name = "enabled", havingValue = "true")
 @RequiredArgsConstructor
 public class PartController {
     private final PartService service;
