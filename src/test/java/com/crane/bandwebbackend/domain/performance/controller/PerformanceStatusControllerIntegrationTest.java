@@ -39,33 +39,15 @@ class PerformanceStatusControllerIntegrationTest {
     private JdbcTemplate jdbc;
 
     @ParameterizedTest
-    @CsvSource({"revert-to-locked,FINISHED", "revert-to-draft,ACTIVE"})
-    @DisplayName("0.4 되돌리기 두 API 모두 본문·version 누락을 400으로 거부한다")
-    void requiresVersion(String endpoint, String source) throws Exception {
+    @CsvSource({
+        "revert-to-locked,FINISHED,LOCKED,{\"reason\":\"되돌리기\"}",
+        "revert-to-draft,ACTIVE,DRAFT,{}",
+        "revert-to-draft,ACTIVE,DRAFT,{\"reason\":\"되돌리기\"}"
+    })
+    @DisplayName("API-151·152 명세 예시 본문(version 없음)으로 되돌리기가 성공하고 감사를 남긴다")
+    void revertsWithoutVersion(String endpoint, String source, String target, String body) throws Exception {
         prepare(source);
-        send(endpoint, "{\"reason\":\"되돌리기\"}").andExpect(status().isBadRequest());
-        send(endpoint, "").andExpect(status().isBadRequest());
-        send(endpoint, "{\"version\":\"-1\"}").andExpect(status().isBadRequest());
-        unchanged(source);
-    }
-
-    @ParameterizedTest
-    @CsvSource({"revert-to-locked,FINISHED", "revert-to-draft,ACTIVE"})
-    @DisplayName("0.4 오래된 version의 되돌리기는 409이며 상태·감사를 변경하지 않는다")
-    void rejectsStaleVersion(String endpoint, String source) throws Exception {
-        prepare(source);
-        send(endpoint, "{\"version\":\"6\",\"reason\":\"되돌리기\"}")
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.error.code").value("VERSION_CONFLICT"));
-        unchanged(source);
-    }
-
-    @ParameterizedTest
-    @CsvSource({"revert-to-locked,FINISHED,LOCKED", "revert-to-draft,ACTIVE,DRAFT"})
-    @DisplayName("0.4 현재 version이면 되돌리기 상태·새 version·상태 전이 감사를 반영한다")
-    void acceptsCurrentVersion(String endpoint, String source, String target) throws Exception {
-        prepare(source);
-        send(endpoint, "{\"version\":\"7\",\"reason\":\"되돌리기\"}")
+        send(endpoint, body)
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value(target))
                 .andExpect(jsonPath("$.data.version").value("8"));
@@ -76,23 +58,66 @@ class PerformanceStatusControllerIntegrationTest {
                 .isEqualTo(1);
     }
 
+    @ParameterizedTest
+    @CsvSource({"{}", "{\"reason\":\" \"}"})
+    @DisplayName("API-152 reason 누락·공백은 400이다")
+    void revertToLockedRequiresReason(String body) throws Exception {
+        prepare("FINISHED");
+        send("revert-to-locked", body).andExpect(status().isBadRequest());
+        unchanged("FINISHED");
+    }
+
+    @ParameterizedTest
+    @CsvSource({"ACTIVE", "LOCKED"})
+    @DisplayName("API-047 ACTIVE·LOCKED 공연은 종료할 수 있다")
+    void finishesActiveAndLocked(String source) throws Exception {
+        prepare(source);
+        send("finish", "{\"version\":\"7\"}")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("FINISHED"));
+    }
+
+    @ParameterizedTest
+    @CsvSource({"ACTIVE", "LOCKED"})
+    @DisplayName("API-152 종료를 되돌리면 종료 직전 상태로 돌아간다(진행 중에서 종료됐으면 확정을 거치지 않고 진행 중)")
+    void revertsFinishToPreviousState(String source) throws Exception {
+        prepare(source);
+        send("finish", "{\"version\":\"7\"}").andExpect(status().isOk());
+        send("revert-to-locked", "{\"reason\":\"종료 취소\"}")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value(source));
+        assertThat(jdbc.queryForObject("SELECT status FROM performance WHERE id=1", String.class))
+                .isEqualTo(source);
+    }
+
+    @ParameterizedTest
+    @CsvSource({"DRAFT", "FINISHED", "CANCELED"})
+    @DisplayName("API-047 ACTIVE·LOCKED 외 상태의 종료는 409 INVALID_STATE")
+    void rejectsFinishFromOtherStates(String source) throws Exception {
+        prepare(source);
+        send("finish", "{\"version\":\"7\"}")
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.details[0].reason").value("INVALID_STATE"));
+        unchanged(source);
+    }
+
     @Test
     @DisplayName("되돌리기 사유 필수와 MEMBER_INPUT_EXISTS 보호는 유지한다")
     void retainsExistingGuards() throws Exception {
         prepare("FINISHED");
-        send("revert-to-locked", "{\"version\":\"7\"}")
+        send("revert-to-locked", "{}")
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.details[0].reason").value("REASON_REQUIRED"));
         unchanged("FINISHED");
         prepare("ACTIVE");
         jdbc.update("UPDATE performance_member SET source='APPLICATION' WHERE id=2");
-        send("revert-to-draft", "{\"version\":\"7\"}")
+        send("revert-to-draft", "{}")
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.error.details[0].reason").value("MEMBER_INPUT_EXISTS"));
         unchanged("ACTIVE");
         // 빈 목록만 저장한 가능 시간 제출도 부원 입력으로 본다
         jdbc.update("UPDATE performance_member SET source='ADMIN', availability_submitted_at=NOW() WHERE id=2");
-        send("revert-to-draft", "{\"version\":\"7\"}")
+        send("revert-to-draft", "{}")
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.error.details[0].reason").value("MEMBER_INPUT_EXISTS"));
         unchanged("ACTIVE");

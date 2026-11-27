@@ -3,6 +3,7 @@ package com.crane.bandwebbackend.domain.performance.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.crane.bandwebbackend.domain.club.entity.Club;
@@ -56,18 +57,17 @@ class PerformanceTransitionServiceTest {
     }
 
     @Test
-    void api047DoesNotFinishAnActivePerformance() {
+    void api047FinishesAnActivePerformance() {
         Performance performance = mock(Performance.class);
         Club club = mock(Club.class);
         when(repository.findByIdAndClub_Id(3L, 1L)).thenReturn(Optional.of(performance));
         when(performance.getClub()).thenReturn(club);
         when(club.getStatus()).thenReturn(ClubStatus.ACTIVE);
         when(performance.getStatus()).thenReturn(PerformanceStatus.ACTIVE);
+        when(performance.getVersion()).thenReturn(0L);
 
-        assertThatThrownBy(() ->
-                        service.change(1L, 3L, 5L, PerformanceStatus.LOCKED, PerformanceStatus.FINISHED, "0", null))
-                .isInstanceOfSatisfying(
-                        BusinessException.class,
-                        error -> assertThat(error.getErrorCode()).isEqualTo(ErrorCode.STATE_CONFLICT));
+        service.change(1L, 3L, 5L, null, PerformanceStatus.FINISHED, "0", null);
+
+        verify(performance).transitionTo(PerformanceStatus.FINISHED);
     }
 }
