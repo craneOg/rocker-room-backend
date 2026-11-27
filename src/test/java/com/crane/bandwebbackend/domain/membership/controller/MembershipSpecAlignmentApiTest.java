@@ -196,6 +196,48 @@ class MembershipSpecAlignmentApiTest {
                 .andExpect(jsonPath("$.error.details[0].reason").value("DUPLICATE_MEMBERSHIP"));
     }
 
+    @Test
+    @DisplayName("member-16 API-030: 확정(LOCKED) 공연 APPROVED 참여 멤버를 임원이 reason 없이 해제하면 성공하고 LOCKED_EXCEPTION_EDIT만 남는다")
+    void adminRemovesLockedParticipantWithoutReason() throws Exception {
+        jdbc.update("UPDATE performance SET status = 'LOCKED' WHERE id = 1");
+        send(1, "/memberships/2/withdraw", "{}").andExpect(status().isOk());
+        assertLockedWithdrawal();
+    }
+
+    @Test
+    @DisplayName("member-16 API-030: 확정(LOCKED) 공연 APPROVED 참여 멤버의 본인 나가기도 reason 없이 성공한다")
+    void selfLeaveLockedParticipantWithoutReason() throws Exception {
+        jdbc.update("UPDATE performance SET status = 'LOCKED' WHERE id = 1");
+        send(2, "/memberships/2/withdraw", "{}").andExpect(status().isOk());
+        assertLockedWithdrawal();
+    }
+
+    @Test
+    @DisplayName("member-03 API-020·021: requestedAt은 가입 코드·찾기 신청 소속만 updated_at이고 CLUB_CREATOR·ADMIN_ADDED는 null이다")
+    void requestedAtFollowsJoinSource() throws Exception {
+        jdbc.update("INSERT INTO users (id, name, handle) VALUES (5, '재신청', 'again_5'), (6, '추가', 'added_6')");
+        jdbc.update("INSERT INTO membership (id, club_id, user_id, role, status, join_source, created_at, updated_at)"
+                + " VALUES (5, 1, 5, 'MEMBER', 'PENDING', 'JOIN_CODE', '2026-01-01 00:00:00', '2026-11-20 03:00:00'),"
+                + " (6, 1, 6, 'MEMBER', 'ACTIVE', 'ADMIN_ADDED', '2026-01-01 00:00:00', '2026-11-20 03:00:00')");
+        read(1, "/memberships/5")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.requestedAt").value("2026-11-20T12:00:00+09:00"));
+        read(1, "/memberships/6")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.requestedAt").value((Object) null));
+        read(1, "/memberships/1")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.requestedAt").value((Object) null));
+    }
+
+    private void assertLockedWithdrawal() {
+        assertThat(jdbc.queryForObject("SELECT status FROM performance_member WHERE id = 2", String.class))
+                .isEqualTo("WITHDRAWN");
+        assertThat(jdbc.queryForObject(
+                        "SELECT COUNT(*) FROM audit_log WHERE action = 'LOCKED_EXCEPTION_EDIT'", Integer.class))
+                .isEqualTo(1);
+    }
+
     private void draftPerformanceWithMember2() {
         jdbc.update("INSERT INTO performance (id, club_id, title, preset, status, created_by_user_id)"
                 + " VALUES (20, 1, '초안공연', 'CUSTOM', 'DRAFT', 1)");
