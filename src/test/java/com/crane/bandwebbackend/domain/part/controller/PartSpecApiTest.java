@@ -10,7 +10,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.crane.bandwebbackend.TestcontainersConfiguration;
 import com.crane.bandwebbackend.global.security.AuthPrincipal;
 import java.util.List;
-import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -84,7 +83,6 @@ class PartSpecApiTest {
         return mvc.perform(post("/api/v1/clubs/1/parts")
                 .with(authentication(actor(actorId)))
                 .header("X-Requested-With", "XMLHttpRequest")
-                .header("Idempotency-Key", UUID.randomUUID().toString())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"name\":\"" + name + "\"}"));
     }

@@ -11,7 +11,6 @@ import com.crane.bandwebbackend.global.response.ApiResponse;
 import com.crane.bandwebbackend.global.security.CurrentActor;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
-import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -21,14 +20,13 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
  * PART-01~04. 사용자 ID는 인증 연결 지점에서만 받는다. 관리자 권한은 요청 시 DB 소속으로 확인한다.
- * 인증·CSRF는 공통 필터가 처리하고, POST 멱등 재시도는 Idempotency-Key 헤더로 처리한다.
+ * 인증·CSRF는 공통 필터가 처리한다.
  */
 @RestController
 @RequestMapping("/api/v1/clubs/{clubId}/parts")
@@ -55,10 +53,7 @@ public class PartController {
     /** 동아리에 새 파트를 생성한다. */
     @PostMapping
     public ResponseEntity<ApiResponse<PartResponse>> create(
-            @PathVariable String clubId,
-            @Valid @RequestBody PartCreateRequest body,
-            @RequestHeader("Idempotency-Key") UUID idempotencyKey,
-            HttpServletRequest request) {
+            @PathVariable String clubId, @Valid @RequestBody PartCreateRequest body, HttpServletRequest request) {
         PartResponse result = PartResponse.from(service.create(
                 ApiIds.positive(clubId, "clubId"),
                 currentActor.requireUserId(),

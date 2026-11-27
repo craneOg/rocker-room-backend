@@ -14,7 +14,6 @@ import com.crane.bandwebbackend.global.config.RequestIdFilter;
 import com.crane.bandwebbackend.global.error.GlobalExceptionHandler;
 import com.crane.bandwebbackend.global.security.CurrentActor;
 import java.time.LocalDateTime;
-import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
@@ -42,7 +41,6 @@ class PartControllerBoundaryTest {
         when(part.getUpdatedAt()).thenReturn(LocalDateTime.of(2026, 11, 1, 0, 0));
 
         mvc.perform(post("/api/v1/clubs/1/parts")
-                        .header("Idempotency-Key", UUID.randomUUID())
                         .header("X-Requested-With", "XMLHttpRequest")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"색소폰\"}"))
