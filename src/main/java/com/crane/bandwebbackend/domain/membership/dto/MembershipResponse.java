@@ -133,13 +133,19 @@ public class MembershipResponse {
                 .invitedAt(kst(invited))
                 .invitationExpiresAt(expires)
                 .approvedAt(kst(membership.getApprovedAt()))
-                .requestedAt(kst(membership.getCreatedAt()))
+                .requestedAt(requestedAt(membership))
                 .leftAt(kst(membership.getLeftAt()))
                 .parts(parts)
                 .performances(performances)
                 .createdAt(kst(membership.getCreatedAt()))
                 .updatedAt(kst(membership.getUpdatedAt()))
                 .build();
+    }
+
+    /** 가입 코드·동아리 찾기 신청 소속만 membership.updated_at을 신청 시각으로 쓴다(API-020). */
+    private static OffsetDateTime requestedAt(Membership membership) {
+        JoinSource source = membership.getJoinSource();
+        return source == JoinSource.JOIN_CODE || source == JoinSource.SEARCH ? kst(membership.getUpdatedAt()) : null;
     }
 
     private static OffsetDateTime kst(LocalDateTime value) {

@@ -10,7 +10,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.crane.bandwebbackend.TestcontainersConfiguration;
 import com.crane.bandwebbackend.global.security.AuthPrincipal;
 import java.util.List;
-import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,7 +25,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
 /** API-033~035 명세 정합성(#109 memberCount, #132 G-08, #137 PART_NAME_TAKEN). 시드: 파트 1·2, 소속 2가 파트 1 보유. */
-@SpringBootTest(properties = "rocker.api-v2.enabled=true")
+@SpringBootTest
 @ActiveProfiles("test")
 @AutoConfigureMockMvc
 @Import(TestcontainersConfiguration.class)
@@ -84,7 +83,6 @@ class PartSpecApiTest {
         return mvc.perform(post("/api/v1/clubs/1/parts")
                 .with(authentication(actor(actorId)))
                 .header("X-Requested-With", "XMLHttpRequest")
-                .header("Idempotency-Key", UUID.randomUUID().toString())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"name\":\"" + name + "\"}"));
     }

@@ -184,17 +184,13 @@ class ParticipantRemovalIntegrationTest {
     }
 
     @Test
-    @DisplayName("X-02/API-030 LOCKED 참여가 있으면 소속 해제 사유가 필수다")
-    void membershipWithdrawalRequiresLockedReason() {
+    @DisplayName("API-030 LOCKED 참여가 있어도 reason 없이 소속 해제되고 LOCKED_EXCEPTION_EDIT만 남는다")
+    void membershipWithdrawalWithoutReasonOnLocked() {
         lockConfirmedSong();
-        assertThatThrownBy(() -> withdrawal.withdraw(1L, 2L, 1L, null))
-                .isInstanceOfSatisfying(BusinessException.class, e -> {
-                    assertThat(e.getErrorCode())
-                            .isEqualTo(com.crane.bandwebbackend.global.error.ErrorCode.VALIDATION_ERROR);
-                    assertThat(e.getDetails().get(0).getReason()).isEqualTo("REASON_REQUIRED");
-                });
-        assertThat(value("SELECT status FROM membership WHERE id=2")).isEqualTo("ACTIVE");
-        assertThat(count("SELECT COUNT(*) FROM team_member WHERE performance_member_id=2"))
+        withdrawal.withdraw(1L, 2L, 1L, null);
+        assertThat(value("SELECT status FROM membership WHERE id=2")).isEqualTo("WITHDRAWN");
+        assertThat(value("SELECT status FROM performance_member WHERE id=2")).isEqualTo("WITHDRAWN");
+        assertThat(count("SELECT COUNT(*) FROM audit_log WHERE action='LOCKED_EXCEPTION_EDIT'"))
                 .isEqualTo(1);
     }
 
