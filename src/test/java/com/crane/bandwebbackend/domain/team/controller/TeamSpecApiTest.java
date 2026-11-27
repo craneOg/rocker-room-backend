@@ -221,9 +221,28 @@ class TeamSpecApiTest extends SongApiTestSupport {
         jdbc.update("INSERT INTO team (id, performance_id, name, status, source, created_by_user_id)"
                 + " VALUES (200, 100, '타공연팀', 'APPROVED', 'ADMIN', 1)");
 
-        send(put(BASE + "/teams/default"), ADMIN, "{\"teamId\":\"200\",\"version\":\"0\"}")
+        send(put(BASE + "/teams/default"), ADMIN, "{\"teamId\":\"200\"}")
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.error.code").value("STATE_CONFLICT"))
                 .andExpect(jsonPath("$.error.details[0].reason").value("TEAM_NOT_APPROVED"));
+    }
+
+    @Test
+    @DisplayName("API-155 teamId만으로 기본 팀을 지정한다")
+    void setDefaultWithTeamIdOnly() throws Exception {
+        team(100, "1팀", "APPROVED", 2);
+        send(put(BASE + "/teams/default"), ADMIN, "{\"teamId\":\"100\"}").andExpect(status().isOk());
+        assertThat(jdbc.queryForObject("SELECT is_default FROM team WHERE id = 100", Boolean.class))
+                .isTrue();
+    }
+
+    @Test
+    @DisplayName("API-065 임원이 승인 팀에 미참여 부원을 추가하면 APPLIED 참여자로 생성한다")
+    void addMemberToApprovedTeamCreatesApplied() throws Exception {
+        team(100, "1팀", "APPROVED", 2);
+        send(post(BASE + "/teams/100/members"), ADMIN, "{" + v("team", 100) + ",\"membershipId\":\"3\"}")
+                .andExpect(status().isCreated());
+        assertThat(jdbc.queryForObject("SELECT status FROM performance_member WHERE membership_id = 3", String.class))
+                .isEqualTo("APPLIED");
     }
 }

@@ -158,10 +158,6 @@ public final class TeamRequests {
         @IdString
         private Long teamId;
 
-        @NotNull
-        @IdString
-        private Long version;
-
         @Size(max = 500)
         private String reason;
     }

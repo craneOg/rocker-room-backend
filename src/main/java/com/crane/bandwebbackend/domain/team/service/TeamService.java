@@ -383,8 +383,8 @@ public class TeamService {
                     ErrorCode.RULE_VIOLATION, "PARTICIPANT_NOT_APPROVED", "확정된 공연에는 승인된 참여자만 추가할 수 있습니다.");
         }
         Part part = req.getPartId() == null ? null : accessService.getActivePart(access.clubId(), req.getPartId());
-        // ponytail: 명세는 "미참여자는 APPLIED로 생성". 임원이 승인 팀에 넣을 때는 062와 같이 APPROVED로 처리(L-05 차단 방지)
-        PerformanceMember pm = enroll(access, membership, access.isAdmin() && team.getStatus() == TeamStatus.APPROVED);
+        // API-065: 미참여자는 APPLIED 참여자로 생성하고, 이미 APPLIED인 참여자도 자동 승인하지 않는다
+        PerformanceMember pm = enroll(access, membership, false);
         TeamMember member = teamMemberRepository.save(TeamMember.of(team, pm, part));
         forceIncrement(team);
         auditIfLocked(access, team, req.getReason(), Map.of("addedPerformanceMemberId", pm.getId()));
@@ -675,7 +675,6 @@ public class TeamService {
                 .filter(t -> t.getStatus() == TeamStatus.APPROVED)
                 .orElseThrow(() ->
                         new BusinessException(ErrorCode.STATE_CONFLICT, "TEAM_NOT_APPROVED", "승인된 팀만 지정할 수 있습니다."));
-        team.verifyVersion(req.getVersion());
         List<Team> previous = teamRepository.findByPerformanceIdAndIsDefaultTrue(access.performanceId());
         previous.forEach(t -> t.markDefault(false));
         team.markDefault(true);

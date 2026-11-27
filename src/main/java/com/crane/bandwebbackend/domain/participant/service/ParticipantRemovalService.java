@@ -99,8 +99,9 @@ public class ParticipantRemovalService {
         ParticipantImpactResponse affected = impact.read(clubId, performanceId, participantId, actorUserId);
         removalPolicy.validate(performance, participantId, body.getReason(), reject);
         // 팀장 후임을 먼저 반영한 뒤 참여 상태를 거절 또는 철회로 변경한다.
-        TeamLeaderSuccession.Mode mode =
-                !reject && self ? TeamLeaderSuccession.Mode.SELF_WITHDRAWAL : TeamLeaderSuccession.Mode.ADMIN_REMOVAL;
+        TeamLeaderSuccession.Mode mode = !reject && self
+                ? TeamLeaderSuccession.Mode.SELF_WITHDRAWAL
+                : TeamLeaderSuccession.Mode.ADMIN_PARTICIPANT_REMOVAL;
         Map<Long, Long> specified = new HashMap<>();
         if (body.getTeamLeaderSuccessors() != null) {
             for (var item : body.getTeamLeaderSuccessors()) {
