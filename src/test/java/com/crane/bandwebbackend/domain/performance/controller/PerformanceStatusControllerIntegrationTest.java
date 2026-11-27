@@ -78,6 +78,19 @@ class PerformanceStatusControllerIntegrationTest {
     }
 
     @ParameterizedTest
+    @CsvSource({"ACTIVE", "LOCKED"})
+    @DisplayName("API-152 종료를 되돌리면 종료 직전 상태로 돌아간다(진행 중에서 종료됐으면 확정을 거치지 않고 진행 중)")
+    void revertsFinishToPreviousState(String source) throws Exception {
+        prepare(source);
+        send("finish", "{\"version\":\"7\"}").andExpect(status().isOk());
+        send("revert-to-locked", "{\"reason\":\"종료 취소\"}")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value(source));
+        assertThat(jdbc.queryForObject("SELECT status FROM performance WHERE id=1", String.class))
+                .isEqualTo(source);
+    }
+
+    @ParameterizedTest
     @CsvSource({"DRAFT", "FINISHED", "CANCELED"})
     @DisplayName("API-047 ACTIVE·LOCKED 외 상태의 종료는 409 INVALID_STATE")
     void rejectsFinishFromOtherStates(String source) throws Exception {

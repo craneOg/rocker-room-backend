@@ -9,6 +9,7 @@ import com.crane.bandwebbackend.global.audit.AuditRecorder;
 import com.crane.bandwebbackend.global.error.BusinessException;
 import com.crane.bandwebbackend.global.error.ErrorCode;
 import jakarta.persistence.EntityManager;
+import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -76,7 +77,7 @@ public class PerformanceTransitionService {
         return performance;
     }
 
-    /** API-152: 종료된 공연을 확정 상태로 되돌린다. 공연 행 잠금으로 동시성을 처리한다. */
+    /** API-152: 종료된 공연을 종료 직전 상태(확정, 또는 진행 중에서 종료됐으면 진행 중)로 되돌린다. 공연 행 잠금으로 동시성을 처리한다. */
     @Transactional
     public Performance revertToLocked(Long clubId, Long performanceId, Long actorUserId, String reason) {
         membershipService.requireAdmin(clubId, actorUserId);
@@ -95,7 +96,11 @@ public class PerformanceTransitionService {
         if (reason.length() > 500) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, "사유는 500자 이하여야 합니다.");
         }
-        performance.transitionTo(PerformanceStatus.LOCKED);
+        // 진행 중(ACTIVE)에서 바로 종료된 공연은 확정을 거친 적이 없으므로 진행 중으로 되돌린다
+        PerformanceStatus target = finishedFrom(performanceId) == PerformanceStatus.ACTIVE
+                ? PerformanceStatus.ACTIVE
+                : PerformanceStatus.LOCKED;
+        performance.transitionTo(target);
         auditRecorder.record(
                 clubId,
                 actorUserId,
@@ -103,9 +108,24 @@ public class PerformanceTransitionService {
                 "PERFORMANCE",
                 performanceId,
                 reason,
-                Map.of("from", "FINISHED", "to", "LOCKED"));
+                Map.of("from", "FINISHED", "to", target.toString()));
         entityManager.flush();
         return performance;
+    }
+
+    /** 마지막 종료 전이의 출발 상태를 감사 기록에서 찾는다. 기록이 없으면(이전 데이터) 확정에서 종료된 것으로 본다. */
+    private PerformanceStatus finishedFrom(Long performanceId) {
+        @SuppressWarnings("unchecked")
+        List<String> from = entityManager
+                .createNativeQuery("""
+                        SELECT JSON_UNQUOTE(JSON_EXTRACT(detail, '$.from')) FROM audit_log
+                        WHERE target_type = 'PERFORMANCE' AND target_id = :id AND action = 'PERFORMANCE_STATUS_CHANGED'
+                          AND JSON_UNQUOTE(JSON_EXTRACT(detail, '$.to')) = 'FINISHED'
+                        ORDER BY id DESC LIMIT 1
+                        """)
+                .setParameter("id", performanceId)
+                .getResultList();
+        return from.isEmpty() ? PerformanceStatus.LOCKED : PerformanceStatus.valueOf(from.get(0));
     }
 
     /** 공연 변경한다 */
